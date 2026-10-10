@@ -1,0 +1,4 @@
+{
+  "render": { "maxPixelRatio": 1.5, "gpuTiming": false },
+  "ui": { "hudCollapsed": true }
+}

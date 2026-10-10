@@ -74,6 +74,13 @@ export const DEFAULT_PARAMS = {
     maxPolarAngle: p(88, 'deg', 'ENG-REN-007', { min: 1, max: 180 }),
     gpuTiming: p(true, 'bool', 'ENG-PRF-002'),
   },
+  ui: {
+    hudCollapsed: p(false, 'bool', 'ENG-UI-001'),
+  },
+  device: {
+    /** A coarse-pointer device whose shorter screen side is below this is treated as a phone. */
+    mobileMaxShortSide: p(820, 'px', 'ENG-DEV-001', { min: 0 }),
+  },
   perf: {
     windowFrames: p(240, 'frames', 'ENG-PRF-001', { min: 10, integer: true }),
     hudInterval: p(250, 'ms', 'ENG-PRF-001', { min: 50 }),

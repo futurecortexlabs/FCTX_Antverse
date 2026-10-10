@@ -7,6 +7,7 @@
  *   node scripts/browser-run.ts smoke            # backend / adapter / FPS / determinism
  *   node scripts/browser-run.ts shots            # report screenshots -> docs/reports/phase-0/
  *   node scripts/browser-run.ts bench [webgl]    # ?bench=1 sweep -> docs/reports/bench/
+ *   node scripts/browser-run.ts mobile [webgl|-] [url]  # phone emulation -> docs/reports/mobile/
  *
  * Requires `npm run dev` on http://localhost:5173.
  */
@@ -151,6 +152,40 @@ async function shots(cdp: Cdp): Promise<void> {
   await cdp.screenshot(`${dir}/04-10k-agents.png`);
 }
 
+/** Phone emulation (390x844 CSS px, DPR 3, touch). `base` lets you target a static/LAN/artifact URL. */
+async function mobile(cdp: Cdp, base: string, backend: string | undefined): Promise<void> {
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true, screenWidth: 390, screenHeight: 844 });
+  await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  await cdp.send('Emulation.setEmitTouchEventsForMouse', { enabled: true, configuration: 'mobile' });
+  const url = base + (backend ? `?backend=${backend}` : '');
+  await cdp.goto(url);
+  await cdp.eval(SETTLE);
+  const state = await cdp.eval<Record<string, unknown>>(`(() => {
+    const a = window.antverse, s = a.host.stats;
+    return { coarse: matchMedia('(pointer: coarse)').matches, screen: [screen.width, screen.height], dpr: devicePixelRatio,
+      pixelRatio: a.renderer.getPixelRatio(), backend: a.info.backend, depth: a.info.depth, transport: a.host.transport,
+      isolated: crossOriginIsolated, collapsed: document.querySelector('.hud').classList.contains('collapsed'),
+      summary: document.querySelector('.hud-summary').textContent, tick: s.tick, achieved: s.achievedSpeed };
+  })()`);
+  console.log(JSON.stringify(state, null, 1));
+  const tag = backend ? `-${backend}` : '';
+  await cdp.screenshot(`docs/reports/mobile/phone${tag}.png`);
+  // Visibility auto-pause: hide the page, check the sim paused, show it again.
+  await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: false });
+  const paused = await cdp.eval(`(async () => {
+    const h = window.antverse.host;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise(r => setTimeout(r, 600));
+    const whileHidden = h.paused;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise(r => setTimeout(r, 600));
+    return { whileHidden, afterVisible: h.paused };
+  })()`);
+  console.log('auto-pause', JSON.stringify(paused));
+}
+
 async function bench(cdp: Cdp, backend: string | undefined): Promise<void> {
   await cdp.goto(BASE + '?bench=1' + (backend ? `&backend=${backend}` : ''));
   await cdp.waitFor('window.__antverseBench', 15 * 60 * 1000);
@@ -164,6 +199,7 @@ async function main(): Promise<void> {
     if (cmd === 'smoke') await smoke(cdp);
     else if (cmd === 'shots') await shots(cdp);
     else if (cmd === 'bench') await bench(cdp, arg);
+    else if (cmd === 'mobile') await mobile(cdp, process.argv[4] ?? BASE, arg && arg !== '-' ? arg : undefined);
     else throw new Error(`unknown command ${cmd}`);
   } finally {
     cdp.close();

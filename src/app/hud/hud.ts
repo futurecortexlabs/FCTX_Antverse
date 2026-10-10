@@ -22,6 +22,8 @@ export interface PerfSnapshot {
 export interface HudActions {
   setSpeed(scale: number): void;
   setPaused(paused: boolean): void;
+  /** Source of truth for the pause state (the app may pause on its own, e.g. when hidden). */
+  isPaused(): boolean;
   step(): void;
   determinismCheck(): void;
   screenshot?: () => void;
@@ -35,23 +37,38 @@ export class Hud {
   private readonly noteEl: HTMLDivElement;
   private readonly speedButtons = new Map<number, HTMLButtonElement>();
   private readonly pauseBtn: HTMLButtonElement;
+  private readonly collapseBtn: HTMLButtonElement;
+  private readonly summaryEl: HTMLSpanElement;
   private readonly speeds: readonly number[];
   private speedIndex: number;
-  private paused = false;
   private speed: number;
+  private collapsed: boolean;
   private readonly cfg: Config;
+  private readonly profile: string;
   private readonly actions: HudActions;
 
-  constructor(cfg: Config, actions: HudActions) {
+  constructor(cfg: Config, profile: string, actions: HudActions) {
     this.cfg = cfg;
+    this.profile = profile;
     this.actions = actions;
     this.speeds = [...cfg.time.speeds, cfg.time.maxSpeed];
     this.speed = cfg.time.initialSpeed;
     this.speedIndex = Math.max(0, this.speeds.indexOf(this.speed));
 
+    this.collapsed = cfg.ui.hudCollapsed;
     this.root = document.createElement('div');
     this.root.className = 'hud';
+
+    const head = document.createElement('div');
+    head.className = 'hud-head';
+    this.collapseBtn = this.button(head, '', 'Show / hide details', () => this.setCollapsed(!this.collapsed));
+    this.summaryEl = document.createElement('span');
+    this.summaryEl.className = 'hud-summary';
+    head.appendChild(this.summaryEl);
+    this.root.appendChild(head);
+
     this.statsEl = document.createElement('pre');
+    this.statsEl.className = 'hud-detail';
     this.root.appendChild(this.statsEl);
 
     const bar = document.createElement('div');
@@ -66,7 +83,7 @@ export class Hud {
     this.root.appendChild(bar);
 
     const tools = document.createElement('div');
-    tools.className = 'hud-controls';
+    tools.className = 'hud-controls hud-detail';
     this.button(tools, 'Determinism check', 'Run the configured tick count twice + other seed, and compare the live world with a headless replay', () => this.actions.determinismCheck());
     if (actions.screenshot) this.button(tools, '📷', 'Save screenshot to docs/reports (dev server only)', actions.screenshot);
     this.root.appendChild(tools);
@@ -77,6 +94,13 @@ export class Hud {
 
     document.body.appendChild(this.root);
     window.addEventListener('keydown', (e) => this.onKey(e));
+    this.setCollapsed(this.collapsed);
+  }
+
+  private setCollapsed(c: boolean): void {
+    this.collapsed = c;
+    this.root.classList.toggle('collapsed', c);
+    this.collapseBtn.textContent = c ? '≡' : '×';
     this.refreshButtons();
   }
 
@@ -99,21 +123,20 @@ export class Hud {
   }
 
   private togglePause(): void {
-    this.paused = !this.paused;
-    this.actions.setPaused(this.paused);
+    this.actions.setPaused(!this.actions.isPaused());
     this.refreshButtons();
   }
 
   private setSpeed(s: number): void {
     this.speed = s;
     this.speedIndex = this.speeds.indexOf(s);
-    if (this.paused) { this.paused = false; this.actions.setPaused(false); }
+    if (this.actions.isPaused()) this.actions.setPaused(false);
     this.actions.setSpeed(s);
     this.refreshButtons();
   }
 
   private refreshButtons(): void {
-    this.pauseBtn.textContent = this.paused ? '▶' : '⏸';
+    this.pauseBtn.textContent = this.actions.isPaused() ? '▶' : '⏸';
     for (const [s, b] of this.speedButtons) b.classList.toggle('active', s === this.speed);
   }
 
@@ -135,7 +158,7 @@ export class Hud {
     const speedLabel = (s: number): string => (s >= this.cfg.time.maxSpeed ? 'MAX' : `×${s}`);
     const lines = [
       `Antverse — Phase 0`,
-      `${info.backend} | depth ${info.depth} | ${transport === 'shared' ? 'SharedArrayBuffer' : 'copy transfer'}`,
+      `${info.backend} | depth ${info.depth} | ${transport === 'shared' ? 'SharedArrayBuffer' : 'copy transfer'} | ${this.profile}`,
       `GPU ${info.adapter}`,
       `FPS ${fmt(perf.fps)} | frame p50 ${fmt(perf.frameP50, 2)} / p95 ${fmt(perf.frameP95, 2)} ms`,
       `main CPU ${fmt(perf.cpuMs, 2)} ms | GPU ${perf.gpuMs === null ? 'n/a' : fmt(perf.gpuMs, 2) + ' ms'} | drawn ${perf.visible}`,
@@ -148,5 +171,8 @@ export class Hud {
     }
     lines.push(`seed ${this.cfg.sim.seed} | 1 unit = 1 mm | scale bar ${this.cfg.render.scaleBarLength} mm`);
     this.statsEl.textContent = lines.join('\n');
+    const speed = sim ? (sim.paused ? 'PAUSED' : `${speedLabel(sim.targetSpeed)} (×${fmt(sim.achievedSpeed, 2)})`) : '';
+    this.summaryEl.textContent = `Antverse · FPS ${fmt(perf.fps, 0)} · ${speed} · ${sim?.alive ?? 0} ants`;
+    this.refreshButtons();
   }
 }

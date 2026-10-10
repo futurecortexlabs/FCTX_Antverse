@@ -3,6 +3,7 @@
  *   ?seed=N  ?preset=name  ?set=path=value (repeatable)
  *   ?backend=webgl   force the WebGL2 backend
  *   ?bench=1         run the agent-count performance sweep
+ *   ?profile=mobile|desktop   override device detection (phones get config/presets/mobile.json)
  */
 
 import * as THREE from 'three/webgpu';
@@ -17,6 +18,7 @@ import { Hud } from './hud/hud.ts';
 import { RollingStats } from '../core/rolling-stats.ts';
 import { BenchSweep, benchCsv } from '../bench/sweep.ts';
 import { saveReportFile } from './report.ts';
+import { detectProfile, readDeviceEnv } from './device.ts';
 import './style.css';
 
 const PRESETS = import.meta.glob<Overlay>('/config/presets/*.json', { eager: true, import: 'default' });
@@ -39,11 +41,21 @@ async function main(): Promise<void> {
   } catch (e) {
     fail(e instanceof ConfigError ? e.message : String(e));
   }
-  if (url.preset) {
-    const preset = PRESETS[`/config/presets/${url.preset}.json`];
-    if (!preset) fail(`Unknown preset "${url.preset}". Available: ${Object.keys(PRESETS).join(', ')}`);
-    overlays.push(preset);
+  const preset = (name: string): Overlay => {
+    const o = PRESETS[`/config/presets/${name}.json`];
+    if (!o) fail(`Unknown preset "${name}". Available: ${Object.keys(PRESETS).join(', ')}`);
+    return o;
+  };
+  // Device profile first, so an explicit URL preset / ?set= can still override it.
+  let threshold;
+  try {
+    threshold = buildConfig(url.overlays).config.device.mobileMaxShortSide;
+  } catch (e) {
+    fail(e instanceof Error ? e.message : String(e));
   }
+  const profile = detectProfile(readDeviceEnv(), threshold, query.get('profile'));
+  if (profile === 'mobile') overlays.push(preset('mobile'));
+  if (url.preset) overlays.push(preset(url.preset));
   overlays.push(...url.overlays);
   let config;
   try {
@@ -84,9 +96,16 @@ async function main(): Promise<void> {
   const host = new SimHost(cfg, overlays, { onError: (m) => hud.note(`<b class="ng">worker error:</b> ${m}`) });
 
   let pendingShot: string | null = null;
-  const hud = new Hud(cfg, {
+  // Stop simulating while the page is hidden (battery on phones); resume only if we paused it.
+  let autoPaused = false;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && !host.paused) { autoPaused = true; host.setPaused(true); }
+    else if (!document.hidden && autoPaused) { autoPaused = false; host.setPaused(false); }
+  });
+  const hud = new Hud(cfg, profile, {
     setSpeed: (s) => host.setSpeed(s),
-    setPaused: (p) => host.setPaused(p),
+    setPaused: (p) => { autoPaused = false; host.setPaused(p); },
+    isPaused: () => host.paused,
     step: () => host.step(),
     determinismCheck: () => {
       hud.note('Determinism check running…');
@@ -172,4 +191,11 @@ async function main(): Promise<void> {
   });
 }
 
-void main();
+main().catch((e: unknown) => {
+  console.error(e);
+  if (document.querySelector('.fatal')) return; // already reported by fail()
+  const el = document.createElement('div');
+  el.className = 'fatal';
+  el.textContent = `Antverse could not start: ${e instanceof Error ? e.message : String(e)}\nThis browser needs WebGPU or WebGL2.`;
+  document.body.appendChild(el);
+});

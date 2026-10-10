@@ -72,3 +72,64 @@ canvas {
   font-size: 14px;
   white-space: pre-wrap;
 }
+
+/* --- header / collapse ---------------------------------------------------- */
+
+.hud {
+  top: max(8px, env(safe-area-inset-top));
+  left: max(8px, env(safe-area-inset-left));
+  max-width: min(560px, calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  touch-action: manipulation;
+}
+
+.hud-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-summary {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud:not(.collapsed) .hud-summary {
+  display: none;
+}
+
+.hud.collapsed .hud-detail {
+  display: none;
+}
+
+/* --- touch screens: larger tap targets ------------------------------------ */
+
+@media (pointer: coarse) {
+  .hud {
+    font-size: 13px;
+  }
+  .hud button {
+    min-height: 36px;
+    min-width: 40px;
+    padding: 4px 8px;
+  }
+}
+
+/* --- narrow screens: dock the HUD to the bottom, leaving the view clear ---- */
+
+@media (max-width: 600px) {
+  .hud {
+    top: auto;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    right: max(8px, env(safe-area-inset-right));
+    max-width: none;
+  }
+  .hud-controls {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .hud-controls button {
+    flex: 0 0 auto;
+  }
+}

@@ -13,6 +13,8 @@ const isolation = {
 };
 
 export default defineConfig({
+  // Relative asset URLs so the build runs from any sub-path (static hosts, artifact pages).
+  base: './',
   server: { headers: isolation },
   preview: { headers: isolation },
   worker: { format: 'es' },

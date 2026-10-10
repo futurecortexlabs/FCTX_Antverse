@@ -14,7 +14,10 @@
     "bench:sim": "node scripts/bench-sim.ts",
     "browser:smoke": "node scripts/browser-run.ts smoke",
     "browser:shots": "node scripts/browser-run.ts shots",
-    "bench:render": "node scripts/browser-run.ts bench"
+    "bench:render": "node scripts/browser-run.ts bench",
+    "dev:lan": "vite --host",
+    "preview:lan": "vite preview --host",
+    "build:artifact": "vite build && node scripts/artifact-page.ts"
   },
   "dependencies": {
     "three": "0.186.1"
