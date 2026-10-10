@@ -1,0 +1,9 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`counter-based rng > golden values are stable (guards against accidental algorithm changes) 1`] = `
+[
+  246052113,
+  3530067840,
+  4106864725,
+]
+`;

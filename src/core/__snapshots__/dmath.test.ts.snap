@@ -1,0 +1,41 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`dmath accuracy vs Math.* > golden bit patterns are stable (cross-engine reproducibility contract) 1`] = `
+[
+  [
+    "3fb98eaecb8bcb2c",
+    "3fefd712f9a817c0",
+    "3ff0292a5d2f2226",
+    "c0026bb1bbb55515",
+    "3fb10a9c765f3723",
+  ],
+  [
+    "3feaed548f090cee",
+    "3fe14a280fb5068c",
+    "3ff1aec7b35a00d4",
+    "0",
+    "3fe2d0ead6066396",
+  ],
+  [
+    "3fe326af0dcfcab0",
+    "bfe9a2f7ef858b7d",
+    "3ff48b5e3c3e8186",
+    "3fed5240f0e0e078",
+    "3ff07c6c6947a6a8",
+  ],
+  [
+    "3fe0f46aec2e1b41",
+    "bfeb23a2ad7dd937",
+    "3fe61a7ee209faff",
+    "3ff4eeee650ae550",
+    "bff2f8606969ef84",
+  ],
+  [
+    "bfe9b9dadc41aeb6",
+    "bfe307e5980a1559",
+    "410c11d068ac4e9f",
+    "401343774f3e2362",
+    "3ff8f037ad14b6c5",
+  ],
+]
+`;

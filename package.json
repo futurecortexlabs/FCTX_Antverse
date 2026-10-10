@@ -1,0 +1,29 @@
+{
+  "name": "antverse",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Antverse — biologically grounded ant colony simulation (Formica japonica) in Three.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "bench:sim": "node scripts/bench-sim.ts",
+    "browser:smoke": "node scripts/browser-run.ts smoke",
+    "browser:shots": "node scripts/browser-run.ts shots",
+    "bench:render": "node scripts/browser-run.ts bench"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "@types/three": "0.186.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  }
+}
