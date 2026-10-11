@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { buildConfig } from '../config/load.ts';
+import { buildConfig, type Overlay } from '../config/load.ts';
 import { runHeadless } from '../sim/headless.ts';
 import { SnapshotView, snapshotByteLength, SnapH } from './protocol.ts';
 import { SimRunner, type SnapshotSink } from './sim-runner.ts';
@@ -69,5 +70,34 @@ describe('SimRunner', () => {
     r.requestStep();
     r.iterate();
     expect(r.world.tick).toBe(1);
+  });
+});
+
+describe('SimRunner without shared memory (pages that are not cross-origin isolated)', () => {
+  it('runs the double bridge and hands the pheromone grid over as copies when SharedArrayBuffer does not exist', () => {
+    const preset = JSON.parse(readFileSync('config/presets/double-bridge.json', 'utf8')) as Overlay;
+    const cfg = buildConfig([preset, { population: { count: 20 }, sim: { capacity: 32 } }]).config;
+    const g = globalThis as { SharedArrayBuffer?: unknown };
+    const saved = g.SharedArrayBuffer;
+    delete g.SharedArrayBuffer;
+    try {
+      const clock = fakeTime();
+      const r = new SimRunner(cfg, null, clock.now);
+      r.iterate();
+      for (let i = 0; i < 30; i++) { clock.advance(100); r.iterate(); }
+      expect(r.world.tick).toBeGreaterThan(0);
+      const info = r.fieldInfo();
+      expect(info).not.toBeNull();
+      expect(info!.shared).toBeNull();
+      expect(r.fieldCopy()?.length).toBe(info!.nx * info!.nz);
+    } finally {
+      g.SharedArrayBuffer = saved;
+    }
+  });
+
+  it('with shared memory the grid is not copied', () => {
+    const r = new SimRunner(buildConfig([{ population: { count: 1 } }]).config, null, () => 0);
+    expect(r.fieldInfo()).toBeNull(); // open ground: no field
+    expect(r.fieldCopy()).toBeNull();
   });
 });

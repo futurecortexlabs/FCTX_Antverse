@@ -16,6 +16,7 @@
  */
 
 import type { Config } from '../config/params.ts';
+import { isSharedBuffer } from '../core/soa.ts';
 import type { World } from '../sim/world.ts';
 
 export const Ctl = { GEN: 0, DONE: 1, TICK: 2, ATTACH: 3, RANGES: 4 } as const;
@@ -74,7 +75,7 @@ export class ParallelStepper {
     Atomics.store(this.ctl, Ctl.ATTACH, this.attachId);
     const buffers = world.agents.sharedBuffers();
     const field = world.pheromone?.buffer;
-    const pheromone = field instanceof SharedArrayBuffer ? field : null;
+    const pheromone = field && isSharedBuffer(field) ? field : null;
     this.helpers.forEach((w, index) => {
       const msg: HelperIn = { type: 'attach', config: world.config, buffers, pheromone, control: this.control, index, attachId: this.attachId };
       w.postMessage(msg);

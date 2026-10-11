@@ -54,11 +54,19 @@ export function allocSoA<S extends Schema>(schema: S, capacity: number, shared =
   return out as SoA<S>;
 }
 
+/**
+ * Is this buffer shared memory? Safe where SharedArrayBuffer does not exist
+ * at all (pages that are not cross-origin isolated, e.g. GitHub Pages).
+ */
+export function isSharedBuffer(b: ArrayBufferLike): b is SharedArrayBuffer {
+  return typeof SharedArrayBuffer !== 'undefined' && b instanceof SharedArrayBuffer;
+}
+
 /** The SharedArrayBuffers behind a shared SoA, by field name. */
 export function soaBuffers<S extends Schema>(soa: SoA<S>): Record<string, SharedArrayBuffer> {
   const out: Record<string, SharedArrayBuffer> = {};
   for (const [name, arr] of Object.entries(soa as Record<string, ArrayBufferView>)) {
-    if (!(arr.buffer instanceof SharedArrayBuffer)) throw new Error(`soaBuffers: field ${name} is not shared`);
+    if (!isSharedBuffer(arr.buffer)) throw new Error(`soaBuffers: field ${name} is not shared`);
     out[name] = arr.buffer;
   }
   return out;
