@@ -30,6 +30,10 @@ export const Stream = {
   AGENT_INIT: 8,
   /** Exploratory heading noise. */
   EXPLORE_STEP: 9,
+  /** Resting ants leaving the nest. */
+  NEST_EXIT: 10,
+  /** Spontaneous U-turns. */
+  UTURN: 11,
   TEST: 0xffff,
 } as const;
 export type StreamId = (typeof Stream)[keyof typeof Stream];

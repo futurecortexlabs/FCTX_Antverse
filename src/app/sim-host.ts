@@ -10,7 +10,7 @@ import type { Config } from '../config/params.ts';
 import { MS_PER_S } from '../core/units.ts';
 import {
   SNAP_FLOATS, SnapH, SnapshotView, TripleBufferReader, initTripleBufferControl, snapshotByteLength,
-  type DeterminismReport, type FromWorker, type SimStats, type ToWorker, type Transport,
+  type DeterminismReport, type FieldInfo, type FromWorker, type SimStats, type ToWorker, type Transport,
 } from '../worker/protocol.ts';
 
 const SLOT_COUNT = 3;
@@ -25,6 +25,9 @@ export class SimHost {
   readonly transport: Transport;
   readonly interp: InterpolationState;
   stats: SimStats | null = null;
+  /** Pheromone grid of the running world (display only; live view with shared memory, else periodic copies). */
+  field: FieldInfo | null = null;
+  fieldData: Float32Array | null = null;
   timeScale: number;
   paused = false;
   private reader: TripleBufferReader | null = null;
@@ -86,6 +89,13 @@ export class SimHost {
         break;
       case 'error':
         this.events.onError?.(msg.message);
+        break;
+      case 'field':
+        this.field = msg.info;
+        this.fieldData = msg.info ? (msg.info.shared ? new Float32Array(msg.info.shared) : new Float32Array(msg.info.nx * msg.info.nz)) : null;
+        break;
+      case 'fieldData':
+        if (this.fieldData && this.fieldData.length === msg.data.length) this.fieldData.set(msg.data);
         break;
       case 'ready':
         break;

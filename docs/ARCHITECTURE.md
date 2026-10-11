@@ -103,11 +103,13 @@ three.js を import してよいのは `render/` と `app/` だけ。
 - 近傍探索には一様グリッドを使い、毎 tick カウンティングソートで作り直す（走査順も決定的）。
 - 運ばれる物（卵・幼虫・蛹・餌・土粒・死骸）は別の Item プールに置く。
 
-### 4.2 フェロモン場（Phase 3）
-- 地表の水平面上の疎なタイル格子。セルは 1 mm（仮定）、タイルは 64×64 セル。濃度のあるタイルだけ確保し、Float32Array 2 枚を交互に読み書きする。
-- 蒸発は `c *= k`（k は設定の読み込み時に dexp で 1 回だけ計算）、拡散は 5 点ステンシルの陽解法で、安定条件を起動時に検証する。
-- チャネルは `trail` と `alarm`。巣へ戻るためのフェロモンは持たない（帰巣は経路積分と視覚が担う）。
-- GPU には、変化のあったタイルだけをヒートマップ用テクスチャへ転送する。
+### 4.2 フェロモン場 [Phase 3 実装済]
+- `src/sim/pheromone/field.ts`。地表の水平面上の格子（セル 1 mm、ASM-PHE-001）。計画では疎なタイルの確保だったが、Phase 3 では実験装置の範囲（約 281×167 セル、190 KB）に密な配列を 1 枚確保し、32×32 セルのタイルごとに「濃度があるか」を記録して、更新はそのタイルと隣だけで行う形にした。野外の地面には Phase 6 で採餌が始まるまで場を作らない（ENG-SCN-001）。
+- 蒸発は `c *= exp(−Δt/τ)`（係数は起動時に dexp で 1 回だけ計算）、拡散は 5 点ステンシルの陽解法で、安定条件を起動時に検証する。更新は 6 tick ごと（ENG-PHE-001）。最大値が閾値以下になったタイルは 0 にして休ませる。
+- 読み書きの順序（決定論）: 規則（`trail`）は tick の開始時点の場を読むだけ。置く量は各個体のスロットに書き（`agents.deposit`）、全スレッドの合流後に `World.completeStep` がスロット順に場へ加える。補助スレッドは共有メモリ上の同じ格子を読む。スレッド数によらずビット単位で同じ結果になる（`parallel-equivalence.test.ts`）。
+- チャネルは今は `trail` だけ。`alarm` は Phase 7 で足す。巣へ戻るためのフェロモンは持たない（帰巣は経路積分と視覚が担う。Phase 3 では目標方向への偏り ASM-NAV-001 で代用）。
+- 表示: 共有メモリが使えるときはメインスレッドが同じ格子を直接読み、0.2 s ごとにテクスチャへ写す（ENG-REN-015）。使えないときは Worker が統計と同じ間隔でコピーを送る。
+- 行動ルールの順序: `forage`（巣・餌場での状態の切り替え）→ `trail`（触角の左右比較と目標方向。旋回の要求 `steer` と U ターン）→ `explore`（ランダムな旋回に `steer` を足す。縁や障害物に触れている間は回避だけ）→ `layTrail`（歩いた距離に比例して置く量）→ `bodyPose`。
 
 ### 4.3 ボクセル土壌（Phase 5）
 - ボクセル 1 mm、チャンク 32³。チャンクは UNIFORM（配列を持たない）か DENSE。領域は 512 × 512 × 1024 mm。
@@ -161,19 +163,19 @@ three.js を import してよいのは `render/` と `app/` だけ。
 ```
 config/presets/        実験条件の上書き JSON
 docs/                  ARCHITECTURE / BIOLOGY / ENGINEERING / reports
-scripts/               bench-sim.ts（Node のシミュレーションベンチ）、browser-run.ts（CDP による実ブラウザでの計測）、vite-report-plugin.ts（開発サーバーでのレポート保存）
+scripts/               bench-sim.ts（Node のシミュレーションベンチ）、experiment-double-bridge.ts（二重橋の合格判定）、browser-run.ts（CDP による実ブラウザでの計測）、vite-report-plugin.ts（開発サーバーでのレポート保存）
 src/core/              単位・乱数・決定論的数学関数・時計・SoA・ハッシュ・ローリング統計
 src/config/            スキーマ・既定値・読み込み
-src/terrain/           ノイズ、地表（土・粒・小石・落葉・草）、空間索引
+src/terrain/           ノイズ、地表（土・粒・小石・落葉・草）、空間索引、実験装置（apparatus: 二重橋）
 src/locomotion/        形態（体の寸法）、脚のリグ（三脚歩容・足場・IK）
-src/sim/               World, headless, population, agents/, rules/（explore, body-pose）
+src/sim/               World, headless, population, agents/, pheromone/（場）, rules/（forage, trail, explore, body-pose）, experiments/（二重橋の観測）
 src/worker/            protocol, sim-runner, snapshot-writer, sim.worker, parallel + sim-helper.worker（並列化）
-src/render/            renderer, environment（空・霧・影）, interpolation, ants/, terrain/（LOD・チャンク・材質・地表の物体・カメラのガード）, debug/
+src/render/            renderer, environment（空・霧・影）, interpolation, ants/, terrain/（LOD・チャンク・材質・地表の物体・カメラのガード）, apparatus（装置とフェロモンのヒートマップ）, debug/
 src/app/               main, sim-host, hud/, report
 src/bench/             描画ベンチのスイープ
 tests/architecture/    層・決定論の衛生・マジックナンバー・根拠ID
 tests/determinism/     シード再現性
-tests/experiments/     ヘッドレス統計実験（Phase 3 以降）
+tests/experiments/     ヘッドレス統計実験（Phase 3: 二重橋の縮小版）
 ```
 
 ## 6. 実行方法
@@ -188,6 +190,9 @@ npm run browser:smoke   # 両バックエンドの起動確認と決定論チェ
 npm run browser:shots   # Phase 0 のスクリーンショット → docs/reports/phase-0/
 node scripts/browser-run.ts terrain   # Phase 1 の地形の視点 8 種 + 計測値 → docs/reports/phase-1/
 node scripts/browser-run.ts walk      # Phase 2 の歩行の視点 + 連続フレーム → docs/reports/phase-2/（GIF は scripts/make-gif.py で作る）
+node scripts/browser-run.ts bridge    # Phase 3 の二重橋の視点 + タイムラプス → docs/reports/phase-3/
+node scripts/experiment-double-bridge.ts            # Phase 3 の合格判定（50 試行 × 30 分、Node の worker_threads で並列）
+node scripts/experiment-double-bridge.ts name --set path=value   # 条件を変えた実験（例: --set scenario.bridgeRatio=1）
 npm run bench:render    # 個体数スイープ（WebGL2 は `node scripts/browser-run.ts bench webgl`）
 npm run dev:lan         # 同じ Wi-Fi のスマホから開けるように公開する
 npm run build:artifact  # Artifact 用のページを dist/artifact.html に出力する
@@ -196,7 +201,7 @@ npm run build:artifact  # Artifact 用のページを dist/artifact.html に出�
 URL オプション:
 - `?bench=1`: 描画ベンチ。結果は docs/reports/bench/phase-<n>-*.csv に保存される
 - `?backend=webgl`: WebGL2 バックエンドを強制する
-- `?seed=N`、`?preset=ants-10k`、`?set=debugWalk.count=5000`
+- `?seed=N`、`?preset=ants-10k`、`?preset=double-bridge`（二重橋）、`?set=population.count=5000`、`?set=render.showPheromone=false`
 
 キー操作: Space（一時停止 / 再開）、`.`（1 ステップ進める）、`[` `]`（遅く / 速く）、`M`（MAX）。
 

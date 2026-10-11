@@ -10,7 +10,7 @@
   - `PHY-<分野>-<番号>` 物理定数・物理法則。**出典** 欄は必須
   - `ASM-<分野>-<番号>` 仮定（根拠が直接ないもの）。**検証** 欄（どう確かめるか）は必須
   - 技術的な選択（解像度・予算・UI）は `ENG-*` として [ENGINEERING.md](ENGINEERING.md) に置く
-- 分野: `MOR` 形態, `LOC` 移動, `PHE` フェロモン, `NAV` ナビゲーション, `SOC` 社会行動, `DEV` 発育, `NST` 巣, `ENV` 環境, `SPC` 種の扱い
+- 分野: `MOR` 形態, `LOC` 移動, `PHE` フェロモン, `NAV` ナビゲーション, `SOC` 社会行動, `FOR` 採餌, `SEN` 感覚, `BEH` 行動, `DEV` 発育, `NST` 巣, `ENV` 環境, `SPC` 種の扱い
 - **確度** は次のいずれか:
   - `原典確認済`: 原著論文・原記載を読んで値を確認した
   - `二次資料`: 図鑑・総説・データベースから取った。原典は未確認
@@ -223,15 +223,79 @@
 
 ---
 
+## フェロモンと採餌 (PHE / SEN / NAV / FOR) — Phase 3
+
+二重橋実験の再現に使う値。*F. japonica* の道しるべフェロモンの定量データは見つかっていないので、ASM-SPC-001 に従い *Lasius niger*（ヤマアリ亜科）と *Linepithema humile* の文献で補う。
+フェロモン量の単位 u は任意単位で、1 u は「帰巣中の 1 匹が 1 mm 歩いて置く量」に相当する（ASM-PHE-002）。
+
+### BIO-PHE-001 二重橋の設計
+- **値**: 長い枝 / 短い枝 = 2。両方の分岐点で、2 本の枝は軸の左右に同じ角度（30°）で分かれる
+- **出典**: Goss, Aron, Deneubourg & Pasteels (1989) *Naturwissenschaften* 76: 579–581 "Self-organized shortcuts in the Argentine ant"（*L. humile*）; Beckers, Deneubourg & Goss (1992) *J. Theor. Biol.* 159: 397–415 "Trails and U-turns in the selection of a path by the ant *Lasius niger*"
+- **確度**: 二次資料（長さの比と「分岐点で枝の向きが対称」という設計は総説で確認。分岐角 30° の具体値と巻数・ページは原典で要確認）
+- **使用箇所**: `scenario.bridgeRatio`、`scenario.bridgeAngle`、`terrain/apparatus.ts`
+
+### BIO-PHE-002 道しるべフェロモンの寿命
+- **値**: 平均寿命（1/蒸発速度）2820 s（約 47 分）
+- **出典**: *Lasius niger* の道しるべの減衰の測定として総説で引用される値（Beckers et al. 1992/1993 のいずれかが原典と思われる）
+- **確度**: 近縁種から補完（*L. niger*）・二次資料（原典の特定と値の確認が必要）
+- **使用箇所**: `pheromone.lifetime`
+
+### ASM-PHE-001 フェロモン場の格子と拡散
+- **値**: 格子 1 mm、拡散係数 0.02 mm²/s
+- **理由**: 格子は触角の左右の間隔（約 2.7 mm）より細かくする必要がある。拡散は「道しるべが数十分かけて数 mm 広がる」程度の小さい値にした。地面に置かれた分子の揮発と再吸着をまとめた実効値で、文献値ではない。
+- **検証**: 道しるべの幅の時間変化を化学的に測る。拡散係数を 0〜0.1 mm²/s で変えて二重橋の結果が変わらないことを確かめる。
+- **使用箇所**: `pheromone.cell`、`pheromone.diffusion`
+
+### ASM-PHE-002 置く量（帰巣時と往路）
+- **値**: 餌を持って帰る途中は 1 u/mm、餌を探しに行く途中は 0.25 u/mm
+- **理由**: *L. niger* では、道しるべは主に餌を見つけた後の帰り道で置かれる（Beckers et al. 1992）。往路でも少しは置くとして 1/4 にした。比が結果に効く（往路を 0.5 や 1 に増やすと収束率は下がった。docs/reports/phase-3.md）。
+- **検証**: *F. japonica* で、往路と帰路の腹部の接地（道しるべを置く動作）の頻度を数える。
+- **使用箇所**: `pheromone.depositReturn`、`pheromone.depositSearch`
+
+### ASM-PHE-003 巣と餌場の中では置かない
+- **値**: 巣と餌場の円の中では道しるべを置かない
+- **理由**: 巣の円は巣の中を、餌場の円は餌の上を表す。道しるべは巣と餌の間に置かれるもので、円の中に置くと、円の中をぐるぐる回る道ができてしまう（実装中に確認した）。
+- **検証**: 巣口の内外での標識行動を観察する。Phase 5–6 で巣の内部を作るときに見直す。
+- **使用箇所**: `sim/rules/trail.ts`（layTrail）
+
+### ASM-SEN-003 触角による左右比較（ウェーバーの法則）
+- **値**: 触角の先端を中胸から体長の 0.62 倍前方、左右に 0.27 倍の位置とし、左右の濃度 L, R の比 (L − R)/(L + R) に比例して旋回する
+- **理由**: *L. humile* の道しるべ追従は、左右の濃度差の絶対値ではなく比に反応する（ウェーバーの法則）という報告: Perna et al. (2012) *PLoS Comput. Biol.* 8: e1002592 "Individual rules for trail pattern formation in Argentine ants (*Linepithema humile*)"。触角の位置は ASM-MOR-003 の形状から。
+- **検証**: 濃度の異なる 2 本の人工道しるべの分岐で、選ぶ割合を測る（下の ASM-SEN-004 の選択関数と比べる）。
+- **使用箇所**: `trail.sensorAhead/sensorSide`
+
+### ASM-SEN-004 追従の強さと感覚の下限
+- **値**: 左右の比が ±1 のとき旋回速度 16 rad/s。比の分母に下限 10 u を足す: 旋回 = 16·(L − R)/(L + R + 10)
+- **理由**: 分母の下限は、Deneubourg et al. (1990) *J. Insect Behav.* 3: 159–168 が二重橋のデータに当てはめた選択関数 (k + A)^n / ((k + A)^n + (k + B)^n) の k（弱い道しるべは手がかりとして弱い）の役割をする。下限がないと、最初の 1 匹の薄い道しるべで群れの選択が決まってしまう。値は二重橋の予備実験で選んだ（2〜50 u で試し、5〜10 u がよかった。docs/reports/phase-3.md）。実装した個体ルールの分岐点での選択関数を測ると、n = 2 の関数より急峻だった。
+- **検証**: 分岐点での選択割合を、2 本の道しるべの濃度の比と絶対量を変えて測り、旋回の式を当てはめ直す。
+- **使用箇所**: `trail.gain`、`trail.floor`
+
+### ASM-NAV-001 目標へ向かう偏り（経路積分の代わり）
+- **値**: 帰巣中は巣の方向へ、餌場を知っている個体は往路で餌場の方向へ、向きの誤差 1 rad あたり 2 rad/s で旋回する（誤差は正確。Phase 4 で経路積分とその誤差に置き換える）
+- **理由**: アリは経路積分で巣の方向を知っている。*Formica* は視覚による経路の記憶も持つ。この偏りがないと、2 本の枝がつくる輪の上をぐるぐる回る個体が出た。
+- **検証**: Phase 4 で、帰巣ベクトルを持つ個体の行動と置き換えて二重橋を再実行する。
+- **使用箇所**: `forage.vectorGain`、`AgentFlag.KNOWS_FOOD`
+
+### ASM-NAV-002 目標から離れる向きへの U ターン
+- **値**: 1 秒あたり 0.5 ×(1 − cos 誤差)/2 の確率で 180° 向きを変える（目標の真逆に向かっていると 0.5 /s、目標の方を向いていると 0）
+- **理由**: *L. niger* の二重橋では、巣と餌を結ぶ向きから外れた枝で U ターンが多く、それが短い経路の選択を助ける（Beckers et al. 1992、BIO-PHE-001 の文献）。率は予備実験で選んだ（0, 0.2, 0.5, 1 /s で試した。docs/reports/phase-3.md）。
+- **検証**: 二重橋の各枝の上での U ターンの頻度を測り、向きの誤差との関係を当てはめる。
+- **使用箇所**: `forage.uturnRate`
+
+### ASM-FOR-001 巣から出ていく割合
+- **値**: 巣で休んでいる個体は、それぞれ 1 秒あたり 1/60 の確率で採餌に出る（実験開始時は全個体が巣の中）
+- **理由**: 実際の二重橋実験では、橋を開けた後、アリは少しずつ出てくる。全個体を同時に出すのは不自然。動員（帰ってきた個体が仲間を呼び出す）は Phase 6 で入れる。
+- **検証**: 巣口から出ていく個体数の時間変化を数える。
+- **使用箇所**: `forage.exitRate`、`AgentState.REST`
+
+---
+
 ## 採用予定の文献（まだ ID 化していない）
 
 フェーズで実際に使う時点で ID を割り当て、原典で値を確認する。書誌情報も採用時に原典で照合すること。
 
 | 用途 (Phase) | 文献 | 主な内容 |
 |---|---|---|
-| 二重橋実験 (3) | Goss, Aron, Deneubourg & Pasteels (1989) *Naturwissenschaften* "Self-organized shortcuts in the Argentine ant" | 長さの異なる 2 経路で短い方へ収束 |
-| 二重橋実験 (3) | Beckers, Deneubourg & Goss (1992) *J. Theor. Biol.* "Trails and U-turns in the selection of a path by the ant *Lasius niger*" | ヤマアリ亜科での経路選択とUターン（ASM-SPC-001 の②） |
-| フェロモン追従 (3) | Deneubourg, Aron, Goss & Pasteels (1990) *J. Insect Behav.* "The self-organizing exploratory pattern of the Argentine ant" | 探索パターンのモデル |
 | 歩容 (2) | Zollikofer (1994) *J. Exp. Biol.* "Stepping patterns in ants I–III" | *Formica* を含む三脚歩容・速度依存性 |
 | 経路積分 (4) | Müller & Wehner (1988) *PNAS* "Path integration in desert ants, *Cataglyphis fortis*" | 帰巣ベクトルとその系統誤差 |
 | 掘削 (5) | Buhl et al. (2004) *Behav. Ecol. Sociobiol.* "Self-organized digging activity in ant colonies" | 掘削量の時間変化とトンネル網 |

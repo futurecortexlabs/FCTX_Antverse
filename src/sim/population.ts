@@ -6,9 +6,9 @@
  * settled onto the terrain.
  */
 
-import { PI } from '../core/dmath.ts';
+import { dcos, dsin, PI } from '../core/dmath.ts';
 import { rand, Stream } from '../core/rng.ts';
-import { Caste } from './agents/store.ts';
+import { AgentState, Caste } from './agents/store.ts';
 import { bodyPoseRange } from './rules/body-pose.ts';
 import type { World } from './world.ts';
 
@@ -26,10 +26,20 @@ export function spawnWorkers(world: World, count: number): void {
     const s = agents.spawn(Caste.WORKER);
     const a = agents.a;
     const r = (k: number): number => rand(seed, Stream.AGENT_INIT, s, 0, k);
-    let x = (r(K.X) * 2 - 1) * half, z = (r(K.Z) * 2 - 1) * half;
-    for (let k = 0; k < PLACE_TRIES && world.terrain.supportHeight(x, z) - world.terrain.groundHeight(x, z) > config.explore.maxClimb; k++) {
-      x = (r(PLACE_KEY + 2 * k) * 2 - 1) * half;
-      z = (r(PLACE_KEY + 2 * k + 1) * 2 - 1) * half;
+    let x: number, z: number;
+    if (world.bridge) {
+      // In an apparatus everyone starts resting in the nest arena (uniform over the disc).
+      a.state[s] = AgentState.REST;
+      const n = world.bridge.nest, rr = n.r * Math.sqrt(r(K.X)), ang = r(K.Z) * 2 * PI;
+      x = n.x + rr * dcos(ang);
+      z = n.z + rr * dsin(ang);
+    } else {
+      x = (r(K.X) * 2 - 1) * half;
+      z = (r(K.Z) * 2 - 1) * half;
+      for (let k = 0; k < PLACE_TRIES && world.terrain.supportHeight(x, z) - world.terrain.groundHeight(x, z) > config.explore.maxClimb; k++) {
+        x = (r(PLACE_KEY + 2 * k) * 2 - 1) * half;
+        z = (r(PLACE_KEY + 2 * k + 1) * 2 - 1) * half;
+      }
     }
     a.posX[s] = x;
     a.posZ[s] = z;

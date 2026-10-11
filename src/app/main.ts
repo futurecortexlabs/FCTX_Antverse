@@ -18,6 +18,8 @@ import { GrainField, buildGrass, buildLeaves, buildPebbles } from '../render/ter
 import { applyCameraGuard } from '../render/terrain/camera-guard.ts';
 import { focalPx } from '../render/terrain/quadtree.ts';
 import { buildOverlays } from '../render/debug/overlays.ts';
+import { apparatusFrame, buildApparatus, PheromoneOverlay } from '../render/apparatus.ts';
+import { DoubleBridge } from '../terrain/apparatus.ts';
 import { Terrain } from '../terrain/terrain.ts';
 import { SimHost } from './sim-host.ts';
 import { SNAP_FLOATS } from '../worker/protocol.ts';
@@ -91,6 +93,9 @@ async function main(): Promise<void> {
   const grains = new GrainField(terrain, cfg);
   scene.add(grains.mesh);
   if (cfg.terrainRender.showScaleBar) scene.add(buildOverlays(cfg, terrain));
+  const apparatus = buildApparatus(cfg, terrain);
+  if (apparatus) scene.add(apparatus);
+  const bridge = cfg.scenario.doubleBridge ? new DoubleBridge(cfg) : null;
   const terrainBuildMs = performance.now() - tGen;
   const ants = new AntRenderer(cfg);
   scene.add(ants.group);
@@ -105,6 +110,13 @@ async function main(): Promise<void> {
   camera.position.set(cx!, originY + cy!, cz!);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(0, originY, 0);
+  const frame = apparatusFrame(cfg);
+  if (frame) {
+    // Look at the whole apparatus from the usual start direction (render.cameraStart).
+    const dir = new THREE.Vector3(cx!, cy!, cz!).normalize().multiplyScalar(frame.size * r.apparatusView);
+    controls.target.set(frame.x, originY, frame.z);
+    camera.position.set(frame.x + dir.x, originY + dir.y, frame.z + dir.z);
+  }
   controls.enableDamping = true;
   controls.minDistance = r.minCameraDistance;
   controls.maxDistance = r.maxCameraDistance;
@@ -163,12 +175,12 @@ async function main(): Promise<void> {
           adapter: info.adapter,
           transport: host.transport,
           viewport: `${window.innerWidth}x${window.innerHeight}@${renderer.getPixelRatio()}`,
-          note: 'Phase 2: terrain + walking workers (LOD0 legs solved), parallel sim',
+          note: 'Phase 3: terrain + walking workers (LOD0 legs solved), parallel sim, pheromone rules',
         });
         (window as unknown as { __antverseBench: unknown }).__antverseBench = { rows, csv };
         console.table(rows);
         hud.note(`<pre>${csv}</pre>`);
-        if (import.meta.env.DEV) void saveReportFile(`bench/phase-2-${info.backend.toLowerCase()}.csv`, csv);
+        if (import.meta.env.DEV) void saveReportFile(`bench/phase-3-${info.backend.toLowerCase()}.csv`, csv);
       })
     : null;
 
@@ -184,7 +196,34 @@ async function main(): Promise<void> {
   };
 
   // Expose a small handle for automated checks (DevTools / test harness).
-  (window as unknown as { antverse: unknown }).antverse = { host, cfg, info, renderer, camera, controls, hud, terrain, ground, grains, terrainBuildMs, tier, governor, ants, followAnt };
+  // Pheromone heatmap, rebuilt whenever the worker reports a new field (reset).
+  let pheromone: PheromoneOverlay | null = null;
+  let pheromoneFor: unknown = null;
+  const syncPheromone = (now: number): void => {
+    if (host.field !== pheromoneFor) {
+      pheromoneFor = host.field;
+      if (pheromone) { scene.remove(pheromone.mesh); pheromone.dispose(); pheromone = null; }
+      if (host.field) { pheromone = new PheromoneOverlay(host.field, cfg, originY); scene.add(pheromone.mesh); }
+    }
+    if (pheromone && host.fieldData) pheromone.update(now, host.fieldData);
+  };
+  /** Ants between the forks on each branch (from the interpolated positions). */
+  const bridgeLine = (): string => {
+    if (!bridge) return '';
+    const c = host.interp.curr;
+    let s = 0, l = 0, nest = 0;
+    for (let k = 0; k < host.interp.count; k++) {
+      const x = c[k * SNAP_FLOATS]!, z = c[k * SNAP_FLOATS + 2]!;
+      if (bridge.inNest(x, z)) nest++;
+      else if (x > bridge.forkA + bridge.half && x < bridge.forkB - bridge.half) {
+        if (z < 0) l++; else s++; // short branch above the axis, long below
+      }
+    }
+    return `double bridge: short branch ${s} | long branch ${l} | in nest ${nest} | short ${bridge.lengthShort.toFixed(0)} mm, long ${bridge.lengthLong.toFixed(0)} mm`;
+  };
+  const togglePheromone = (on?: boolean): void => { if (pheromone) pheromone.mesh.visible = on ?? !pheromone.mesh.visible; };
+
+  (window as unknown as { antverse: unknown }).antverse = { host, cfg, info, renderer, camera, controls, hud, terrain, ground, grains, terrainBuildMs, tier, governor, ants, followAnt, togglePheromone };
 
   renderer.setAnimationLoop(() => {
     const now = performance.now();
@@ -206,6 +245,7 @@ async function main(): Promise<void> {
     ground.update(camera.position, focal);
     grains.update(camera, viewportPx, cfg.terrainRender.genBudget);
     env.update(camera, controls.target);
+    syncPheromone(now);
     renderer.render(scene, camera);
 
     if (pendingShot) {
@@ -244,6 +284,7 @@ async function main(): Promise<void> {
         `grains ${grains.count} | pebbles ${terrain.pebbles.count} | leaves ${terrain.leaves.count} | grass ${terrain.grass.blades}`,
         `ants LOD0 (legs) ${ants.stats.lod0} | LOD1 ${ants.stats.lod1} | LOD2 ${ants.stats.lod2}`,
         `camera ${(camera.position.y - terrain.supportHeight(camera.position.x, camera.position.z)).toFixed(2)} mm above surface`,
+        ...(bridge ? [bridgeLine()] : []),
         `quality ${tier} | pixel ratio ${renderer.getPixelRatio().toFixed(2)} | LOD error ≤ ${ground.params.maxScreenError.toFixed(1)} px${governor ? (governor.degraded() ? ' (auto: reduced)' : ' (auto)') : ''}`,
       ]);
       if (bench && !bench.done) hud.note(bench.status());

@@ -16,6 +16,8 @@ const GEN_MASK = (1 << (32 - SLOT_BITS)) - 1;
 
 export const AgentFlag = {
   ALIVE: 1 << 0,
+  /** Has found food before and remembers where (until Phase 4: the feeder of the apparatus). */
+  KNOWS_FOOD: 1 << 1,
 } as const;
 
 export const Caste = {
@@ -47,7 +49,26 @@ export const AGENT_SCHEMA = {
   roll: field('f32'),
   /** Angular velocity of the heading (rad/s). */
   turnRate: field('f32'),
+  /** Foraging state (AgentState). */
+  state: field('u8'),
+  /** Distance walked this tick (mm). */
+  lastStep: field('f32'),
+  /** Pheromone to lay at the current position at the end of this tick (u). */
+  deposit: field('f32'),
+  /** Turning rate requested by guidance rules (trail, homing) this tick (rad/s); explore applies it unless blocked. */
+  steer: field('f32'),
 };
+
+export const AgentState = {
+  /** Searching / walking out from the nest. */
+  SEARCH: 0,
+  /** Carrying food back to the nest. */
+  RETURN: 1,
+  /** Inside the nest, not foraging (stands still). */
+  REST: 2,
+} as const;
+
+export const CarryKind = { NONE: 0, FOOD: 1 } as const;
 
 export type AgentSoA = SoA<typeof AGENT_SCHEMA>;
 
@@ -97,6 +118,10 @@ export class AgentStore {
     a.pitch[slot] = 0;
     a.roll[slot] = 0;
     a.turnRate[slot] = 0;
+    a.state[slot] = 0;
+    a.lastStep[slot] = 0;
+    a.deposit[slot] = 0;
+    a.steer[slot] = 0;
     this.alive++;
     return slot;
   }

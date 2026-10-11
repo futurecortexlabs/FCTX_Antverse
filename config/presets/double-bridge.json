@@ -1,0 +1,12 @@
+{
+  "scenario": { "doubleBridge": true },
+  "population": { "count": 150 },
+  "terrain": {
+    "macroSlope": 0,
+    "microSlope": 0,
+    "grainDensity": 0,
+    "pebbleDensity": 0,
+    "leafDensity": 0,
+    "tuftDensity": 0
+  }
+}

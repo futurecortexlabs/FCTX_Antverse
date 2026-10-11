@@ -1,3 +1,5 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`seed reproducibility (300 agents, 10000 ticks) > golden hash for the default config is stable 1`] = `"8e83cdfd"`;
+exports[`seed reproducibility (300 agents, 10000 ticks) > golden hash for the default config is stable 1`] = `"46d4cab5"`;
+
+exports[`seed reproducibility with the pheromone field (double bridge) > golden hash for the double-bridge preset is stable 1`] = `"3197a2e9"`;
