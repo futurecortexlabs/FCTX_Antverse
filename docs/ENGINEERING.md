@@ -240,7 +240,7 @@
 ## 実験装置とフェロモン場 (SCN / PHE / EXP) — Phase 3
 
 ### ENG-SCN-001 シナリオの切り替え
-- **値**: `scenario.doubleBridge`（既定 false）。プリセット `config/presets/double-bridge.json` で有効にする（`?preset=double-bridge`）
+- **値**: `scenario.doubleBridge`（既定 false）。プリセット `config/presets/double-bridge.json` で有効にする（`?preset=double-bridge`、または `#double-bridge`）
 - **理由**: 二重橋は野外の地面とは別の実験装置。平らな地面の上に通路だけを置き、通路の外には出られない。フェロモン場は装置の範囲にだけ作る（野外の 2 m 四方に 1 mm 格子を張ると 1 World あたり 16 MB 必要で、Phase 6 で採餌が始まるまで使い道がない）。
 
 ### ENG-SCN-002 二重橋の寸法

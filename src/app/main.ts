@@ -1,6 +1,6 @@
 /**
  * App entry. URL options:
- *   ?seed=N  ?preset=name  ?set=path=value (repeatable)
+ *   ?seed=N  ?preset=name (or #name)  ?set=path=value (repeatable)
  *   ?backend=webgl   force the WebGL2 backend
  *   ?bench=1         run the agent-count performance sweep
  *   ?quality=ultra|web|mobile override the quality tier (see app/device.ts)
@@ -65,7 +65,10 @@ async function main(): Promise<void> {
   }
   const tier = detectTier(readDeviceEnv(), threshold, query.get('quality'));
   overlays.push(preset(`quality-${tier}`));
-  if (url.preset) overlays.push(preset(url.preset));
+  // A preset can also be named by the hash (#double-bridge): hosts that drop the query string keep it.
+  const hashPreset = location.hash.slice(1);
+  const presetName = url.preset ?? (PRESETS[`/config/presets/${hashPreset}.json`] ? hashPreset : null);
+  if (presetName) overlays.push(preset(presetName));
   overlays.push(...url.overlays);
   let config;
   try {
