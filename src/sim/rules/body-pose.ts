@@ -33,27 +33,39 @@ export function bodyPoseRange(world: World, from: number, to: number, alpha: num
     if ((a.flags[s]! & AgentFlag.ALIVE) === 0) continue;
     const x = a.posX[s]!, z = a.posZ[s]!, h = a.heading[s]!;
     const fx = dcos(h), fz = -dsin(h);
-    // Support under the mesosoma, head and gaster (the latter two also set the pitch).
+    // Support under the mesosoma, head and gaster (the latter two also set the pitch), sampled where
+    // the segments are with the current pitch (a pitched body is horizontally shorter).
+    const cp0 = dcos(a.pitch[s]!);
+    const hx = head.cx * cp0, gx = gaster.cx * cp0;
     const yC = terrain.supportHeight(x, z);
-    const yF = terrain.supportHeight(x + fx * head.cx, z + fz * head.cx);
-    const yB = terrain.supportHeight(x + fx * gaster.cx, z + fz * gaster.cx);
+    const yF = terrain.supportHeight(x + fx * hx, z + fz * hx);
+    const yB = terrain.supportHeight(x + fx * gx, z + fz * gx);
     terrain.ground(x, z, hBody, slope);
     // Slope towards the body's right (+Z body axis = (sin h, cos h) on the ground).
     const right = slope.dx * dsin(h) + slope.dz * dcos(h);
-    const pitchT = datan2(yF - yB, head.cx - gaster.cx);
+    const pitchT = datan2(yF - yB, hx - gx);
     const rollT = -datan(right);
     const yT = Math.max(yC, (yF + yB) * 0.5) + lc.rideHeight;
     let y = a.posY[s]! + alpha * (yT - a.posY[s]!);
     const pitch = a.pitch[s]! + alpha * (pitchT - a.pitch[s]!);
     const roll = a.roll[s]! + alpha * (rollT - a.roll[s]!);
-    // Never let the head, mesosoma or gaster underside sink into what is below it. A segment at
-    // body-axis offset c with underside depth d sits at y + c·sin(pitch) - d·cos(pitch).
-    const sp = dsin(pitch), cp = dcos(pitch);
+    // Never let the head, mesosoma or gaster underside sink into what is below it. The underside
+    // point (c, −d, 0) of a segment, rotated by roll r then pitch θ, lies c·cosθ + d·cos r·sinθ ahead
+    // of and −d·sin r to the right of the mesosoma centre, at height y + c·sinθ − d·cos r·cosθ.
+    // The support is sampled there (reusing the earlier samples when the point barely moved).
+    const sp = dsin(pitch), cp = dcos(pitch), sr = dsin(roll), cr = dcos(roll);
+    const rx = dsin(h), rz = dcos(h);
+    const under = (c: number, d: number, sampledAt: number, sampled: number): number => {
+      const ahead = c * cp + d * cr * sp, side = -d * sr;
+      const moved = Math.abs(ahead - sampledAt) > lc.swingClearance || Math.abs(side) > lc.swingClearance;
+      const sup = moved ? terrain.supportHeight(x + fx * ahead + rx * side, z + fz * ahead + rz * side) : sampled;
+      return sup - c * sp + d * cr * cp + lc.swingClearance;
+    };
     const floor = Math.max(
       yC + lc.minRideHeight,
-      yF - head.cx * sp + headDrop * cp + lc.swingClearance,
-      yC + mesoDrop * cp + lc.swingClearance,
-      yB - gaster.cx * sp + gasterDrop * cp + lc.swingClearance,
+      under(head.cx, headDrop, hx, yF),
+      under(0, mesoDrop, 0, yC),
+      under(gaster.cx, gasterDrop, gx, yB),
     );
     if (y < floor) y = floor;
     a.posY[s] = y;
