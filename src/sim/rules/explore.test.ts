@@ -76,6 +76,24 @@ describe('exploration: obstacles and arena edge', () => {
     expect(Math.hypot(a.posX[0]! - sx, a.posZ[0]! - sz)).toBeGreaterThan(20);
   });
 
+  it('climbs down from an object it could not climb up (drops up to maxDrop are walkable)', () => {
+    const w = new World(config); // its own world: the other tests depend on the shared one's tick
+    const T = w.terrain, P = T.pebbles, ex = config.explore;
+    // A pebble whose top is well above maxClimb but within maxDrop.
+    let k = -1;
+    for (let i = 0; i < P.count && k < 0; i++) {
+      const top = T.supportHeight(P.center[3 * i]!, P.center[3 * i + 2]!) - T.groundHeight(P.center[3 * i]!, P.center[3 * i + 2]!);
+      if (top > 2 * ex.maxClimb && top < ex.maxDrop * 0.8) k = i;
+    }
+    expect(k).toBeGreaterThanOrEqual(0);
+    const cx = P.center[3 * k]!, cz = P.center[3 * k + 2]!;
+    place(w, cx, cz, 0);
+    const a = w.agents.a;
+    for (let t = 0; t < 4 / dt; t++) w.step();
+    // Off the pebble, back on the ground.
+    expect(T.supportHeight(a.posX[0]!, a.posZ[0]!) - T.groundHeight(a.posX[0]!, a.posZ[0]!)).toBeLessThan(ex.maxClimb);
+  });
+
   it('turns back at the arena edge and never leaves the arena', () => {
     const half = config.world.arenaSize / 2;
     place(world, half - 3, 0, 0); // facing straight out

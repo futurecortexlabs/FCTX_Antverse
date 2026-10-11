@@ -67,4 +67,21 @@ describe('parallel stepping equivalence', () => {
     expect(ref.pheromone!.total()).toBeGreaterThan(0);
     expect(main.stateHash()).toBe(ref.stateHash());
   });
+
+  it('foraging by path integration on open ground (homing scenario)', () => {
+    const preset = JSON.parse(readFileSync('config/presets/homing.json', 'utf8')) as Overlay;
+    const cfg = buildConfig([preset, { population: { count: 200 }, forage: { exitRate: 1 } }]).config;
+    const ref = new World(cfg);
+    const main = new World(cfg, { sharedAgents: true });
+    const helper = new World(cfg, { agents: new AgentStore(cfg.sim.capacity, { buffers: main.agents.sharedBuffers() }) });
+    for (let t = 0; t < 1800; t++) {
+      ref.step();
+      const n = main.agents.highWater, cut = 71;
+      helper.tick = main.tick;
+      helper.stepRange(cut, n);
+      main.stepRange(0, cut);
+      main.completeStep();
+    }
+    expect(main.stateHash()).toBe(ref.stateHash());
+  });
 });

@@ -10,14 +10,23 @@
  * the arena by turning back at its edge; the gait phase advances by distance
  * walked over stride length, so legs never slide.
  *
+ * When the side probes do not clearly favour one way, an ant that has
+ * started turning away from an obstacle keeps turning the same way until it
+ * can walk on: re-choosing every step made ants whose two side probes looked
+ * alike rock back and forth in place for good. A clear choice (one side
+ * walkable, the other not) is still followed at once.
+ *
  * Guidance rules (trail following, homing) request a turning rate in
  * agents.steer; it is added to the random turning while the way ahead is free.
  *
  * Obstacles: the antennae probe the support surface probeDistance ahead. If it
- * rises or drops more than maxClimb from the ground under the body (a pebble
- * wall or ledge), the ant stops and turns towards whichever side probe is
- * closer to its own level. Walking around large pebbles emerges from this
- * local contact rule (climbing steep faces is not modelled yet).
+ * rises more than maxClimb, or drops more than maxDrop, from the ground under
+ * the body (a pebble wall or a deep ledge), the ant stops and turns towards
+ * whichever side probe is closer to its own level. Walking around large
+ * pebbles emerges from this local contact rule (climbing steep faces is not
+ * modelled yet). Climbing down is easier than climbing up (ASM-LOC-008):
+ * with a symmetric limit, ants that walked onto an object by a gentle side
+ * were stranded on top of it.
  */
 
 import { datan2, dcos, dexp, dsin, PI } from '../../core/dmath.ts';
@@ -42,7 +51,7 @@ export function explore(world: World, from: number, to: number): void {
 
   for (let s = from; s < to; s++) {
     if ((a.flags[s]! & AgentFlag.ALIVE) === 0) continue;
-    if (a.state[s] === AgentState.REST) { a.lastStep[s] = 0; continue; }
+    if (a.state[s] === AgentState.REST) { a.lastStep[s] = 0; a.stepX[s] = 0; a.stepZ[s] = 0; continue; }
     const omega = a.turnRate[s]! * decay + kick * randNormal(seed, Stream.EXPLORE_STEP, s, tick);
     a.turnRate[s] = omega;
     const free = a.heading[s]! + omega * dt;
@@ -50,7 +59,9 @@ export function explore(world: World, from: number, to: number): void {
     const x0 = a.posX[s]!, z0 = a.posZ[s]!;
     const here = a.posY[s]! - ride;
     const ahead = world.terrain.supportHeight(x0 + probe * dcos(h), z0 - probe * dsin(h));
-    let blocked = false;
+    // Turning away while blocked: +1 left, −1 right, 0 = free to walk on. Remembered in avoidTurn.
+    const keep = a.avoidTurn[s]!;
+    let turn = 0;
     const nx = x0 + probe * dcos(h), nz = z0 - probe * dsin(h);
     const bridge = world.bridge;
     const stride = a.speed[s]! * dt;
@@ -60,24 +71,24 @@ export function explore(world: World, from: number, to: number): void {
       // (keep the current turning direction if both or neither do).
       const okL = bridge.walkable(x0 + probe * dcos(h + ex.probeAngle), z0 - probe * dsin(h + ex.probeAngle));
       const okR = bridge.walkable(x0 + probe * dcos(h - ex.probeAngle), z0 - probe * dsin(h - ex.probeAngle));
-      const dir = okL !== okR ? (okL ? 1 : -1) : (omega >= 0 ? 1 : -1);
-      h = free + dir * ex.avoidTurnRate * dt;
-      blocked = true;
+      turn = okL !== okR ? (okL ? 1 : -1) : keep !== 0 ? keep : (omega >= 0 ? 1 : -1);
     } else if (!bridge && (nx > half || nx < -half || nz > half || nz < -half)) {
       // The arena edge is treated like an obstacle: turn back inside instead of reflecting.
       // Turn the way that brings the heading towards the arena centre.
       const toCentre = datan2(z0, -x0); // heading pointing at the origin: forward (cos h, -sin h) ∥ (-x0, -z0)
       let diff = toCentre - h;
       if (diff > PI) diff -= 2 * PI; else if (diff < -PI) diff += 2 * PI;
-      h = free + (diff > 0 ? 1 : -1) * ex.avoidTurnRate * dt;
-      blocked = true;
-    } else if (Math.abs(ahead - here) > ex.maxClimb) {
+      turn = diff > 0 ? 1 : -1;
+    } else if (ahead - here > ex.maxClimb || here - ahead > ex.maxDrop) {
       // +angle turns left (towards -Z when facing +X).
       const left = world.terrain.supportHeight(x0 + probe * dcos(h + ex.probeAngle), z0 - probe * dsin(h + ex.probeAngle));
       const right = world.terrain.supportHeight(x0 + probe * dcos(h - ex.probeAngle), z0 - probe * dsin(h - ex.probeAngle));
-      h = free + (Math.abs(left - here) < Math.abs(right - here) ? 1 : -1) * ex.avoidTurnRate * dt;
-      blocked = true;
+      // Two heights compared: no clear answer when they are alike, so keep the way already chosen.
+      turn = keep !== 0 ? keep : Math.abs(left - here) < Math.abs(right - here) ? 1 : -1;
     }
+    const blocked = turn !== 0;
+    if (blocked) h = free + turn * ex.avoidTurnRate * dt;
+    a.avoidTurn[s] = turn;
     // Turning on the spot is walked too: the feet travel the arc at the stance radius.
     const turnArc = blocked ? ex.avoidTurnRate * dt * turnRadius : 0;
     const v = a.speed[s]!;
@@ -93,6 +104,8 @@ export function explore(world: World, from: number, to: number): void {
     else if (z < -half) { z = -2 * half - z; h = -h; }
     if (h > PI) h -= 2 * PI;
     else if (h < -PI) h += 2 * PI;
+    a.stepX[s] = x - x0;
+    a.stepZ[s] = z - z0;
     a.lastStep[s] = Math.sqrt((x - x0) * (x - x0) + (z - z0) * (z - z0));
     a.posX[s] = x;
     a.posZ[s] = z;

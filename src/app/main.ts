@@ -178,12 +178,12 @@ async function main(): Promise<void> {
           adapter: info.adapter,
           transport: host.transport,
           viewport: `${window.innerWidth}x${window.innerHeight}@${renderer.getPixelRatio()}`,
-          note: 'Phase 3: terrain + walking workers (LOD0 legs solved), parallel sim, pheromone rules',
+          note: 'Phase 4: terrain + walking workers (LOD0 legs solved), parallel sim, pheromone and path-integration rules',
         });
         (window as unknown as { __antverseBench: unknown }).__antverseBench = { rows, csv };
         console.table(rows);
         hud.note(`<pre>${csv}</pre>`);
-        if (import.meta.env.DEV) void saveReportFile(`bench/phase-3-${info.backend.toLowerCase()}.csv`, csv);
+        if (import.meta.env.DEV) void saveReportFile(`bench/phase-4-${info.backend.toLowerCase()}.csv`, csv);
       })
     : null;
 
@@ -224,6 +224,9 @@ async function main(): Promise<void> {
     }
     return `double bridge: short branch ${s} | long branch ${l} | in nest ${nest} | short ${bridge.lengthShort.toFixed(0)} mm, long ${bridge.lengthLong.toFixed(0)} mm`;
   };
+  /** Foraging states, indexed like AgentState: search, return, rest, nest search. */
+  const foragingLine = (f: { states: number[]; carrying: number }): string =>
+    `foraging: out ${f.states[0]} | heading home ${f.states[1]} (with food ${f.carrying}) | searching for the nest ${f.states[3]} | in nest ${f.states[2]}`;
   const togglePheromone = (on?: boolean): void => { if (pheromone) pheromone.mesh.visible = on ?? !pheromone.mesh.visible; };
 
   (window as unknown as { antverse: unknown }).antverse = { host, cfg, info, renderer, camera, controls, hud, terrain, ground, grains, terrainBuildMs, tier, governor, ants, followAnt, togglePheromone };
@@ -288,6 +291,7 @@ async function main(): Promise<void> {
         `ants LOD0 (legs) ${ants.stats.lod0} | LOD1 ${ants.stats.lod1} | LOD2 ${ants.stats.lod2}`,
         `camera ${(camera.position.y - terrain.supportHeight(camera.position.x, camera.position.z)).toFixed(2)} mm above surface`,
         ...(bridge ? [bridgeLine()] : []),
+        ...(host.stats?.foraging ? [foragingLine(host.stats.foraging)] : []),
         `quality ${tier} | pixel ratio ${renderer.getPixelRatio().toFixed(2)} | LOD error ≤ ${ground.params.maxScreenError.toFixed(1)} px${governor ? (governor.degraded() ? ' (auto: reduced)' : ' (auto)') : ''}`,
       ]);
       if (bench && !bench.done) hud.note(bench.status());

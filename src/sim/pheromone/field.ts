@@ -151,6 +151,12 @@ export class PheromoneField {
     }
   }
 
+  /** Remove all pheromone (an experimenter wiping the substrate). */
+  clear(): void {
+    this.data.fill(0);
+    this.active.fill(0);
+  }
+
   /** Total pheromone (for tests). */
   total(): number {
     let s = 0;

@@ -58,6 +58,8 @@ export const DEFAULT_PARAMS = {
     probeAngle: p(0.7, 'rad', 'ASM-SEN-002', { min: 0 }),
     /** Highest rise of the support ahead that the ant walks onto (taller: turn away). */
     maxClimb: p(1.4, 'mm', 'ASM-LOC-008', { min: 0 }),
+    /** Deepest drop of the support ahead that the ant walks down (deeper: turn away). Ants climb down more easily than up. */
+    maxDrop: p(10, 'mm', 'ASM-LOC-008', { min: 0 }),
     /** Turning rate while facing an obstacle. */
     avoidTurnRate: p(6, 'rad/s', 'ASM-LOC-008', { min: 0 }),
   },
@@ -80,6 +82,15 @@ export const DEFAULT_PARAMS = {
     stemLength: p(40, 'mm', 'ENG-SCN-002', { min: 0 }),
     /** Radius of the nest and feeding arenas. */
     arenaRadius: p(15, 'mm', 'ENG-SCN-002', { min: 1 }),
+    /**
+     * Homing on open ground (Phase 4): the nest entrance at the origin, one
+     * feeder feederDistance away in a direction drawn from the seed. No pheromone.
+     */
+    homing: p(false, 'bool', 'ENG-SCN-003'),
+    feederDistance: p(300, 'mm', 'ENG-SCN-003', { min: 0 }),
+    feederRadius: p(10, 'mm', 'ENG-SCN-003', { min: 1 }),
+    /** Distance from the nest entrance at which an ant recognises it and goes in. */
+    nestRadius: p(4, 'mm', 'ASM-NAV-005', { min: 0.5 }),
   },
   /** Trail pheromone field (Phase 3). Amounts are in arbitrary units u (per mm² cell). */
   pheromone: {
@@ -108,18 +119,30 @@ export const DEFAULT_PARAMS = {
      */
     floor: p(10, 'u', 'ASM-SEN-004', { min: 0 }),
   },
-  /** Foraging trips (Phase 3; homing is refined in Phase 4). */
+  /** Foraging trips (Phase 3) and navigation by path integration (Phase 4). */
   forage: {
     /** Rate at which each resting ant leaves the nest to forage. */
     exitRate: p(1 / 60, '1/s', 'ASM-FOR-001', { min: 0 }),
+    /** A searching trip that has not found food is given up after a time drawn uniformly from this range. */
+    giveUp: p([60, 180], 's', 'ASM-FOR-002'),
     /**
-     * Turning rate towards the current goal per radian of heading error — the
-     * nest while returning, the remembered food while going out again
-     * (path-integration stand-in).
+     * Turning rate towards the current goal per radian of heading error. The
+     * goal is where the path-integration estimate says it is: the nest while
+     * returning, the remembered food while going out again.
      */
-    vectorGain: p(2, 'rad/s', 'ASM-NAV-001', { min: 0 }),
+    vectorGain: p(4, 'rad/s', 'ASM-NAV-001', { min: 0 }),
     /** U-turn rate when walking directly away from the goal; scales with (1 − cos error)/2. */
     uturnRate: p(0.5, '1/s', 'ASM-NAV-002', { min: 0 }),
+    /** Celestial-compass error: a wandering process with this spread and correlation time. */
+    compassSd: p(0.05, 'rad', 'ASM-NAV-003', { min: 0 }),
+    compassTau: p(20, 's', 'ASM-NAV-003', { min: 0.01 }),
+    /** Odometer: each trip's distance gain is 1 ± this spread (normal). */
+    odometerSd: p(0.05, 'x', 'ASM-NAV-003', { min: 0 }),
+    /** The home vector counts as run off when shorter than this. */
+    vectorEnd: p(3, 'mm', 'ASM-NAV-004', { min: 0 }),
+    /** Systematic search: loops around the vector's end point, kept within a radius that grows with search time. */
+    searchRadius: p(10, 'mm', 'ASM-NAV-004', { min: 0 }),
+    searchGrowth: p(1, 'mm/s', 'ASM-NAV-004', { min: 0 }),
   },
   /** Body and gait kinematics of a walking worker. */
   locomotion: {
@@ -379,6 +402,8 @@ export const DEFAULT_PARAMS = {
     nestColor: p([0.14, 0.1, 0.08], 'rgb', 'ENG-REN-014'),
     feederColor: p([0.93, 0.72, 0.3], 'rgb', 'ENG-REN-014'),
     apparatusLift: p(0.02, 'mm', 'ENG-REN-014', { min: 0 }),
+    /** Nest and feeder discs of the homing scenario float this far above the natural ground. */
+    siteLift: p(0.15, 'mm', 'ENG-REN-014', { min: 0 }),
     /** Initial camera distance from the apparatus centre, × its longest side. */
     apparatusView: p(0.9, 'x', 'ENG-REN-014', { min: 0.1 }),
     /** Pheromone heatmap: colour, opacity at saturation, the concentrations shown as faintest / saturated (log scale), refresh interval. */
@@ -419,6 +444,11 @@ export const DEFAULT_PARAMS = {
      * seeds not used while developing the model (those were sim.seed + k).
      */
     firstSeed: p(1, 'count', 'ENG-EXP-001', { min: 0, max: 0xffffffff, integer: true }),
+    /**
+     * Seed of the first homing trial (Phase 4). Development used seeds 1–50;
+     * 2001– and 3001– were judged by earlier versions of the model.
+     */
+    homingFirstSeed: p(4001, 'count', 'ENG-EXP-002', { min: 0, max: 0xffffffff, integer: true }),
     /** Simulated time per trial. */
     duration: p(1800, 's', 'ENG-EXP-001', { min: 1 }),
     /** Traffic is counted in bins of this length. */
@@ -429,6 +459,13 @@ export const DEFAULT_PARAMS = {
     convergedShare: p(0.8, 'x', 'ENG-EXP-001', { min: 0, max: 1 }),
     /** The phase passes when at least this fraction of trials converge. */
     passFraction: p(0.8, 'x', 'ENG-EXP-001', { min: 0, max: 1 }),
+    /** Phase 4 homing protocol: time allowed from the start of the return, the displacement, the search window and tolerance. */
+    homingLimit: p(600, 's', 'ENG-EXP-002', { min: 1 }),
+    displacement: p(200, 'mm', 'ENG-EXP-002', { min: 0 }),
+    searchWindow: p(60, 's', 'ENG-EXP-002', { min: 1 }),
+    searchTolerance: p(50, 'mm', 'ENG-EXP-002', { min: 0 }),
+    /** Double bridge: wipe all pheromone at this time (0 = never). */
+    wipeAt: p(0, 's', 'ENG-EXP-002', { min: 0 }),
   },
   bench: {
     counts: p([1000, 2000, 5000, 10000, 20000, 50000, 100000], 'count', 'ENG-BEN-001'),

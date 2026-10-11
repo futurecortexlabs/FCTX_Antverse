@@ -4,10 +4,10 @@
  * the short branch carries > convergedShare of the crossings over the final
  * window; the phase passes if ≥ passFraction of trials converge.
  *
- *   node scripts/experiment-double-bridge.ts [name] [--set path=value ...]
+ *   node scripts/experiment-double-bridge.ts [name] [--dir phase-n] [--set path=value ...]
  *
- * Writes docs/reports/phase-3/<name>.csv (one row per trial) and
- * <name>-bins.csv (crossings per bin), and prints the verdict.
+ * Writes docs/reports/<dir>/<name>.csv (one row per trial; dir defaults to
+ * phase-3) and <name>-bins.csv (crossings per bin), and prints the verdict.
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -29,9 +29,12 @@ if (!isMainThread) {
   const args = process.argv.slice(2);
   const name = args[0] && !args[0].startsWith('--') ? args.shift()! : 'double-bridge';
   const overlays: Overlay[] = [JSON.parse(readFileSync('config/presets/double-bridge.json', 'utf8')) as Overlay];
-  for (let i = 0; i < args.length; i++) if (args[i] === '--set') {
-    const [path, raw] = args[++i]!.split('=') as [string, string];
-    overlays.push(overlayFromAssignment(DEFAULT_PARAMS, path, raw));
+  let dir = 'docs/reports/phase-3';
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--set') {
+      const [path, raw] = args[++i]!.split('=') as [string, string];
+      overlays.push(overlayFromAssignment(DEFAULT_PARAMS, path, raw));
+    } else if (args[i] === '--dir') dir = `docs/reports/${args[++i]!}`;
   }
   const { config } = buildConfig(overlays);
   const ex = config.experiment;
@@ -66,13 +69,13 @@ if (!isMainThread) {
     `# protocol: ${ex.trials} trials × ${ex.duration} s, final window ${ex.window} s, converged if short share > ${ex.convergedShare}, pass if ≥ ${ex.passFraction}`,
     `# result: ${converged}/${results.length} converged (${(frac * 100).toFixed(0)}%) → ${pass ? 'PASS' : 'FAIL'}`,
   ];
-  mkdirSync('docs/reports/phase-3', { recursive: true });
-  writeFileSync(`docs/reports/phase-3/${name}.csv`, [...header, 'seed,final_short_share,converged,total_short,total_long,total_trips',
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(`${dir}/${name}.csv`, [...header, 'seed,final_short_share,converged,total_short,total_long,total_trips',
     ...results.map((r) => {
       const t = r.bins.reduce((s, b) => ({ short: s.short + b.short, long: s.long + b.long, trips: s.trips + b.trips }), { short: 0, long: 0, trips: 0 });
       return `${r.seed},${r.finalShare.toFixed(4)},${r.converged ? 1 : 0},${t.short},${t.long},${t.trips}`;
     })].join('\n') + '\n');
-  writeFileSync(`docs/reports/phase-3/${name}-bins.csv`, ['seed,bin,t_end_s,short,long,trips',
-    ...results.flatMap((r) => r.bins.map((b, i) => `${r.seed},${i},${(i + 1) * ex.bin},${b.short},${b.long},${b.trips}`))].join('\n') + '\n');
+  writeFileSync(`${dir}/${name}-bins.csv`, ['seed,bin,t_end_s,short,long,trips,searching',
+    ...results.flatMap((r) => r.bins.map((b, i) => `${r.seed},${i},${(i + 1) * ex.bin},${b.short},${b.long},${b.trips},${b.searching}`))].join('\n') + '\n');
   console.log(header.slice(2).join('\n'));
 }

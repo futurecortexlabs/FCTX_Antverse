@@ -1,0 +1,5 @@
+{
+  "scenario": { "homing": true },
+  "world": { "arenaSize": 1800 },
+  "population": { "count": 30 }
+}

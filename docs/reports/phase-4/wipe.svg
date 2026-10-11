@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" font-family="system-ui, sans-serif" font-size="12">
+<rect width="720" height="340" fill="#fbfaf7"/>
+<text x="56" y="20" font-size="14" font-weight="600" fill="#222">Double bridge: food deliveries per minute (median of trials); all pheromone wiped at 15 min</text>
+<line x1="56" x2="704" y1="296" y2="296" stroke="#e4e1d8"/>
+<text x="48" y="300" text-anchor="end" fill="#555">0</text>
+<line x1="56" x2="704" y1="244" y2="244" stroke="#e4e1d8"/>
+<text x="48" y="248" text-anchor="end" fill="#555">120</text>
+<line x1="56" x2="704" y1="192" y2="192" stroke="#e4e1d8"/>
+<text x="48" y="196" text-anchor="end" fill="#555">240</text>
+<line x1="56" x2="704" y1="140" y2="140" stroke="#e4e1d8"/>
+<text x="48" y="144" text-anchor="end" fill="#555">360</text>
+<line x1="56" x2="704" y1="87.99999999999999" y2="87.99999999999999" stroke="#e4e1d8"/>
+<text x="48" y="91.99999999999999" text-anchor="end" fill="#555">480</text>
+<line x1="56" x2="704" y1="36" y2="36" stroke="#e4e1d8"/>
+<text x="48" y="40" text-anchor="end" fill="#555">600</text>
+<text x="56" y="314" text-anchor="middle" fill="#555">0</text>
+<text x="164" y="314" text-anchor="middle" fill="#555">5</text>
+<text x="272" y="314" text-anchor="middle" fill="#555">10</text>
+<text x="380" y="314" text-anchor="middle" fill="#555">15</text>
+<text x="488" y="314" text-anchor="middle" fill="#555">20</text>
+<text x="596" y="314" text-anchor="middle" fill="#555">25</text>
+<text x="704" y="314" text-anchor="middle" fill="#555">30</text>
+<text x="380" y="332" text-anchor="middle" fill="#333">simulated time (min)</text>
+<line x1="380" x2="380" y1="36" y2="296" stroke="#888" stroke-dasharray="5 4"/>
+<polyline points="77.6,281.7 99.2,203.5 120.8,156.9 142.4,139.8 164.0,136.3 185.6,138.5 207.2,137.4 228.8,135.2 250.4,138.5 272.0,137.8 293.6,138.3 315.2,137.0 336.8,139.6 358.4,136.3 380.0,138.5 401.6,146.1 423.2,132.4 444.8,129.0 466.4,129.8 488.0,133.7 509.6,133.7 531.2,135.2 552.8,134.6 574.4,133.9 596.0,135.4 617.6,134.6 639.2,135.7 660.8,134.4 682.4,135.0 704.0,135.4" fill="none" stroke="#2463a6" stroke-width="2.2"/>
+<text x="66" y="52" fill="#2463a6">with path integration</text>
+<polyline points="77.6,282.4 99.2,176.4 120.8,108.8 142.4,92.1 164.0,85.2 185.6,82.8 207.2,80.4 228.8,81.1 250.4,79.8 272.0,82.2 293.6,81.5 315.2,79.8 336.8,81.9 358.4,81.3 380.0,83.4 401.6,98.4 423.2,79.3 444.8,78.9 466.4,79.3 488.0,77.2 509.6,79.3 531.2,78.5 552.8,78.0 574.4,78.9 596.0,77.6 617.6,78.5 639.2,79.3 660.8,78.9 682.4,78.3 704.0,80.0" fill="none" stroke="#c0392b" stroke-width="2.2"/>
+<text x="66" y="68" fill="#c0392b">without path integration (no goal bias, no U-turns)</text>
+</svg>

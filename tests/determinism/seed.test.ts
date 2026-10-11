@@ -61,3 +61,18 @@ describe('seed reproducibility with the pheromone field (double bridge)', () => 
     expect(checkDeterminism(bridge, 1200).hashA).toMatchSnapshot();
   });
 });
+
+describe('seed reproducibility with path integration (homing)', () => {
+  const preset = JSON.parse(readFileSync('config/presets/homing.json', 'utf8')) as Overlay;
+  const homing = buildConfig([preset, { forage: { exitRate: 0.2 } }]).config;
+
+  it('same seed gives identical hashes; seed+1 differs', { timeout: 300000 }, () => {
+    const r = checkDeterminism(homing, 3600);
+    expect(r.identical).toBe(true);
+    expect(r.seedSensitive).toBe(true);
+  });
+
+  it('golden hash for the homing preset is stable', { timeout: 300000 }, () => {
+    expect(checkDeterminism(homing, 1200).hashA).toMatchSnapshot();
+  });
+});

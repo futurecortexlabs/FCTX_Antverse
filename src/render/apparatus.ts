@@ -1,20 +1,44 @@
 /**
  * Experimental apparatus (Phase 3): the double bridge's walkway, nest and
  * feeding arenas drawn as thin surfaces on the (flat) ground, and the trail
- * pheromone on top of them as a heatmap.
+ * pheromone on top of them as a heatmap. Homing scenario (Phase 4): the nest
+ * entrance and the feeder as discs draped over the natural ground.
  */
 
 import * as THREE from 'three/webgpu';
 import type { Config } from '../config/params.ts';
-import { DoubleBridge } from '../terrain/apparatus.ts';
+import { DoubleBridge, homingSites, type Site } from '../terrain/apparatus.ts';
 import type { Terrain } from '../terrain/terrain.ts';
 import type { FieldInfo } from '../worker/protocol.ts';
 import { rgb } from './environment.ts';
 
 const CAP_SEGMENTS = 24;
+/** Concentric rings of a draped disc, so it follows the relief inside it too. */
+const DRAPE_RINGS = 12;
+
+/** A disc lying on the terrain surface (vertices at supportHeight + lift). */
+function drapedDisc(terrain: Terrain, c: Site, lift: number, color: THREE.Color): THREE.Mesh {
+  const geo = new THREE.RingGeometry(0, c.r, CAP_SEGMENTS * 2, DRAPE_RINGS);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) pos.setY(i, terrain.supportHeight(c.x + pos.getX(i), c.z + pos.getZ(i)) + lift);
+  geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardNodeMaterial({ color, roughness: 0.9 }));
+  m.position.set(c.x, 0, c.z);
+  m.receiveShadow = true;
+  return m;
+}
 
 /** Walkway (capsules), nest and feeder discs. Returns null when the scenario has no apparatus. */
 export function buildApparatus(cfg: Config, terrain: Terrain): THREE.Group | null {
+  if (cfg.scenario.homing && !cfg.scenario.doubleBridge) {
+    const { nest, feeder } = homingSites(cfg);
+    const group = new THREE.Group();
+    group.name = 'homing-sites';
+    group.add(drapedDisc(terrain, nest, cfg.render.siteLift, rgb(cfg.render.nestColor)));
+    group.add(drapedDisc(terrain, feeder, cfg.render.siteLift, rgb(cfg.render.feederColor)));
+    return group;
+  }
   if (!cfg.scenario.doubleBridge) return null;
   const b = new DoubleBridge(cfg);
   const r = cfg.render;
@@ -57,6 +81,10 @@ export function buildApparatus(cfg: Config, terrain: Terrain): THREE.Group | nul
 
 /** Centre and longest side of the apparatus (for placing the camera). */
 export function apparatusFrame(cfg: Config): { x: number; z: number; size: number } | null {
+  if (cfg.scenario.homing && !cfg.scenario.doubleBridge) {
+    const { feeder } = homingSites(cfg);
+    return { x: feeder.x / 2, z: feeder.z / 2, size: 2 * cfg.scenario.feederDistance };
+  }
   if (!cfg.scenario.doubleBridge) return null;
   const b = new DoubleBridge(cfg);
   return { x: (b.minX + b.maxX) / 2, z: (b.minZ + b.maxZ) / 2, size: Math.max(b.maxX - b.minX, b.maxZ - b.minZ) };

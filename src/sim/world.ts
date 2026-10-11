@@ -16,9 +16,10 @@ import { dexp } from '../core/dmath.ts';
 import { StateHasher } from '../core/statehash.ts';
 import type { Config } from '../config/params.ts';
 import { Terrain } from '../terrain/terrain.ts';
-import { DoubleBridge } from '../terrain/apparatus.ts';
+import { DoubleBridge, homingSites, type Site } from '../terrain/apparatus.ts';
 import { PheromoneField } from './pheromone/field.ts';
 import { forage } from './rules/forage.ts';
+import { navigate, pathIntegrate } from './rules/navigate.ts';
 import { layTrail, trail } from './rules/trail.ts';
 import { AgentStore } from './agents/store.ts';
 import { spawnWorkers } from './population.ts';
@@ -31,8 +32,11 @@ export type Rule = (world: World, from: number, to: number) => void;
  * Rules in update order. Each reads the shared environment (terrain, the
  * pheromone field as it was at the start of the tick) and writes only its own
  * agents; pheromone deposits are recorded per agent and applied afterwards.
+ * trail and navigate request turns, explore moves, pathIntegrate measures the move.
  */
-export const RULES: readonly Rule[] = [forage, trail, explore, layTrail, bodyPose];
+export const RULES: readonly Rule[] = [forage, trail, navigate, explore, pathIntegrate, layTrail, bodyPose];
+
+export type { Site };
 
 export interface WorldOptions {
   /** Use these agents instead of allocating and spawning (thread helpers attach to shared memory). */
@@ -56,6 +60,9 @@ export class World {
   readonly poseAlpha: number;
   /** Experimental apparatus, if the scenario uses one. */
   readonly bridge: DoubleBridge | null;
+  /** Nest and food source of a foraging scenario (null on open ground without one). */
+  readonly nest: Site | null;
+  readonly feeder: Site | null;
   /**
    * Trail pheromone over the apparatus. Open ground has no field yet: nothing
    * there lays trail until the colony forages (Phase 6), and a 1 mm grid over
@@ -71,6 +78,15 @@ export class World {
     this.terrainDigest = this.terrain.digest();
     this.poseAlpha = 1 - dexp(-config.sim.dt / config.locomotion.poseSmoothing);
     this.bridge = config.scenario.doubleBridge ? new DoubleBridge(config) : null;
+    if (this.bridge) {
+      this.nest = this.bridge.nest;
+      this.feeder = this.bridge.feeder;
+    } else if (config.scenario.homing) {
+      ({ nest: this.nest, feeder: this.feeder } = homingSites(config));
+    } else {
+      this.nest = null;
+      this.feeder = null;
+    }
     this.pheromone = this.makeField(opts);
     if (opts.agents) {
       this.agents = opts.agents;
