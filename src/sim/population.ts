@@ -37,5 +37,7 @@ export function spawnWorkers(world: World, count: number): void {
     a.gaitPhase[s] = r(K.PHASE);
     a.speed[s] = lc.speed * (1 + lc.speedSpread * (r(K.SPEED) * 2 - 1));
   }
+  // Settle twice: the second pass samples the support where the first pass's pitch put the segments.
+  bodyPoseRange(world, first, agents.highWater, 1);
   bodyPoseRange(world, first, agents.highWater, 1);
 }
