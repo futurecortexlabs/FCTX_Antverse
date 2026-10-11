@@ -3,3 +3,6 @@ dist/
 *.log
 .vite/
 docs/reports/bench/*.tmp
+
+# Raw frame sequences used to build report GIFs (scripts/make-gif.py)
+docs/reports/*/seq/
