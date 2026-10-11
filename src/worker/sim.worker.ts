@@ -43,11 +43,8 @@ function loop(): void {
   if (stats) {
     post({ type: 'stats', stats });
     // Without shared memory the renderer gets a copy of the pheromone grid at the stats rate.
-    const field = runner.world.pheromone;
-    if (field && !(field.buffer instanceof SharedArrayBuffer)) {
-      const data = field.data.slice();
-      post({ type: 'fieldData', data }, [data.buffer]);
-    }
+    const data = runner.fieldCopy();
+    if (data) post({ type: 'fieldData', data }, [data.buffer]);
   }
   schedule(owed);
 }

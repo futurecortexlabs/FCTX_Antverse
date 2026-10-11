@@ -5,6 +5,7 @@
  */
 
 import { FixedStepClock } from '../core/clock.ts';
+import { isSharedBuffer } from '../core/soa.ts';
 import { MS_PER_S } from '../core/units.ts';
 import type { Config } from '../config/params.ts';
 import { World } from '../sim/world.ts';
@@ -68,7 +69,13 @@ export class SimRunner {
     const f = this.world.pheromone;
     if (!f) return null;
     const b = f.buffer;
-    return { x0: f.x0, z0: f.z0, cell: f.cell, nx: f.nx, nz: f.nz, shared: b instanceof SharedArrayBuffer ? b : null };
+    return { x0: f.x0, z0: f.z0, cell: f.cell, nx: f.nx, nz: f.nz, shared: isSharedBuffer(b) ? b : null };
+  }
+
+  /** A copy of the pheromone grid when the renderer cannot read it directly (no shared memory), else null. */
+  fieldCopy(): Float32Array | null {
+    const f = this.world.pheromone;
+    return f && !isSharedBuffer(f.buffer) ? f.data.slice() : null;
   }
 
   /** Rebuild the world (e.g. new agent count) keeping speed and pause state. */
