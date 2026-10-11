@@ -8,7 +8,7 @@
  * fields to AGENT_SCHEMA (appending keeps earlier state hashes meaningful).
  */
 
-import { allocSoA, field, soaViews, type SoA } from '../../core/soa.ts';
+import { allocSoA, attachSoA, field, soaBuffers, soaViews, type SoA } from '../../core/soa.ts';
 
 export const SLOT_BITS = 20;
 export const MAX_CAPACITY = 1 << SLOT_BITS;
@@ -40,8 +40,13 @@ export const AGENT_SCHEMA = {
   // --- simulation only ---
   gen: field('u16'),
   speed: field('f32'),
-  /** Yaw on the ground plane (rad). Superseded by surface-frame steering in Phase 2. */
+  /** Yaw on the ground plane (rad). */
   heading: field('f32'),
+  /** Body pitch (nose up +) and roll (right side down +), following the terrain (rad). */
+  pitch: field('f32'),
+  roll: field('f32'),
+  /** Angular velocity of the heading (rad/s). */
+  turnRate: field('f32'),
 };
 
 export type AgentSoA = SoA<typeof AGENT_SCHEMA>;
@@ -54,10 +59,19 @@ export class AgentStore {
   alive = 0;
   private free: number[] = [];
 
-  constructor(capacity: number) {
+  /**
+   * shared: allocate fields in SharedArrayBuffers (for multi-threaded stepping).
+   * buffers: attach to another thread's shared fields instead of allocating.
+   * Slot bookkeeping (highWater, alive, free list) belongs to the owning thread.
+   */
+  constructor(capacity: number, opts: { shared?: boolean; buffers?: Record<string, SharedArrayBuffer> } = {}) {
     if (capacity > MAX_CAPACITY) throw new Error(`AgentStore: capacity ${capacity} > ${MAX_CAPACITY}`);
     this.capacity = capacity;
-    this.a = allocSoA(AGENT_SCHEMA, capacity);
+    this.a = opts.buffers ? attachSoA(AGENT_SCHEMA, opts.buffers) : allocSoA(AGENT_SCHEMA, capacity, opts.shared === true);
+  }
+
+  sharedBuffers(): Record<string, SharedArrayBuffer> {
+    return soaBuffers(this.a);
   }
 
   /** Allocate a slot. Reuses the most recently freed slot (deterministic LIFO). */
@@ -80,6 +94,9 @@ export class AgentStore {
     a.gaitPhase[slot] = 0;
     a.speed[slot] = 0;
     a.heading[slot] = 0;
+    a.pitch[slot] = 0;
+    a.roll[slot] = 0;
+    a.turnRate[slot] = 0;
     this.alive++;
     return slot;
   }

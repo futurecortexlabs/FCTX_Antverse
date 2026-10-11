@@ -172,6 +172,11 @@ export function dlog(x: number): number {
   return e * LN2_HI + (e * LN2_LO + s * p);
 }
 
+/** √(x² + y² [+ z²]) with correctly rounded sqrt (Math.hypot is engine-approximated). */
+export function dhypot(x: number, y: number, z = 0): number {
+  return Math.sqrt(x * x + y * y + z * z);
+}
+
 /** x^y for x > 0 via dexp(y * dlog(x)). */
 export function dpow(x: number, y: number): number {
   if (x === 0) return y > 0 ? 0 : Infinity;

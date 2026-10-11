@@ -22,6 +22,11 @@ export const DEFAULT_PARAMS = {
     capacity: p(131072, 'count', 'ENG-SIM-005', { min: 1, max: 1 << 20, integer: true }),
     statsInterval: p(250, 'ms', 'ENG-SIM-006', { min: 50 }),
     determinismCheckTicks: p(10000, 'tick', 'ENG-SIM-007', { min: 1, integer: true }),
+    /** Simulation threads (1 = single-threaded, 0 = auto: hardware threads − 2, at most maxThreads). */
+    threads: p(0, 'count', 'ENG-SIM-008', { min: 0, integer: true }),
+    maxThreads: p(8, 'count', 'ENG-SIM-008', { min: 1, integer: true }),
+    /** Below this many agents per thread, stepping stays single-threaded. */
+    minAgentsPerThread: p(500, 'count', 'ENG-SIM-008', { min: 1, integer: true }),
   },
   time: {
     speeds: p([0.25, 1, 2, 4, 8, 16, 32, 64, 128], 'x', 'ENG-TIME-001'),
@@ -34,11 +39,97 @@ export const DEFAULT_PARAMS = {
   ant: {
     workerBodyLength: p(5, 'mm', 'BIO-MOR-001', { min: 1, max: 20 }),
   },
-  debugWalk: {
-    count: p(2000, 'count', 'ENG-DBG-001', { min: 0, integer: true }),
-    speed: p(20, 'mm/s', 'ENG-DBG-002', { min: 0 }),
-    turnNoise: p(2, 'rad/sqrt(s)', 'ENG-DBG-003', { min: 0 }),
-    strideLength: p(2.5, 'mm', 'ENG-DBG-004', { min: 0.1 }),
+  /** Workers placed at start (until colony dynamics arrive in Phase 6). */
+  population: {
+    count: p(2000, 'count', 'ENG-POP-001', { min: 0, integer: true }),
+  },
+  /** Undirected exploratory walking (until pheromones and navigation drive it). */
+  explore: {
+    /**
+     * Turning: the angular velocity is an Ornstein–Uhlenbeck process (standard
+     * deviation turnRateSd, correlation time turnTau), so headings change smoothly
+     * and the path is a correlated random walk with heading diffusion ≈ turnRateSd²·turnTau.
+     */
+    turnRateSd: p(2, 'rad/s', 'ASM-BEH-001', { min: 0 }),
+    turnTau: p(0.3, 's', 'ASM-BEH-001', { min: 0.001 }),
+    /** How far ahead of the mesosoma the antennae probe the ground (fraction of body length). */
+    probeDistance: p(0.9, 'x', 'ASM-SEN-002', { min: 0 }),
+    /** Side probes for choosing the way around an obstacle. */
+    probeAngle: p(0.7, 'rad', 'ASM-SEN-002', { min: 0 }),
+    /** Highest rise of the support ahead that the ant walks onto (taller: turn away). */
+    maxClimb: p(1.4, 'mm', 'ASM-LOC-008', { min: 0 }),
+    /** Turning rate while facing an obstacle. */
+    avoidTurnRate: p(6, 'rad/s', 'ASM-LOC-008', { min: 0 }),
+  },
+  /** Body and gait kinematics of a walking worker. */
+  locomotion: {
+    speed: p(25, 'mm/s', 'ASM-LOC-001', { min: 0 }),
+    /** Individual speeds are spread uniformly by ± this fraction. */
+    speedSpread: p(0.2, 'x', 'ASM-LOC-001', { min: 0, max: 1 }),
+    /** Stride length = strideBase + strideSlope × speed. */
+    strideBase: p(1.5, 'mm', 'ASM-LOC-002', { min: 0.1 }),
+    strideSlope: p(0.05, 's', 'ASM-LOC-002', { min: 0 }),
+    /** Fraction of a step cycle a leg spends on the ground (tripod: > 0.5 keeps ≥ 3 legs down). */
+    dutyFactor: p(0.55, 'x', 'ASM-LOC-003', { min: 0.5, max: 0.95 }),
+    swingHeight: p(0.25, 'mm', 'ASM-LOC-004', { min: 0 }),
+    /** Minimum height of a swinging foot / ankle above the support (keeps them out of the ground). */
+    swingClearance: p(0.02, 'mm', 'ENG-LOC-001', { min: 0 }),
+    /** Height of the mesosoma centre above the support surface. */
+    rideHeight: p(0.85, 'mm', 'ASM-LOC-005', { min: 0 }),
+    /** Lowest allowed mesosoma-centre height above the support under the body. */
+    minRideHeight: p(0.55, 'mm', 'ASM-LOC-005', { min: 0 }),
+    /** Time constant of the body height / pitch / roll following the terrain. */
+    poseSmoothing: p(0.05, 's', 'ASM-LOC-006', { min: 0.001 }),
+    /** Neutral foot positions [forward, lateral] relative to body length, per leg pair (fore, mid, hind). */
+    neutralFoot: p([0.3, 0.52, 0.02, 0.66, -0.48, 0.6], 'x', 'ASM-LOC-007'),
+    /** Smoothing of the observed body motion used to predict footholds (per update). */
+    motionSmoothing: p(0.3, 'x', 'ENG-LOC-001', { min: 0.01, max: 1 }),
+    /** Footholds must lie within this fraction of femur + tibia reach. */
+    reachMargin: p(0.95, 'x', 'ASM-LOC-007', { min: 0.1, max: 1 }),
+    /** Furthest a foothold is pulled in towards the coxa to make it reachable (fraction of its offset). */
+    footholdPullMax: p(0.6, 'x', 'ASM-LOC-007', { min: 0, max: 0.95 }),
+    /** Outward lean of the knee's bending plane (0 = knee straight up). */
+    kneeOutward: p(0.3, 'x', 'ASM-LOC-007', { min: 0 }),
+    /** Angle of the tarsus to the ground. */
+    tarsusAngle: p(0.45, 'rad', 'ASM-LOC-007', { min: 0, max: 1.5 }),
+  },
+  /** Worker morphology, as fractions of body length (ant.workerBodyLength). */
+  morphology: {
+    head: p([0.21, 0.2, 0.15], 'x', 'ASM-MOR-002'),
+    mesosoma: p([0.36, 0.14, 0.15], 'x', 'ASM-MOR-002'),
+    petiole: p([0.05, 0.08, 0.12], 'x', 'ASM-MOR-002'),
+    gaster: p([0.33, 0.24, 0.2], 'x', 'ASM-MOR-002'),
+    /** Compound eye diameter. */
+    eye: p(0.06, 'x', 'ASM-MOR-002', { min: 0 }),
+    mandible: p(0.07, 'x', 'ASM-MOR-002', { min: 0 }),
+    scape: p(0.24, 'x', 'ASM-MOR-003', { min: 0 }),
+    funiculus: p(0.32, 'x', 'ASM-MOR-003', { min: 0 }),
+    /** Bend between scape and funiculus (0 = straight; geniculate antennae ~ 1.2–1.6 rad). */
+    antennaElbow: p(1.35, 'rad', 'ASM-MOR-003', { min: 0, max: 3 }),
+    /** Leg segment lengths per pair [fore, mid, hind]. */
+    coxa: p([0.09, 0.08, 0.1], 'x', 'ASM-MOR-004'),
+    femur: p([0.21, 0.23, 0.27], 'x', 'ASM-MOR-004'),
+    tibia: p([0.2, 0.22, 0.28], 'x', 'ASM-MOR-004'),
+    tarsus: p([0.22, 0.24, 0.3], 'x', 'ASM-MOR-004'),
+    /** Coxa attachment along the mesosoma (forward offset from its centre) per pair. */
+    coxaAttach: p([0.12, 0.0, -0.1], 'x', 'ASM-MOR-004'),
+    /** Vertical offset of head and gaster centres, as fractions of mesosoma height. */
+    segmentRaise: p([0.15, 0.1], 'x', 'ASM-MOR-002'),
+    /** Coxa base below / beside the mesosoma axis, as fractions of mesosoma height / width. */
+    coxaBase: p([0.3, 0.35], 'x', 'ASM-MOR-004'),
+    /** Coxa direction from straight down towards the side. */
+    coxaAngle: p(0.785, 'rad', 'ASM-MOR-004', { min: 0, max: 1.6 }),
+    /** Antennal socket on the head [forward, up, lateral] as fractions of head length / height / width. */
+    antennaSocket: p([0.35, 0.15, 0.25], 'x', 'ASM-MOR-003'),
+    /** Leg segment radii [femur, tibia, tarsus] and antenna radius. */
+    legRadius: p([0.016, 0.012, 0.008], 'x', 'ASM-MOR-004'),
+    antennaRadius: p(0.008, 'x', 'ASM-MOR-003', { min: 0 }),
+    /** Scape posture while walking: elevation above the body axis and outward spread. */
+    antennaPose: p([0.5, 0.55], 'rad', 'ASM-MOR-003'),
+  },
+  antennae: {
+    sweepAmplitude: p(0.25, 'rad', 'ASM-SEN-001', { min: 0 }),
+    sweepFrequency: p(2, '1/s', 'ASM-SEN-001', { min: 0 }),
   },
   /** Ground surface and surface objects (Phase 1). Origin = nest entrance. */
   terrain: {
@@ -190,10 +281,29 @@ export const DEFAULT_PARAMS = {
     scaleBarMajorEvery: p(5, 'count', 'ENG-REN-006', { min: 1, integer: true }),
     scaleBarColor: p([0.95, 0.95, 0.95], 'rgb', 'ENG-REN-006'),
     cameraStart: p([45, 30, 45], 'mm', 'ENG-REN-007'),
-    /** Placeholder body: triples (centerX, halfLength, radius) relative to body length, rear to front. */
-    placeholderSegments: p([-0.27, 0.21, 0.11, 0.03, 0.15, 0.065, 0.32, 0.1, 0.085], 'x', 'ENG-REN-008'),
-    antColor: p([0.07, 0.055, 0.05], 'rgb', 'ENG-REN-010'),
+    antColor: p([0.05, 0.045, 0.045], 'rgb', 'ENG-REN-010'),
+    antLegColor: p([0.11, 0.085, 0.07], 'rgb', 'ENG-REN-010'),
+    antEyeColor: p([0.015, 0.015, 0.02], 'rgb', 'ENG-REN-010'),
+    antMandibleColor: p([0.22, 0.11, 0.05], 'rgb', 'ENG-REN-010'),
+    /** Eye centre on the head [forward, up, lateral] as fractions of head length / height / width; eye depth / diameter. */
+    eyePlacement: p([0.12, 0.2, 0.44], 'x', 'ENG-REN-008'),
+    eyeFlatness: p(0.33, 'x', 'ENG-REN-008', { min: 0.05 }),
+    /** Mandible centre [forward (× mandible length), up, lateral (× head)] and its height / width (× mandible length). */
+    mandiblePlacement: p([0.3, -0.25, 0.18], 'x', 'ENG-REN-008'),
+    mandibleShape: p([0.2, 0.25], 'x', 'ENG-REN-008'),
+    /** Petiole scale raised above the body axis (× its height). */
+    petioleRaise: p(0.1, 'x', 'ENG-REN-008'),
+    /** Limb radius factors: coxa base, tarsus tip, antennal club. */
+    limbTaper: p([1.2, 0.6, 1.3], 'x', 'ENG-REN-008'),
     antRoughness: p(0.45, 'x', 'ENG-REN-010', { min: 0, max: 1 }),
+    /** Ants with legs solved on the terrain: at most this many, and only if at least this long on screen. */
+    rigMaxAnts: p(64, 'count', 'ENG-REN-013', { min: 0, integer: true }),
+    rigMinPixels: p(60, 'px', 'ENG-REN-013', { min: 1 }),
+    /** Below this on-screen length an ant is drawn as a low-poly body without legs. */
+    lod2Pixels: p(12, 'px', 'ENG-REN-013', { min: 0 }),
+    /** Tessellation [sphere width, sphere height, limb radial] for near and far ants. */
+    antDetail: p([14, 10, 6], 'count', 'ENG-REN-013'),
+    antDetailFar: p([6, 4, 3], 'count', 'ENG-REN-013'),
     skyColor: p([0.62, 0.74, 0.86], 'rgb', 'ENG-REN-010'),
     hemiIntensity: p(1.2, 'x', 'ENG-REN-012', { min: 0 }),
     sunIntensity: p(2.2, 'x', 'ENG-REN-012', { min: 0 }),

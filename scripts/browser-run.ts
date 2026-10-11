@@ -7,6 +7,7 @@
  *   node scripts/browser-run.ts smoke            # backend / adapter / FPS / determinism
  *   node scripts/browser-run.ts shots            # Phase 0 screenshots -> docs/reports/phase-0/
  *   node scripts/browser-run.ts eval '<expr>' [query]   # evaluate an expression in the running app
+ *   node scripts/browser-run.ts walk             # Phase 2 walking views + frame sequence -> docs/reports/phase-2/
  *   node scripts/browser-run.ts tiers            # quality tiers + automatic reduction on a throttled CPU
  *   node scripts/browser-run.ts terrain          # Phase 1 terrain views + metrics -> docs/reports/phase-1/
  *   node scripts/browser-run.ts bench [webgl]    # ?bench=1 sweep -> docs/reports/bench/
@@ -163,7 +164,7 @@ async function shots(cdp: Cdp): Promise<void> {
  */
 async function terrainViews(cdp: Cdp): Promise<void> {
   const dir = 'docs/reports/phase-1';
-  await cdp.goto(BASE + '?set=debugWalk.count=300');
+  await cdp.goto(BASE + '?set=population.count=300');
   const settle = `(async () => {
     const a = window.antverse; let calm = 0;
     for (let i = 0; i < 400 && calm < 6; i++) { await new Promise(r => setTimeout(r, 100)); calm = a.ground.busy ? 0 : calm + 1; }
@@ -246,6 +247,36 @@ async function tiers(cdp: Cdp): Promise<void> {
   }
 }
 
+/**
+ * Phase 2 walking views: follow one ant (nearest the nest) and capture
+ * stills from several angles plus a frame sequence for an animated GIF
+ * (assembled by scripts/make-gif.py). Output: docs/reports/phase-2/.
+ */
+async function walkViews(cdp: Cdp): Promise<void> {
+  const dir = 'docs/reports/phase-2';
+  await cdp.goto(BASE + '?set=population.count=300');
+  await cdp.eval('new Promise(r => setTimeout(r, 2500))');
+  const slot = await cdp.eval<number>(`(() => { const s = window.antverse.host.interp; let best = 0, bd = Infinity;
+    for (let i = 0; i < s.count; i++) { const o = i * 9, d = Math.hypot(s.curr[o], s.curr[o + 2]); if (d < bd) { bd = d; best = i; } } return best; })()`);
+  const views: [string, number[]][] = [
+    ['01-side', [0, 1.2, 9]], ['02-front-low', [8, 0.8, 2]], ['03-above', [2, 9, 3]], ['04-close-legs', [1.5, 0.6, 4.5]],
+  ];
+  for (const [name, off] of views) {
+    await cdp.eval(`window.antverse.followAnt(${slot}, [${off.join(',')}])`);
+    await cdp.eval('new Promise(r => setTimeout(r, 1500))');
+    await cdp.screenshot(`${dir}/${name}.png`);
+  }
+  // Frame sequence at ×0.25 speed so each step is visible.
+  await cdp.eval(`(() => { window.antverse.host.setSpeed(0.25); window.antverse.followAnt(${slot}, [0, 1.6, 8]); })()`);
+  await cdp.eval('new Promise(r => setTimeout(r, 1500))');
+  mkdirSync(`${dir}/seq`, { recursive: true });
+  for (let k = 0; k < 24; k++) {
+    await cdp.screenshot(`${dir}/seq/f${String(k).padStart(2, '0')}.png`);
+    await cdp.eval('new Promise(r => setTimeout(r, 40))');
+  }
+  await cdp.eval(`(() => { window.antverse.followAnt(null); window.antverse.host.setSpeed(1); })()`);
+}
+
 /** Phone emulation (390x844 CSS px, DPR 3, touch). `base` lets you target a static/LAN/artifact URL. */
 async function mobile(cdp: Cdp, base: string, backend: string | undefined): Promise<void> {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true, screenWidth: 390, screenHeight: 844 });
@@ -294,6 +325,7 @@ async function main(): Promise<void> {
     else if (cmd === 'shots') await shots(cdp);
     else if (cmd === 'terrain') await terrainViews(cdp);
     else if (cmd === 'tiers') await tiers(cdp);
+    else if (cmd === 'walk') await walkViews(cdp);
     else if (cmd === 'eval') { await cdp.goto(BASE + (process.argv[4] ?? '')); console.log(JSON.stringify(await cdp.eval(arg ?? 'null'), null, 1)); }
     else if (cmd === 'bench') await bench(cdp, arg);
     else if (cmd === 'mobile') await mobile(cdp, process.argv[4] ?? BASE, arg && arg !== '-' ? arg : undefined);

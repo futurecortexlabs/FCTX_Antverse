@@ -7,7 +7,7 @@
 import { DEFAULT_PARAMS, type Config, type Params } from './params.ts';
 import { isParam, walkParams, type Param, type ParamTree, type ParamValue } from './schema.ts';
 
-/** A partial tree of plain values, e.g. `{ debugWalk: { count: 10000 } }`. */
+/** A partial tree of plain values, e.g. `{ population: { count: 10000 } }`. */
 export interface Overlay {
   readonly [key: string]: ParamValue | Overlay;
 }
@@ -98,7 +98,7 @@ export function buildConfig(overlays: readonly Overlay[] = []): BuildResult {
  * URL parameters understood by the app:
  *   ?seed=123                 shorthand for sim.seed
  *   ?preset=name              config/presets/name.json
- *   ?set=debugWalk.count=5000 (repeatable)
+ *   ?set=population.count=5000 (repeatable)
  */
 export interface UrlOptions {
   readonly preset: string | null;

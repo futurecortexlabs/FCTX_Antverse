@@ -11,6 +11,7 @@ import {
   type FromWorker, type ToWorker,
 } from './protocol.ts';
 import { SimRunner, type SnapshotSink } from './sim-runner.ts';
+import { ParallelStepper, threadCount } from './parallel.ts';
 import { formatHash } from '../core/statehash.ts';
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -19,6 +20,7 @@ const wallNow = (): number => performance.timeOrigin + performance.now();
 const post = (msg: FromWorker, transfer: Transferable[] = []): void => self.postMessage(msg, transfer);
 
 let runner: SimRunner | null = null;
+let stepper: ParallelStepper | null = null;
 let scheduled = false;
 let idleDelay = 0;
 
@@ -83,8 +85,18 @@ self.onmessage = (e: MessageEvent<ToWorker>) => {
           ? sharedSink(msg.control, msg.slots, cap)
           : copySink(cap);
         idleDelay = config.sim.idleDelay;
-        runner = new SimRunner(config, sink, wallNow);
-        post({ type: 'ready', capacity: cap, seed: config.sim.seed });
+        // Helper threads need shared memory and Atomics.waitAsync; otherwise step on this thread alone.
+        const threads = threadCount(config, navigator.hardwareConcurrency || 1);
+        const canShare = globalThis.crossOriginIsolated && typeof Atomics.waitAsync === 'function';
+        stepper = canShare && threads > 1
+          ? new ParallelStepper(
+            Array.from({ length: threads - 1 }, () => new Worker(new URL('./sim-helper.worker.ts', import.meta.url), { type: 'module' })),
+            config.sim.minAgentsPerThread,
+            (message) => post({ type: 'error', message }),
+          )
+          : null;
+        runner = new SimRunner(config, sink, wallNow, stepper);
+        post({ type: 'ready', capacity: cap, seed: config.sim.seed, threads: stepper?.threads ?? 1 });
         schedule(true);
         break;
       }

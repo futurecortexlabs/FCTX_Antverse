@@ -20,7 +20,7 @@ const lines = [
   'count,ms_per_tick,max_realtime_speed',
 ];
 for (const count of config.bench.counts) {
-  const { config: c } = buildConfig([{ debugWalk: { count } }]);
+  const { config: c } = buildConfig([{ population: { count } }]);
   const world = new World(c);
   for (let i = 0; i < Math.ceil(ticks / 10); i++) world.step();
   const t0 = performance.now();
@@ -31,4 +31,4 @@ for (const count of config.bench.counts) {
   console.log(`${String(count).padStart(7)} agents: ${ms.toFixed(4)} ms/tick  (max ×${speed.toFixed(1)} real time)`);
 }
 mkdirSync('docs/reports/bench', { recursive: true });
-writeFileSync('docs/reports/bench/phase-1-sim-node.csv', lines.join('\n') + '\n');
+writeFileSync('docs/reports/bench/phase-2-sim-node.csv', lines.join('\n') + '\n');

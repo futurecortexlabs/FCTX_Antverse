@@ -26,6 +26,10 @@ export const Stream = {
   TERRAIN_GRAIN: 5,
   TERRAIN_LEAF: 6,
   TERRAIN_GRASS: 7,
+  /** Initial placement and individual traits of agents. */
+  AGENT_INIT: 8,
+  /** Exploratory heading noise. */
+  EXPLORE_STEP: 9,
   TEST: 0xffff,
 } as const;
 export type StreamId = (typeof Stream)[keyof typeof Stream];

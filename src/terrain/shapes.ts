@@ -57,6 +57,31 @@ export function ellipsoidTop(
   return cy + (-qb + Math.sqrt(disc)) / qa;
 }
 
+/**
+ * Vertical interval [lo, hi] of an ellipsoid along the line through (x, z),
+ * written to out; returns false if the line misses it.
+ */
+export function ellipsoidSpan(
+  x: number, z: number,
+  cx: number, cy: number, cz: number,
+  A: Float64Array | Float32Array, o: number, out: Float64Array,
+): boolean {
+  const dx = x - cx, dz = z - cz;
+  const q0x = A[o]! * dx + A[o + 2]! * dz;
+  const q0y = A[o + 3]! * dx + A[o + 5]! * dz;
+  const q0z = A[o + 6]! * dx + A[o + 8]! * dz;
+  const a1x = A[o + 1]!, a1y = A[o + 4]!, a1z = A[o + 7]!;
+  const qa = a1x * a1x + a1y * a1y + a1z * a1z;
+  const qb = q0x * a1x + q0y * a1y + q0z * a1z;
+  const qc = q0x * q0x + q0y * q0y + q0z * q0z - 1;
+  const disc = qb * qb - qa * qc;
+  if (disc < 0) return false;
+  const r = Math.sqrt(disc);
+  out[0] = cy + (-qb - r) / qa;
+  out[1] = cy + (-qb + r) / qa;
+  return true;
+}
+
 /** Sample from a truncated power law with cumulative N(>d) ∝ d^-k on [lo, hi]. */
 export function powerLawSize(u: number, lo: number, hi: number, k: number): number {
   const a = dpow(lo, -k), b = dpow(hi, -k);

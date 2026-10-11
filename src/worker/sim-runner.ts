@@ -18,6 +18,16 @@ export interface SnapshotSink {
   commit(): void;
 }
 
+/** Optional multi-threaded stepping (parallel.ts); results are identical to world.step(). */
+export interface Stepper {
+  attach(world: World): void;
+  step(world: World): void;
+  /** Threads stepping when active. */
+  readonly threads: number;
+  /** True once helpers are attached (otherwise steps run single-threaded). */
+  readonly active: boolean;
+}
+
 export class SimRunner {
   world: World;
   clock: FixedStepClock;
@@ -34,22 +44,30 @@ export class SimRunner {
 
   private readonly sink: SnapshotSink | null;
   private readonly now: () => number;
+  private readonly stepper: Stepper | null;
 
-  constructor(config: Config, sink: SnapshotSink | null, now: () => number) {
+  constructor(config: Config, sink: SnapshotSink | null, now: () => number, stepper: Stepper | null = null) {
     this.sink = sink;
     this.now = now;
+    this.stepper = stepper;
     this.config = config;
-    this.world = new World(config);
+    this.world = this.makeWorld(config);
     this.clock = new FixedStepClock(config.sim.dt);
     this.clock.timeScale = config.time.initialSpeed;
     this.statStart = now();
+  }
+
+  private makeWorld(config: Config): World {
+    const world = new World(config, { sharedAgents: this.stepper !== null });
+    this.stepper?.attach(world);
+    return world;
   }
 
   /** Rebuild the world (e.g. new agent count) keeping speed and pause state. */
   reset(config: Config): void {
     const { timeScale, paused } = this.clock;
     this.config = config;
-    this.world = new World(config);
+    this.world = this.makeWorld(config);
     this.clock = new FixedStepClock(config.sim.dt);
     this.clock.timeScale = timeScale;
     this.clock.paused = paused;
@@ -86,7 +104,7 @@ export class SimRunner {
     let steps = 0;
     let t = t0;
     while (this.clock.consumeStep()) {
-      this.world.step();
+      if (this.stepper) this.stepper.step(this.world); else this.world.step();
       this.clock.completeStep();
       steps++;
       t = this.now();
@@ -126,6 +144,7 @@ export class SimRunner {
       targetSpeed: this.clock.timeScale,
       paused: this.clock.paused,
       droppedSteps: this.dropped,
+      threads: this.stepper?.active ? this.stepper.threads : 1,
     };
     this.statStart = now;
     this.statSteps = 0;

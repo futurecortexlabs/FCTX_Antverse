@@ -11,7 +11,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildConfig, parseUrlOptions, ConfigError, type Overlay } from '../config/load.ts';
 import { MS_PER_S } from '../core/units.ts';
 import { createRenderer } from '../render/renderer.ts';
-import { AntInstances } from '../render/ants/ant-instances.ts';
+import { AntRenderer } from '../render/ants/ant-renderer.ts';
 import { Environment } from '../render/environment.ts';
 import { GroundRenderer } from '../render/terrain/ground.ts';
 import { GrainField, buildGrass, buildLeaves, buildPebbles } from '../render/terrain/surface-objects.ts';
@@ -20,6 +20,7 @@ import { focalPx } from '../render/terrain/quadtree.ts';
 import { buildOverlays } from '../render/debug/overlays.ts';
 import { Terrain } from '../terrain/terrain.ts';
 import { SimHost } from './sim-host.ts';
+import { SNAP_FLOATS } from '../worker/protocol.ts';
 import { Hud } from './hud/hud.ts';
 import { RollingStats } from '../core/rolling-stats.ts';
 import { BenchSweep, benchCsv } from '../bench/sweep.ts';
@@ -91,9 +92,12 @@ async function main(): Promise<void> {
   scene.add(grains.mesh);
   if (cfg.terrainRender.showScaleBar) scene.add(buildOverlays(cfg, terrain));
   const terrainBuildMs = performance.now() - tGen;
-  const ants = new AntInstances(cfg);
-  ants.mesh.castShadow = cfg.terrainRender.shadows;
-  scene.add(ants.mesh);
+  const ants = new AntRenderer(cfg);
+  scene.add(ants.group);
+  const probe = {
+    support: (x: number, z: number): number => terrain.supportHeight(x, z),
+    solid: (x: number, y: number, z: number): boolean => terrain.solidAt(x, y, z),
+  };
 
   const camera = new THREE.PerspectiveCamera(r.fov, 1, r.near, r.far);
   const [cx, cy, cz] = r.cameraStart;
@@ -148,7 +152,7 @@ async function main(): Promise<void> {
 
   const bench = query.get('bench') === '1'
     ? new BenchSweep(cfg, {
-        reset: (count) => host.reset([...overlays, { debugWalk: { count } }]),
+        reset: (count) => host.reset([...overlays, { population: { count } }]),
         aliveInSnapshot: () => host.interp.alive,
         simMsPerTick: () => host.stats?.msPerTick ?? 0,
         achievedSpeed: () => host.stats?.achievedSpeed ?? 0,
@@ -159,12 +163,12 @@ async function main(): Promise<void> {
           adapter: info.adapter,
           transport: host.transport,
           viewport: `${window.innerWidth}x${window.innerHeight}@${renderer.getPixelRatio()}`,
-          note: 'Phase 1 terrain + placeholder bodies (debug random walk on supportHeight)',
+          note: 'Phase 2: terrain + walking workers (LOD0 legs solved), parallel sim',
         });
         (window as unknown as { __antverseBench: unknown }).__antverseBench = { rows, csv };
         console.table(rows);
         hud.note(`<pre>${csv}</pre>`);
-        if (import.meta.env.DEV) void saveReportFile(`bench/phase-1-${info.backend.toLowerCase()}.csv`, csv);
+        if (import.meta.env.DEV) void saveReportFile(`bench/phase-2-${info.backend.toLowerCase()}.csv`, csv);
       })
     : null;
 
@@ -173,8 +177,14 @@ async function main(): Promise<void> {
     ? new QualityGovernor({ pixelRatio: renderer.getPixelRatio(), maxScreenError: cfg.terrainRender.maxScreenError }, cfg.quality)
     : null;
 
+  // Camera follow: keep the camera at a fixed world offset from one ant (debug / capture; Phase 8 builds on it).
+  let follow: { slot: number; offset: [number, number, number] } | null = null;
+  const followAnt = (slot: number | null, offset: [number, number, number] = [0, 3, 12]): void => {
+    follow = slot === null ? null : { slot, offset };
+  };
+
   // Expose a small handle for automated checks (DevTools / test harness).
-  (window as unknown as { antverse: unknown }).antverse = { host, cfg, info, renderer, camera, controls, hud, terrain, ground, grains, terrainBuildMs, tier, governor };
+  (window as unknown as { antverse: unknown }).antverse = { host, cfg, info, renderer, camera, controls, hud, terrain, ground, grains, terrainBuildMs, tier, governor, ants, followAnt };
 
   renderer.setAnimationLoop(() => {
     const now = performance.now();
@@ -183,11 +193,17 @@ async function main(): Promise<void> {
     lastFrame = now;
 
     host.update(performance.timeOrigin + now);
-    ants.update(host.interp);
+    if (follow && follow.slot < host.interp.count) {
+      const o = follow.slot * SNAP_FLOATS, c = host.interp.curr;
+      controls.target.set(c[o]!, c[o + 1]!, c[o + 2]!);
+      camera.position.set(c[o]! + follow.offset[0], c[o + 1]! + follow.offset[1], c[o + 2]! + follow.offset[2]);
+    }
     controls.update();
     if (applyCameraGuard(terrain, cfg, camera.position, controls.target)) camera.lookAt(controls.target);
     const viewportPx = renderer.domElement.height / renderer.getPixelRatio();
-    ground.update(camera.position, focalPx(camera.fov * DEG, viewportPx));
+    const focal = focalPx(camera.fov * DEG, viewportPx);
+    ants.update(host.interp, camera.position, focal, probe);
+    ground.update(camera.position, focal);
     grains.update(camera, viewportPx, cfg.terrainRender.genBudget);
     env.update(camera, controls.target);
     renderer.render(scene, camera);
@@ -226,6 +242,7 @@ async function main(): Promise<void> {
       }, host.stats, info, host.transport, [
         `ground ${ground.stats.drawn} chunks (${ground.stats.pending} pending, ${ground.stats.cached} cached) | ${(ground.stats.triangles / 1000).toFixed(0)}k tris`,
         `grains ${grains.count} | pebbles ${terrain.pebbles.count} | leaves ${terrain.leaves.count} | grass ${terrain.grass.blades}`,
+        `ants LOD0 (legs) ${ants.stats.lod0} | LOD1 ${ants.stats.lod1} | LOD2 ${ants.stats.lod2}`,
         `camera ${(camera.position.y - terrain.supportHeight(camera.position.x, camera.position.z)).toFixed(2)} mm above surface`,
         `quality ${tier} | pixel ratio ${renderer.getPixelRatio().toFixed(2)} | LOD error ≤ ${ground.params.maxScreenError.toFixed(1)} px${governor ? (governor.degraded() ? ' (auto: reduced)' : ' (auto)') : ''}`,
       ]);
