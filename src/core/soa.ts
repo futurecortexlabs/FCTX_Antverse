@@ -36,10 +36,41 @@ const CTOR: Record<FieldKind, new (n: number) => ArrayBufferView & { length: num
   i32: Int32Array,
 };
 
-export function allocSoA<S extends Schema>(schema: S, capacity: number): SoA<S> {
+const BYTES: Record<FieldKind, number> = { f32: 4, f64: 8, u8: 1, u16: 2, u32: 4, i32: 4 };
+
+type TypedCtor = new (buffer: ArrayBufferLike) => ArrayBufferView;
+
+/**
+ * Allocate one TypedArray per field. With `shared`, every field lives in its
+ * own SharedArrayBuffer so other threads can attach to it (attachSoA).
+ */
+export function allocSoA<S extends Schema>(schema: S, capacity: number, shared = false): SoA<S> {
   const out: Record<string, ArrayBufferView> = {};
   for (const [name, spec] of Object.entries(schema)) {
-    out[name] = new CTOR[spec.kind](capacity * spec.components);
+    out[name] = shared
+      ? new (CTOR[spec.kind] as unknown as TypedCtor)(new SharedArrayBuffer(capacity * spec.components * BYTES[spec.kind]))
+      : new CTOR[spec.kind](capacity * spec.components);
+  }
+  return out as SoA<S>;
+}
+
+/** The SharedArrayBuffers behind a shared SoA, by field name. */
+export function soaBuffers<S extends Schema>(soa: SoA<S>): Record<string, SharedArrayBuffer> {
+  const out: Record<string, SharedArrayBuffer> = {};
+  for (const [name, arr] of Object.entries(soa as Record<string, ArrayBufferView>)) {
+    if (!(arr.buffer instanceof SharedArrayBuffer)) throw new Error(`soaBuffers: field ${name} is not shared`);
+    out[name] = arr.buffer;
+  }
+  return out;
+}
+
+/** Views over buffers exported by soaBuffers (on another thread). */
+export function attachSoA<S extends Schema>(schema: S, buffers: Record<string, SharedArrayBuffer>): SoA<S> {
+  const out: Record<string, ArrayBufferView> = {};
+  for (const [name, spec] of Object.entries(schema)) {
+    const b = buffers[name];
+    if (!b) throw new Error(`attachSoA: missing field ${name}`);
+    out[name] = new (CTOR[spec.kind] as unknown as TypedCtor)(b);
   }
   return out as SoA<S>;
 }
@@ -55,7 +86,6 @@ export function soaViews<S extends Schema>(schema: S, soa: SoA<S>, count: number
 }
 
 export function soaBytesPerRecord(schema: Schema): number {
-  const BYTES: Record<FieldKind, number> = { f32: 4, f64: 8, u8: 1, u16: 2, u32: 4, i32: 4 };
   let n = 0;
   for (const spec of Object.values(schema)) n += BYTES[spec.kind] * spec.components;
   return n;

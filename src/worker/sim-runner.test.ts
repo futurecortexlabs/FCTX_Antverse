@@ -4,7 +4,7 @@ import { runHeadless } from '../sim/headless.ts';
 import { SnapshotView, snapshotByteLength, SnapH } from './protocol.ts';
 import { SimRunner, type SnapshotSink } from './sim-runner.ts';
 
-const { config } = buildConfig([{ debugWalk: { count: 100 } }, { sim: { capacity: 128 } }]);
+const { config } = buildConfig([{ population: { count: 100 } }, { sim: { capacity: 128 } }]);
 
 function fakeTime() {
   let t = 0;

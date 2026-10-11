@@ -9,10 +9,12 @@ import { buildConfig } from '../../src/config/load.ts';
 import { checkDeterminism, runHeadless } from '../../src/sim/headless.ts';
 import { World } from '../../src/sim/world.ts';
 
-const { config } = buildConfig();
+// Reproducibility does not depend on population size; 300 workers keep the run short
+// (the browser determinism check covers the default population).
+const { config } = buildConfig([{ population: { count: 300 } }]);
 const TICKS = config.sim.determinismCheckTicks;
 
-describe(`seed reproducibility (${config.debugWalk.count} agents, ${TICKS} ticks)`, () => {
+describe(`seed reproducibility (${config.population.count} agents, ${TICKS} ticks)`, () => {
   it('same seed gives identical hashes; seed+1 differs', { timeout: 300000 }, () => {
     const r = checkDeterminism(config, TICKS);
     console.log(`[determinism] ${JSON.stringify(r)}`);

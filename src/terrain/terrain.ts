@@ -23,7 +23,7 @@ import type { Config } from '../config/params.ts';
 import { GridIndex } from './grid-index.ts';
 import { bandWeight, fbmAdd, gradNoise, hurstAmplitudes, newSample, type FbmSpec, type Sample } from './noise.ts';
 import {
-  ellipsoidHalfHeight, ellipsoidInverse, ellipsoidTop, lerp, poisson, powerLawSize, smoothstep, type Ellipsoid,
+  ellipsoidHalfHeight, ellipsoidInverse, ellipsoidSpan, ellipsoidTop, lerp, poisson, powerLawSize, smoothstep, type Ellipsoid,
 } from './shapes.ts';
 
 /** |gradient noise| never exceeds √2/2 for unit gradients. */
@@ -552,6 +552,42 @@ export class Terrain {
     const p = this.pebbleTop(x, z); if (p > y) y = p;
     const l = this.leafTop(x, z); if (l > y) y = l;
     return y;
+  }
+
+  private readonly span = new Float64Array(2);
+
+  /**
+   * Is (x, y, z) inside solid matter: below the soil, inside a grain or pebble,
+   * or within a leaf's thickness? Unlike "below supportHeight", the space under
+   * a curled leaf edge is open.
+   */
+  solidAt(x: number, y: number, z: number): boolean {
+    if (y < this.groundHeight(x, z)) return true;
+    if (!this.inDomain(x, z)) return false;
+    const sp = this.span, rng = this.rng;
+    const P = this.pebbles, pItems = this.pebbleIndex.itemList;
+    this.pebbleIndex.range(x, z, rng);
+    for (let q = rng[0]!; q < rng[1]!; q++) {
+      const i = pItems[q]!;
+      if (ellipsoidSpan(x, z, P.center[3 * i]!, P.center[3 * i + 1]!, P.center[3 * i + 2]!, P.inv, 9 * i, sp) && y >= sp[0]! && y <= sp[1]!) return true;
+    }
+    const t = this.config.terrain, cell = t.grainCell, rmax = t.grainSize[1]! / 2;
+    for (let iz = Math.floor((z - rmax) / cell); iz <= Math.floor((z + rmax) / cell); iz++) {
+      for (let ix = Math.floor((x - rmax) / cell); ix <= Math.floor((x + rmax) / cell); ix++) {
+        const g = this.grainCell(ix, iz);
+        for (let o = 0; o < g.length; o += GRAIN_STRIDE) {
+          if (ellipsoidSpan(x, z, g[o]!, g[o + 1]!, g[o + 2]!, g, o + 9, sp) && y >= sp[0]! && y <= sp[1]!) return true;
+        }
+      }
+    }
+    const lItems = this.leafIndex.itemList;
+    this.leafIndex.range(x, z, rng);
+    const r0 = rng[0]!, r1 = rng[1]!;
+    for (let q = r0; q < r1; q++) {
+      const top = this.leafTopOf(lItems[q]!, x, z);
+      if (top !== -Infinity && y <= top && y >= top - t.leafThickness) return true;
+    }
+    return false;
   }
 
   /** Hash of everything generated (for reproducibility checks). */

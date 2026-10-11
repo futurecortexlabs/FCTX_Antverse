@@ -157,7 +157,7 @@ export class Hud {
   render(perf: PerfSnapshot, sim: SimStats | null, info: RendererInfo, transport: Transport, extra: readonly string[] = []): void {
     const speedLabel = (s: number): string => (s >= this.cfg.time.maxSpeed ? 'MAX' : `×${s}`);
     const lines = [
-      `Antverse — Phase 1`,
+      `Antverse — Phase 2`,
       `${info.backend} | depth ${info.depth} | ${transport === 'shared' ? 'SharedArrayBuffer' : 'copy transfer'} | ${this.tier}`,
       `GPU ${info.adapter}`,
       `FPS ${fmt(perf.fps)} | frame p50 ${fmt(perf.frameP50, 2)} / p95 ${fmt(perf.frameP95, 2)} ms`,
@@ -166,7 +166,7 @@ export class Hud {
     if (sim) {
       lines.push(
         `sim tick ${sim.tick} | t = ${fmt(sim.simTime, 2)} s | agents ${sim.alive}`,
-        `speed ${sim.paused ? 'PAUSED' : speedLabel(sim.targetSpeed)} → achieved ×${fmt(sim.achievedSpeed, 2)} | ${fmt(sim.ticksPerSec, 0)} tick/s | ${fmt(sim.msPerTick, 3)} ms/tick`,
+        `speed ${sim.paused ? 'PAUSED' : speedLabel(sim.targetSpeed)} → achieved ×${fmt(sim.achievedSpeed, 2)} | ${fmt(sim.ticksPerSec, 0)} tick/s | ${fmt(sim.msPerTick, 3)} ms/tick | ${sim.threads} thread${sim.threads > 1 ? 's' : ''}`,
       );
     }
     lines.push(...extra);

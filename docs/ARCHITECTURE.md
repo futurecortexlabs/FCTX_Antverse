@@ -13,6 +13,9 @@ Phase 0 着手前の提案に、プロジェクトオーナーの承認内容（
 | 4 | 土壌ボクセル | ボクセル 1 mm、巣領域 512 × 512 × 1024 mm（初期値） |
 | 5 | 種のデータ不足の補い方 | ASM-SPC-001（*F. japonica* → *Formica* 属 → ヤマアリ亜科の順） |
 | 6 | 早送り | 速度プリセット ×0.25〜×128 と MAX **[Phase 0 実装済]**。長期のライフサイクルは Phase 6 で更新レートを分ける仕組みと合わせて設計する |
+| 7 | Phase 1 の範囲 | 地表は巣口を中心に 2 m 四方（推奨案で進行） |
+| 8 | 公開先と画質 | ローカルは最高画質、GitHub Pages は軽量 + 自動調整、スマホはタッチ操作向け（§7） |
+| 9 | Phase 2 の範囲 | 足場は土・粒・小石・落葉の上だけで、草や垂直面を登る動きは後のフェーズに回す。「めり込まない・浮かない」は ±0.02 mm で判定。並列化はこのフェーズで実装（推奨案で進行） |
 
 ## 1. 全体構成 [Phase 0 実装済]
 
@@ -65,7 +68,11 @@ three.js を import してよいのは `render/` と `app/` だけ。
 - **状態ハッシュ**: `World.stateHash()` はシード・tick・空きスロットの一覧・全 SoA フィールドのハッシュ。
 - **時間の扱い**: 固定 Δt で進め、壁時計の時間に倍率を掛けて積算する。追いつけない分は捨てるが、捨てても時間の進み方が変わるだけで、tick N の状態は変わらない。
   これはテスト（`sim-runner.test.ts`）と、アプリ内の「Determinism check」ボタン（実行中の World と、同じ tick までヘッドレスで再実行した結果を比較）で確認できる。
-- **今後の注意**: 複数の Worker に分割する段階では、1 tick を 感知 → 判断 → 行動 → 相互作用 の段階に分け、相互作用は (i<j) の決まった順で解決する。
+- **並列化 [Phase 2 実装済]**（`worker/parallel.ts`、ENG-SIM-008）:
+  - エージェントを共有メモリに置き、スロットの範囲を、補助 Worker（最大 7 本）と統括 Worker で分担する。
+  - ルールは自分のスロットだけを読み書きするので、どう分割しても結果はビット単位で一致する（テストと、ブラウザでのヘッドレス再実行との比較で確認）。
+  - 補助 Worker の準備中や個体数が少ないときは、統括 Worker が 1 スレッドで進める（結果は同じ）。
+  - 個体間の相互作用が入る段階（Phase 3 以降）では、1 tick を 感知 → 判断 → 行動 → 相互作用 の段階に分け、相互作用は (i<j) の決まった順で解決する。
 
 ## 4. データ設計
 
@@ -80,7 +87,9 @@ three.js を import してよいのは `render/` と `app/` だけ。
 | gaitPhase | f32 | 三脚歩容の位相（移動距離 ÷ ストライド長で進むので足が滑らない） | 0 ✓ |
 | caste, flags, carryKind | u8 | カースト・生死などのフラグ・運搬物 | 0 ✓ |
 | gen | u16 | 世代番号 | 0 ✓ |
-| speed, heading | f32 | 速度・地面上の向き角（Phase 2 で地表面の座標系による操舵に置き換える） | 0 ✓ |
+| speed, heading | f32 | 個体の歩行速度・地面上の向き角 | 0 ✓ |
+| pitch, roll | f32 | 地形に沿った胴体の傾き | 2 ✓ |
+| turnRate | f32 | 旋回の角速度（相関ランダムウォーク） | 2 ✓ |
 | colony | u16 | 所属コロニー | 6 |
 | domain | u8 | 地表 / 地下 / 物体の上 | 2 |
 | state, stateTime | u8, f32 | 行動の状態機械 | 2 |
@@ -90,7 +99,7 @@ three.js を import してよいのは `render/` と `app/` だけ。
 | crop, reserve | f32 | 社会胃・体内エネルギー | 6 |
 | carryMass, carryRef, targetRef | f32, u32, u32 | 運搬・追従 | 3 |
 
-- 脚の関節角は状態として持たず、描画側で gaitPhase と地形への問い合わせから IK で求める（LOD0 のみ）。
+- 脚の関節角は状態として持たず、描画側で gaitPhase と地形への問い合わせから IK で求める（LOD0 のみ。§4.6）。
 - 近傍探索には一様グリッドを使い、毎 tick カウンティングソートで作り直す（走査順も決定的）。
 - 運ばれる物（卵・幼虫・蛹・餌・土粒・死骸）は別の Item プールに置く。
 
@@ -127,6 +136,17 @@ three.js を import してよいのは `render/` と `app/` だけ。
   - 4 つの子がそろうまでは親を描くので、地面に穴も重なりも出ない。
 - **カメラのガード**: カメラは常に「足が乗る高さ + 0.1 mm + ニア面の距離」より上にあり、周囲 0.4 mm も確かめる。注視点も地表より下に行かない。
 
+### 4.6 歩行 [Phase 2 実装済]
+
+| 担当 | 内容 |
+|---|---|
+| シミュレーション（`sim/rules/explore.ts`） | 相関ランダムウォーク（旋回の角速度が OU 過程）。前方の足場が ±1.4 mm を超えて上下する場所と、アリーナの縁は、その場で旋回して避ける。歩行位相は、歩いた距離と旋回の円弧の長さをストライド長で割った分だけ進める |
+| シミュレーション（`sim/rules/body-pose.ts`） | 中胸・頭部・腹部の下の足場から、体高とピッチを決める。ロールは地面の傾きから決める。時定数 0.05 s で追従し、各体節の下面が足場より下に入らないよう押し上げる |
+| 脚（`locomotion/legs.ts`、純粋なロジック） | 交互三脚歩容。立脚中の足は固定し、遊脚は円弧を描いて地表より下に入らない。足場は、観測した胴体の移動と回転から、その接地中のちょうど真ん中の時点で足が基準位置に来るよう予測する。届かない・途中で固体を貫く足場は、体の側へ寄せる。IK は解析解で、跗節の向きと膝の曲げ面は、届く・固体に入らない向きに自動で調整する |
+| 描画（`render/ants/`） | 体節・複眼・大あご・膝状の触角。LOD0 は脚を動かす（最大 64 体）、LOD1 は脚の形状を焼き込み、LOD2 は簡略形 |
+
+地形には `solidAt(x, y, z)` を加えた。その点が固体の中かを判定する関数で、反り上がった落葉の縁の下などの空間を、固体と区別できる。
+
 ### 4.4 パラメータ [Phase 0 実装済]
 - `src/config/params.ts` の全値が `{value, unit, ref, min?, max?, integer?}` を持つ。
 - ref の種類: `BIO-*`・`PHY-*`・`ASM-*` は [BIOLOGY.md](BIOLOGY.md)、`ENG-*` は [ENGINEERING.md](ENGINEERING.md) に定義する。
@@ -145,8 +165,9 @@ scripts/               bench-sim.ts（Node のシミュレーションベンチ�
 src/core/              単位・乱数・決定論的数学関数・時計・SoA・ハッシュ・ローリング統計
 src/config/            スキーマ・既定値・読み込み
 src/terrain/           ノイズ、地表（土・粒・小石・落葉・草）、空間索引
-src/sim/               World, headless, agents/, rules/
-src/worker/            protocol, sim-runner, snapshot-writer, sim.worker
+src/locomotion/        形態（体の寸法）、脚のリグ（三脚歩容・足場・IK）
+src/sim/               World, headless, population, agents/, rules/（explore, body-pose）
+src/worker/            protocol, sim-runner, snapshot-writer, sim.worker, parallel + sim-helper.worker（並列化）
 src/render/            renderer, environment（空・霧・影）, interpolation, ants/, terrain/（LOD・チャンク・材質・地表の物体・カメラのガード）, debug/
 src/app/               main, sim-host, hud/, report
 src/bench/             描画ベンチのスイープ
@@ -166,6 +187,7 @@ npm run bench:sim  # Node でのシミュレーション単体ベンチ → docs
 npm run browser:smoke   # 両バックエンドの起動確認と決定論チェック
 npm run browser:shots   # Phase 0 のスクリーンショット → docs/reports/phase-0/
 node scripts/browser-run.ts terrain   # Phase 1 の地形の視点 8 種 + 計測値 → docs/reports/phase-1/
+node scripts/browser-run.ts walk      # Phase 2 の歩行の視点 + 連続フレーム → docs/reports/phase-2/（GIF は scripts/make-gif.py で作る）
 npm run bench:render    # 個体数スイープ（WebGL2 は `node scripts/browser-run.ts bench webgl`）
 npm run dev:lan         # 同じ Wi-Fi のスマホから開けるように公開する
 npm run build:artifact  # Artifact 用のページを dist/artifact.html に出力する

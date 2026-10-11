@@ -33,6 +33,7 @@ export function writeSnapshot(
     f[o + 5] = a.rot[r + 2]!;
     f[o + 6] = a.rot[r + 3]!;
     f[o + 7] = a.gaitPhase[s]!;
+    f[o + 8] = a.speed[s]!;
     m[s] = (a.caste[s]!
       | (a.flags[s]! << META_FLAG_SHIFT)
       | (a.carryKind[s]! << META_CARRY_SHIFT)

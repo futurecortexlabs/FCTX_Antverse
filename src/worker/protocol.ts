@@ -15,9 +15,9 @@ import type { Overlay } from '../config/load.ts';
 // ---------------------------------------------------------------------------
 // Snapshot layout
 
-/** Per-agent float record: pos(3) rot(4) gaitPhase(1). */
-export const SNAP_FLOATS = 8;
-export const SnapF = { PX: 0, PY: 1, PZ: 2, QX: 3, QY: 4, QZ: 5, QW: 6, GAIT: 7 } as const;
+/** Per-agent float record: pos(3) rot(4) gaitPhase(1) speed(1). */
+export const SNAP_FLOATS = 9;
+export const SnapF = { PX: 0, PY: 1, PZ: 2, QX: 3, QY: 4, QZ: 5, QW: 6, GAIT: 7, SPEED: 8 } as const;
 
 /** Per-agent u32: caste | flags<<8 | carryKind<<16 | (gen & 0xff)<<24. */
 export const META_FLAG_SHIFT = 8;
@@ -135,6 +135,8 @@ export interface SimStats {
   targetSpeed: number;
   paused: boolean;
   droppedSteps: number;
+  /** Simulation threads in use (1 = single-threaded). */
+  threads: number;
 }
 
 export interface DeterminismReport {
@@ -153,7 +155,7 @@ export interface DeterminismReport {
 }
 
 export type FromWorker =
-  | { type: 'ready'; capacity: number; seed: number }
+  | { type: 'ready'; capacity: number; seed: number; threads: number }
   | { type: 'snapshot'; buffer: ArrayBuffer }
   | { type: 'stats'; stats: SimStats }
   | { type: 'hash'; id: number; tick: number; hash: string }
