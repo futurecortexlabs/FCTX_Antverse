@@ -73,6 +73,15 @@ describe('Terrain generation', () => {
 });
 
 describe('Terrain queries', () => {
+  it('grains do not depend on the overlay at the time their cell is first generated (lazy cells, threads)', () => {
+    const before = new Terrain(config), after = new Terrain(config);
+    after.overlay = { heightAt: (x: number, z: number) => 2 + 0.01 * x - 0.02 * z };
+    for (const [x, z] of points(300, T.half)) {
+      const ix = Math.floor(x / config.terrain.grainCell), iz = Math.floor(z / config.terrain.grainCell);
+      expect(after.grainCell(ix, iz)).toEqual(before.grainCell(ix, iz));
+    }
+  });
+
   it('supportHeight is never below the soil and is at least each object top', () => {
     for (const [x, z] of points(5000, T.half)) {
       const s = T.supportHeight(x, z);

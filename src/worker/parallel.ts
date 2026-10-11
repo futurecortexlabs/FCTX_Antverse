@@ -17,7 +17,7 @@
 
 import type { Config } from '../config/params.ts';
 import { isSharedBuffer } from '../core/soa.ts';
-import type { World } from '../sim/world.ts';
+import type { SharedNest, World } from '../sim/world.ts';
 
 export const Ctl = { GEN: 0, DONE: 1, TICK: 2, ATTACH: 3, RANGES: 4 } as const;
 
@@ -27,6 +27,8 @@ export type HelperIn = {
   buffers: Record<string, SharedArrayBuffer>;
   /** The pheromone grid (read-only for helpers). */
   pheromone: SharedArrayBuffer | null;
+  /** A digging world's mound, density counts and dig log (helpers replay the digs). */
+  nest: SharedNest | null;
   control: SharedArrayBuffer;
   index: number;
   attachId: number;
@@ -47,10 +49,13 @@ export class ParallelStepper {
   private attachId = 0;
   private acks = 0;
   private ready = false;
+  private nestOk = true;
   private readonly minPerThread: number;
   /** Ticks stepped with helpers / alone (for stats). */
   parallelTicks = 0;
   soloTicks = 0;
+  /** Threads that stepped the last tick. */
+  lastThreads = 1;
 
   constructor(helpers: Worker[], minAgentsPerThread: number, onError: (msg: string) => void) {
     this.helpers = helpers;
@@ -76,8 +81,10 @@ export class ParallelStepper {
     const buffers = world.agents.sharedBuffers();
     const field = world.pheromone?.buffer;
     const pheromone = field && isSharedBuffer(field) ? field : null;
+    const nest = world.sharedNest();
+    this.nestOk = world.soil === null || nest !== null;
     this.helpers.forEach((w, index) => {
-      const msg: HelperIn = { type: 'attach', config: world.config, buffers, pheromone, control: this.control, index, attachId: this.attachId };
+      const msg: HelperIn = { type: 'attach', config: world.config, buffers, pheromone, nest, control: this.control, index, attachId: this.attachId };
       w.postMessage(msg);
     });
   }
@@ -85,10 +92,11 @@ export class ParallelStepper {
   step(world: World): void {
     const n = world.agents.highWater;
     const k = this.helpers.length;
-    // The soil of a digging world lives only in this thread's World (helpers would not see new tunnels).
-    if (!this.ready || world.soil || n < this.minPerThread * (k + 1)) {
+    // A digging world without shared nest memory can only be stepped here.
+    if (!this.ready || !this.nestOk || n < this.minPerThread * (k + 1)) {
       world.step();
       this.soloTicks++;
+      this.lastThreads = 1;
       return;
     }
     const chunk = Math.ceil(n / (k + 1));
@@ -106,6 +114,7 @@ export class ParallelStepper {
     while ((done = Atomics.load(this.ctl, Ctl.DONE)) < k) Atomics.wait(this.ctl, Ctl.DONE, done, WAIT_SLICE_MS);
     world.completeStep();
     this.parallelTicks++;
+    this.lastThreads = this.threads;
   }
 
   get active(): boolean {

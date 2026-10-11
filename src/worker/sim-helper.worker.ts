@@ -36,7 +36,11 @@ self.onmessage = (e: MessageEvent<HelperIn>) => {
   const m = e.data;
   try {
     const agents = new AgentStore(m.config.sim.capacity, { buffers: m.buffers });
-    const world = new World(m.config, { agents, ...(m.pheromone ? { pheromoneBuffer: m.pheromone } : {}) });
+    const world = new World(m.config, {
+      agents,
+      ...(m.pheromone ? { pheromoneBuffer: m.pheromone } : {}),
+      ...(m.nest ? { moundBuffer: m.nest.mound, densityBuffer: m.nest.density, digLogBuffer: m.nest.digLog } : {}),
+    });
     const ctl = new Int32Array(m.control);
     post({ type: 'attached', attachId: m.attachId, index: m.index });
     void serve(world, ctl, m.index, m.attachId).catch((err: unknown) => post({ type: 'error', message: String(err) }));

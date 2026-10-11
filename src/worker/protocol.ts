@@ -137,7 +137,7 @@ export interface SimStats {
   targetSpeed: number;
   paused: boolean;
   droppedSteps: number;
-  /** Simulation threads in use (1 = single-threaded). */
+  /** Simulation threads that stepped the last tick (1 = single-threaded). */
   threads: number;
   /**
    * In a foraging or digging scenario: agents per state, indexed like AgentState,
