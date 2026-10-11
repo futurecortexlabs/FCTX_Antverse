@@ -11,3 +11,8 @@ npm install
 npm run dev     # http://localhost:5173
 npm test
 ```
+
+## 画質と公開先
+- ローカル（`npm run dev`）は最高画質（ultra）、GitHub Pages などの公開版は軽量 + 自動調整（web）、スマホはタッチ操作向け（mobile）を自動で選びます。`?quality=` で切り替えられます。
+- `main` に push すると GitHub Pages に自動で公開されます（`.github/workflows/deploy-pages.yml`）。初回のみ Settings → Pages → Source を「GitHub Actions」にしてください。
+- 詳細は [docs/ARCHITECTURE.md §7](docs/ARCHITECTURE.md) を参照してください。

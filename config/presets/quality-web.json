@@ -1,0 +1,10 @@
+{
+  "render": { "maxPixelRatio": 1.25 },
+  "terrainRender": {
+    "maxScreenError": 3,
+    "shadowMapSize": 2048,
+    "grainMinPixels": 2,
+    "genBudget": 3
+  },
+  "quality": { "auto": true }
+}

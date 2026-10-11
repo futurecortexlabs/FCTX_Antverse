@@ -7,6 +7,7 @@
  *   node scripts/browser-run.ts smoke            # backend / adapter / FPS / determinism
  *   node scripts/browser-run.ts shots            # Phase 0 screenshots -> docs/reports/phase-0/
  *   node scripts/browser-run.ts eval '<expr>' [query]   # evaluate an expression in the running app
+ *   node scripts/browser-run.ts tiers            # quality tiers + automatic reduction on a throttled CPU
  *   node scripts/browser-run.ts terrain          # Phase 1 terrain views + metrics -> docs/reports/phase-1/
  *   node scripts/browser-run.ts bench [webgl]    # ?bench=1 sweep -> docs/reports/bench/
  *   node scripts/browser-run.ts mobile [webgl|-] [url]  # phone emulation -> docs/reports/mobile/
@@ -211,6 +212,40 @@ async function terrainViews(cdp: Cdp): Promise<void> {
   writeFileSync(`${dir}/views.json`, JSON.stringify(metrics, null, 2));
 }
 
+/**
+ * Quality tiers: start each tier on the dev server and report its settings
+ * and frame rate; then run the web tier on a CPU throttled 6× (a slow PC)
+ * and show what the automatic quality reduction did.
+ */
+async function tiers(cdp: Cdp): Promise<void> {
+  const state = `(() => {
+    const a = window.antverse, hud = document.querySelector('.hud pre').textContent;
+    const num = (re) => { const m = re.exec(hud); return m ? Number(m[1]) : null; };
+    return { tier: a.tier, fps: num(/FPS ([0-9.]+)/), cpu: num(/main CPU ([0-9.]+) ms/), gpu: num(/GPU ([0-9.]+) ms/),
+      pixelRatio: a.renderer.getPixelRatio(), lodError: a.ground.params.maxScreenError, chunks: a.ground.stats.drawn,
+      shadowMap: a.cfg.terrainRender.shadowMapSize, auto: !!a.governor, reduced: a.governor ? a.governor.degraded() : false };
+  })()`;
+  const near = `(() => { const a = window.antverse, t = a.terrain; a.camera.position.set(40, t.supportHeight(40, 0) + 2, 0); a.controls.target.set(0, t.supportHeight(0, 0) + 3, 0); a.controls.update(); })()`;
+  for (const q of ['ultra', 'web', 'mobile']) {
+    await cdp.goto(BASE + `?quality=${q}`);
+    await cdp.eval(near);
+    await cdp.eval('new Promise(r => setTimeout(r, 6000))');
+    console.log(q, JSON.stringify(await cdp.eval(state)));
+  }
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
+  await cdp.goto(BASE + '?quality=web');
+  await cdp.eval(near);
+  for (let i = 0; i < 4; i++) {
+    await cdp.eval('new Promise(r => setTimeout(r, 5000))');
+    console.log(`web, CPU ×6 slower, t=${(i + 1) * 5}s`, JSON.stringify(await cdp.eval(state)));
+  }
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+  for (let i = 0; i < 3; i++) {
+    await cdp.eval('new Promise(r => setTimeout(r, 5000))');
+    console.log(`web, throttle removed, t=${(i + 1) * 5}s`, JSON.stringify(await cdp.eval(state)));
+  }
+}
+
 /** Phone emulation (390x844 CSS px, DPR 3, touch). `base` lets you target a static/LAN/artifact URL. */
 async function mobile(cdp: Cdp, base: string, backend: string | undefined): Promise<void> {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true, screenWidth: 390, screenHeight: 844 });
@@ -221,7 +256,7 @@ async function mobile(cdp: Cdp, base: string, backend: string | undefined): Prom
   await cdp.eval(SETTLE);
   const state = await cdp.eval<Record<string, unknown>>(`(() => {
     const a = window.antverse, s = a.host.stats;
-    return { coarse: matchMedia('(pointer: coarse)').matches, screen: [screen.width, screen.height], dpr: devicePixelRatio,
+    return { tier: a.tier, coarse: matchMedia('(pointer: coarse)').matches, screen: [screen.width, screen.height], dpr: devicePixelRatio,
       pixelRatio: a.renderer.getPixelRatio(), backend: a.info.backend, depth: a.info.depth, transport: a.host.transport,
       isolated: crossOriginIsolated, collapsed: document.querySelector('.hud').classList.contains('collapsed'),
       summary: document.querySelector('.hud-summary').textContent, tick: s.tick, achieved: s.achievedSpeed };
@@ -258,6 +293,7 @@ async function main(): Promise<void> {
     if (cmd === 'smoke') await smoke(cdp);
     else if (cmd === 'shots') await shots(cdp);
     else if (cmd === 'terrain') await terrainViews(cdp);
+    else if (cmd === 'tiers') await tiers(cdp);
     else if (cmd === 'eval') { await cdp.goto(BASE + (process.argv[4] ?? '')); console.log(JSON.stringify(await cdp.eval(arg ?? 'null'), null, 1)); }
     else if (cmd === 'bench') await bench(cdp, arg);
     else if (cmd === 'mobile') await mobile(cdp, process.argv[4] ?? BASE, arg && arg !== '-' ? arg : undefined);

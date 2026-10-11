@@ -3,7 +3,7 @@
  *   ?seed=N  ?preset=name  ?set=path=value (repeatable)
  *   ?backend=webgl   force the WebGL2 backend
  *   ?bench=1         run the agent-count performance sweep
- *   ?profile=mobile|desktop   override device detection (phones get config/presets/mobile.json)
+ *   ?quality=ultra|web|mobile override the quality tier (see app/device.ts)
  */
 
 import * as THREE from 'three/webgpu';
@@ -24,7 +24,8 @@ import { Hud } from './hud/hud.ts';
 import { RollingStats } from '../core/rolling-stats.ts';
 import { BenchSweep, benchCsv } from '../bench/sweep.ts';
 import { saveReportFile } from './report.ts';
-import { detectProfile, readDeviceEnv } from './device.ts';
+import { detectTier, readDeviceEnv } from './device.ts';
+import { QualityGovernor } from './quality-governor.ts';
 import './style.css';
 
 const PRESETS = import.meta.glob<Overlay>('/config/presets/*.json', { eager: true, import: 'default' });
@@ -52,15 +53,15 @@ async function main(): Promise<void> {
     if (!o) fail(`Unknown preset "${name}". Available: ${Object.keys(PRESETS).join(', ')}`);
     return o;
   };
-  // Device profile first, so an explicit URL preset / ?set= can still override it.
+  // Quality tier first, so an explicit URL preset / ?set= can still override it.
   let threshold;
   try {
     threshold = buildConfig(url.overlays).config.device.mobileMaxShortSide;
   } catch (e) {
     fail(e instanceof Error ? e.message : String(e));
   }
-  const profile = detectProfile(readDeviceEnv(), threshold, query.get('profile'));
-  if (profile === 'mobile') overlays.push(preset('mobile'));
+  const tier = detectTier(readDeviceEnv(), threshold, query.get('quality'));
+  overlays.push(preset(`quality-${tier}`));
   if (url.preset) overlays.push(preset(url.preset));
   overlays.push(...url.overlays);
   let config;
@@ -124,7 +125,7 @@ async function main(): Promise<void> {
     if (document.hidden && !host.paused) { autoPaused = true; host.setPaused(true); }
     else if (!document.hidden && autoPaused) { autoPaused = false; host.setPaused(false); }
   });
-  const hud = new Hud(cfg, profile, {
+  const hud = new Hud(cfg, tier, {
     setSpeed: (s) => host.setSpeed(s),
     setPaused: (p) => { autoPaused = false; host.setPaused(p); },
     isPaused: () => host.paused,
@@ -167,8 +168,13 @@ async function main(): Promise<void> {
       })
     : null;
 
+  // Automatic quality reduction (web / mobile tiers); never during a benchmark.
+  const governor = cfg.quality.auto && !bench
+    ? new QualityGovernor({ pixelRatio: renderer.getPixelRatio(), maxScreenError: cfg.terrainRender.maxScreenError }, cfg.quality)
+    : null;
+
   // Expose a small handle for automated checks (DevTools / test harness).
-  (window as unknown as { antverse: unknown }).antverse = { host, cfg, info, renderer, camera, controls, hud, terrain, ground, grains, terrainBuildMs };
+  (window as unknown as { antverse: unknown }).antverse = { host, cfg, info, renderer, camera, controls, hud, terrain, ground, grains, terrainBuildMs, tier, governor };
 
   renderer.setAnimationLoop(() => {
     const now = performance.now();
@@ -200,6 +206,11 @@ async function main(): Promise<void> {
       cpuMs.push(cpu);
       if (lastGpu !== null) gpuMs.push(lastGpu);
       bench?.onFrame(now, interval, cpu, lastGpu);
+      if (governor?.sample(now, interval, cpu, info.gpuTiming ? lastGpu : null)) {
+        renderer.setPixelRatio(governor.knobs.pixelRatio);
+        resize();
+        ground.params.maxScreenError = governor.knobs.maxScreenError;
+      }
     }
 
     if (now - lastHud >= cfg.perf.hudInterval) {
@@ -216,6 +227,7 @@ async function main(): Promise<void> {
         `ground ${ground.stats.drawn} chunks (${ground.stats.pending} pending, ${ground.stats.cached} cached) | ${(ground.stats.triangles / 1000).toFixed(0)}k tris`,
         `grains ${grains.count} | pebbles ${terrain.pebbles.count} | leaves ${terrain.leaves.count} | grass ${terrain.grass.blades}`,
         `camera ${(camera.position.y - terrain.supportHeight(camera.position.x, camera.position.z)).toFixed(2)} mm above surface`,
+        `quality ${tier} | pixel ratio ${renderer.getPixelRatio().toFixed(2)} | LOD error ≤ ${ground.params.maxScreenError.toFixed(1)} px${governor ? (governor.degraded() ? ' (auto: reduced)' : ' (auto)') : ''}`,
       ]);
       if (bench && !bench.done) hud.note(bench.status());
     }

@@ -1,0 +1,12 @@
+{
+  "render": { "maxPixelRatio": 3 },
+  "terrainRender": {
+    "maxScreenError": 1.5,
+    "shadowMapSize": 4096,
+    "grainMinPixels": 1,
+    "grainMaxInstances": 150000,
+    "genBudget": 6,
+    "cacheChunks": 4000
+  },
+  "quality": { "auto": false }
+}

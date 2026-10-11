@@ -212,6 +212,18 @@ export const DEFAULT_PARAMS = {
     /** A coarse-pointer device whose shorter screen side is below this is treated as a phone. */
     mobileMaxShortSide: p(820, 'px', 'ENG-DEV-001', { min: 0 }),
   },
+  /** Automatic quality reduction (enabled by the web and mobile tiers). */
+  quality: {
+    auto: p(false, 'bool', 'ENG-QLT-001'),
+    /** Frame interval above which quality is reduced (30 fps). */
+    targetFrameMs: p(33.3, 'ms', 'ENG-QLT-001', { min: 1 }),
+    window: p(2, 's', 'ENG-QLT-001', { min: 0.1 }),
+    minPixelRatio: p(0.5, 'x', 'ENG-QLT-001', { min: 0.1 }),
+    maxScreenErrorCeil: p(8, 'px', 'ENG-QLT-001', { min: 0.1 }),
+    step: p(0.8, 'x', 'ENG-QLT-001', { min: 0.1, max: 0.99 }),
+    upgradeHeadroom: p(0.4, 'x', 'ENG-QLT-001', { min: 0, max: 1 }),
+    upgradeWindows: p(2, 'count', 'ENG-QLT-001', { min: 1, integer: true }),
+  },
   perf: {
     windowFrames: p(240, 'frames', 'ENG-PRF-001', { min: 10, integer: true }),
     hudInterval: p(250, 'ms', 'ENG-PRF-001', { min: 50 }),

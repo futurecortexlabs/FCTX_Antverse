@@ -1,0 +1,12 @@
+{
+  "render": { "maxPixelRatio": 1.5, "gpuTiming": false },
+  "ui": { "hudCollapsed": true },
+  "terrainRender": {
+    "chunkQuads": 32,
+    "maxScreenError": 4,
+    "grainMinPixels": 3,
+    "shadowMapSize": 1024,
+    "genBudget": 3
+  },
+  "quality": { "auto": true }
+}

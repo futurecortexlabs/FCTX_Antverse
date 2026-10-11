@@ -44,12 +44,12 @@ export class Hud {
   private speed: number;
   private collapsed: boolean;
   private readonly cfg: Config;
-  private readonly profile: string;
+  private readonly tier: string;
   private readonly actions: HudActions;
 
-  constructor(cfg: Config, profile: string, actions: HudActions) {
+  constructor(cfg: Config, tier: string, actions: HudActions) {
     this.cfg = cfg;
-    this.profile = profile;
+    this.tier = tier;
     this.actions = actions;
     this.speeds = [...cfg.time.speeds, cfg.time.maxSpeed];
     this.speed = cfg.time.initialSpeed;
@@ -158,7 +158,7 @@ export class Hud {
     const speedLabel = (s: number): string => (s >= this.cfg.time.maxSpeed ? 'MAX' : `×${s}`);
     const lines = [
       `Antverse — Phase 1`,
-      `${info.backend} | depth ${info.depth} | ${transport === 'shared' ? 'SharedArrayBuffer' : 'copy transfer'} | ${this.profile}`,
+      `${info.backend} | depth ${info.depth} | ${transport === 'shared' ? 'SharedArrayBuffer' : 'copy transfer'} | ${this.tier}`,
       `GPU ${info.adapter}`,
       `FPS ${fmt(perf.fps)} | frame p50 ${fmt(perf.frameP50, 2)} / p95 ${fmt(perf.frameP95, 2)} ms`,
       `main CPU ${fmt(perf.cpuMs, 2)} ms | GPU ${perf.gpuMs === null ? 'n/a' : fmt(perf.gpuMs, 2) + ' ms'} | drawn ${perf.visible}`,
