@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { dexp } from '../../core/dmath.ts';
 import { buildConfig } from '../../config/load.ts';
 import { strideLength } from '../../locomotion/morphology.ts';
+import { AgentState } from '../agents/store.ts';
 import { World } from '../world.ts';
 import { bodyPoseRange } from './body-pose.ts';
 
@@ -56,13 +57,22 @@ describe('exploration: turning is a smooth correlated random walk', () => {
 });
 
 describe('exploration: obstacles and arena edge', () => {
-  it('does not walk onto a pebble taller than maxClimb; walks around it instead', () => {
-    const T = world.terrain, P = T.pebbles;
-    // The tallest pebble, approached head-on from 12 mm outside its rim.
-    let k = 0;
-    for (let i = 1; i < P.count; i++) if (P.center[3 * i + 1]! - T.groundHeight(P.center[3 * i]!, P.center[3 * i + 2]!) > P.center[3 * k + 1]! - T.groundHeight(P.center[3 * k]!, P.center[3 * k + 2]!)) k = i;
+  it('does not walk up a pebble side steeper than maxSlope and taller than maxClimb; walks around it instead', () => {
+    const T = world.terrain, P = T.pebbles, ex = config.explore;
+    const probe = ex.probeDistance * config.ant.workerBodyLength;
+    // The tallest pebble whose side, approached along +X, rises more than maxClimb and more steeply than maxSlope over one probe distance.
+    const steepRise = (cx: number, cz: number, r: number): number => {
+      let worst = 0;
+      for (let x = cx - r - probe; x < cx; x += 0.25) worst = Math.max(worst, T.supportHeight(x + probe, cz) - T.supportHeight(x, cz));
+      return worst;
+    };
+    let k = -1, best = 0;
+    for (let i = 0; i < P.count; i++) {
+      const cx = P.center[3 * i]!, cz = P.center[3 * i + 2]!, h = T.supportHeight(cx, cz) - T.groundHeight(cx, cz);
+      if (h > best && steepRise(cx, cz, P.radii[3 * i]!) > Math.max(ex.maxClimb, ex.maxSlope * probe)) { best = h; k = i; }
+    }
+    expect(k).toBeGreaterThanOrEqual(0);
     const cx = P.center[3 * k]!, cz = P.center[3 * k + 2]!, r = P.radii[3 * k]!;
-    expect(T.supportHeight(cx, cz) - T.groundHeight(cx, cz)).toBeGreaterThan(config.explore.maxClimb);
     const sx = cx - (r + 12), sz = cz;
     place(world, sx, sz, 0); // heading 0 = +X, straight at the pebble
     const a = world.agents.a;
@@ -71,9 +81,26 @@ describe('exploration: obstacles and arena edge', () => {
       world.step();
       maxRise = Math.max(maxRise, T.supportHeight(a.posX[0]!, a.posZ[0]!) - T.groundHeight(a.posX[0]!, a.posZ[0]!));
     }
-    expect(maxRise).toBeLessThanOrEqual(config.explore.maxClimb);
+    // It may climb the gentler foot of the pebble, but not the steep side to the top.
+    expect(maxRise).toBeLessThan(0.6 * best);
     // It kept walking (around), not stuck facing the pebble.
     expect(Math.hypot(a.posX[0]! - sx, a.posZ[0]! - sz)).toBeGreaterThan(20);
+  });
+
+  it('walks up a slope higher than maxClimb but no steeper than maxSlope (a pile of loose soil)', () => {
+    const cfg = buildConfig([{ population: { count: 1 }, scenario: { digging: true }, explore: { turnRateSd: 0 } }]).config;
+    const w = new World(cfg);
+    const m = w.mound!;
+    // A pile at the angle of repose (mound.repose < explore.maxSlope), several maxClimb high.
+    for (let k = 0; k < 4000; k++) m.drop(40, 0, cfg.soil.pellet);
+    const peak = m.heightAt(40, 0);
+    expect(peak).toBeGreaterThan(3 * cfg.explore.maxClimb);
+    const a = w.agents.a;
+    a.state[0] = AgentState.DIG; // on the surface with no goal: just walks (no foraging or homing)
+    a.posX[0] = 40 - peak / cfg.mound.repose - 8; a.posZ[0] = 0; a.heading[0] = 0; a.turnRate[0] = 0;
+    let top = 0;
+    for (let t = 0; t < 4 / cfg.sim.dt; t++) { w.step(); top = Math.max(top, m.heightAt(a.posX[0]!, a.posZ[0]!)); }
+    expect(top).toBeGreaterThan(0.8 * peak);
   });
 
   it('climbs down from an object it could not climb up (drops up to maxDrop are walkable)', () => {

@@ -37,7 +37,8 @@ export function forage(world: World, from: number, to: number): void {
     const state = a.state[s]!;
     if (state === AgentState.REST) {
       if (rand(world.seed, Stream.NEST_EXIT, s, world.tick) < leave) {
-        a.state[s] = AgentState.SEARCH;
+        // Out to forage — or, where the nest is being dug, off to the entrance to start digging.
+        a.state[s] = world.soil ? AgentState.REENTER : AgentState.SEARCH;
         startTrip(world, s);
       }
       continue;

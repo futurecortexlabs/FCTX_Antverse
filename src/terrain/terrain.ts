@@ -90,6 +90,11 @@ export interface GrassSet {
   tufts: number;
 }
 
+/** Extra height on top of the generated soil surface at (x, z) (mm, ≥ 0). */
+export interface HeightOverlay {
+  heightAt(x: number, z: number): number;
+}
+
 export class Terrain {
   readonly config: Config;
   readonly seed: number;
@@ -161,8 +166,15 @@ export class Terrain {
 
   groundHeight(x: number, z: number, h = 0): number {
     this.ground(x, z, h, this.s);
-    return this.s.v;
+    return this.overlay ? this.s.v + this.overlay.heightAt(x, z) : this.s.v;
   }
+
+  /**
+   * Dynamic material added on top of the soil (Phase 5: the mound of excavated
+   * soil around the nest entrance). Owned by the simulation state, not by the
+   * generated terrain, so it is not part of digest(). Generation runs without it.
+   */
+  overlay: HeightOverlay | null = null;
 
   /** Bound on |macro + micro| (for bounding boxes). */
   reliefBound(): number {

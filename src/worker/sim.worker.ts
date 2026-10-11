@@ -45,6 +45,11 @@ function loop(): void {
     // Without shared memory the renderer gets a copy of the pheromone grid at the stats rate.
     const data = runner.fieldCopy();
     if (data) post({ type: 'fieldData', data }, [data.buffer]);
+    // Nest: dug chunks always as messages, the mound as copies without shared memory.
+    const chunks = runner.takeSoilChunks();
+    if (chunks.length > 0) post({ type: 'soilChunks', chunks }, chunks.map((c) => c.data.buffer));
+    const mound = runner.moundCopy();
+    if (mound) post({ type: 'moundData', data: mound }, [mound.buffer]);
   }
   schedule(owed);
 }
@@ -103,6 +108,7 @@ self.onmessage = (e: MessageEvent<ToWorker>) => {
         runner = new SimRunner(config, sink, wallNow, stepper);
         post({ type: 'ready', capacity: cap, seed: config.sim.seed, threads: stepper?.threads ?? 1 });
         post({ type: 'field', info: runner.fieldInfo() });
+        post({ type: 'nest', info: runner.nestInfo() });
         schedule(true);
         break;
       }
@@ -110,6 +116,7 @@ self.onmessage = (e: MessageEvent<ToWorker>) => {
         if (!runner) break;
         runner.reset(buildConfig(msg.overlays).config);
         post({ type: 'field', info: runner.fieldInfo() });
+        post({ type: 'nest', info: runner.nestInfo() });
         schedule(true);
         break;
       }

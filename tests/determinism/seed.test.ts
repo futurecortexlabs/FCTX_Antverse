@@ -76,3 +76,18 @@ describe('seed reproducibility with path integration (homing)', () => {
     expect(checkDeterminism(homing, 1200).hashA).toMatchSnapshot();
   });
 });
+
+describe('seed reproducibility with soil (nest excavation)', () => {
+  const preset = JSON.parse(readFileSync('config/presets/digging.json', 'utf8')) as Overlay;
+  const digging = buildConfig([preset, { population: { count: 60 }, soil: { size: [128, 256, 128] } }]).config;
+
+  it('same seed gives identical hashes (agents, soil, mound); seed+1 differs', { timeout: 300000 }, () => {
+    const r = checkDeterminism(digging, 3600);
+    expect(r.identical).toBe(true);
+    expect(r.seedSensitive).toBe(true);
+  });
+
+  it('golden hash for the digging preset is stable', { timeout: 300000 }, () => {
+    expect(checkDeterminism(digging, 1800).hashA).toMatchSnapshot();
+  });
+});

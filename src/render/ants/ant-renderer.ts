@@ -13,7 +13,7 @@ import type { Config } from '../../config/params.ts';
 import { quatRotate, type Vec3 } from '../../core/quat.ts';
 import { JOINTS, LegRig, type BodyPose, type TerrainProbe } from '../../locomotion/legs.ts';
 import { buildMorphology, LEGS, type Morphology } from '../../locomotion/morphology.ts';
-import { META_BYTE, META_FLAG_SHIFT, META_GEN_SHIFT, SNAP_FLAG_ALIVE, SNAP_FLOATS, SnapF } from '../../worker/protocol.ts';
+import { META_BYTE, META_FLAG_SHIFT, META_GEN_SHIFT, SNAP_FLAG_ALIVE, SNAP_FLAG_UNDERGROUND, SNAP_FLOATS, SnapF } from '../../worker/protocol.ts';
 import type { InterpolationState } from '../interpolation.ts';
 import { antennaPoints } from './antenna.ts';
 import { bodyGeometry, bodyWithLegsGeometry, unitLimbGeometry } from './ant-model.ts';
@@ -121,7 +121,9 @@ export class AntRenderer {
       const dx = out[o]! - camera.x, dy = out[o + 1]! - camera.y, dz = out[o + 2]! - camera.z;
       const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
       this.dist[slot] = d;
-      if (d < lod0Dist) { lodOf[slot] = 0; this.order.push(slot); } else lodOf[slot] = d < lod2Dist ? 1 : 2;
+      // Legs are solved on the ground surface only: ants in the soil are drawn with baked legs (LOD1).
+      const underground = (((meta >>> META_FLAG_SHIFT) & META_BYTE) & SNAP_FLAG_UNDERGROUND) !== 0;
+      if (d < lod0Dist && !underground) { lodOf[slot] = 0; this.order.push(slot); } else lodOf[slot] = d < lod2Dist ? 1 : 2;
     }
     // Only the nearest rigMaxAnts get rigs; the rest of the candidates fall back to LOD1.
     if (this.order.length > r.rigMaxAnts) {

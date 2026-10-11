@@ -30,7 +30,7 @@ export function bodyPoseRange(world: World, from: number, to: number, alpha: num
   const headDrop = head.h / 2 - head.cy, mesoDrop = morphCache.m.mesosoma.h / 2, gasterDrop = gaster.h / 2 - gaster.cy;
 
   for (let s = from; s < to; s++) {
-    if ((a.flags[s]! & AgentFlag.ALIVE) === 0) continue;
+    if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) !== AgentFlag.ALIVE) continue; // dead, or in the soil (burrow.ts)
     const x = a.posX[s]!, z = a.posZ[s]!, h = a.heading[s]!;
     const fx = dcos(h), fz = -dsin(h);
     // Support under the mesosoma, head and gaster (the latter two also set the pitch), sampled where
