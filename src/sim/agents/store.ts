@@ -20,6 +20,8 @@ export const AgentFlag = {
   KNOWS_FOOD: 1 << 1,
   /** Searching (for the nest or the food): on the way back through the search centre. */
   LOOP_BACK: 1 << 2,
+  /** In the soil (walking the voxel lattice of the nest), not on the surface. */
+  UNDERGROUND: 1 << 3,
 } as const;
 
 export const Caste = {
@@ -80,7 +82,25 @@ export const AGENT_SCHEMA = {
   searchTime: field('f32'),
   /** While blocked by an obstacle or edge: the way the ant is turning (+1 left, −1 right); 0 when free. */
   avoidTurn: field('f32'),
+  // --- Phase 5: digging ---
+  /** Underground: the soil voxel the ant is walking to (Soil.index), −1 on the surface. */
+  cell: field('i32'),
+  /** Underground: direction of travel and body up (the wall's normal), unit vectors. */
+  dirX: field('f32'),
+  dirY: field('f32'),
+  dirZ: field('f32'),
+  upX: field('f32'),
+  upY: field('f32'),
+  upZ: field('f32'),
+  /** Request for the end of the tick (Request) and its voxel (dig target). */
+  request: field('u8'),
+  requestCell: field('i32'),
+  /** Carrying soil out: drop it once this far from the entrance (mm). */
+  dumpAt: field('f32'),
 };
+
+/** Changes to shared state an agent asks for; World.completeStep applies them in slot order. */
+export const Request = { NONE: 0, DIG: 1, DROP: 2 } as const;
 
 export const AgentState = {
   /** Searching / walking out from the nest. */
@@ -91,9 +111,17 @@ export const AgentState = {
   REST: 2,
   /** Home vector run off without finding the nest: searching around where it should be. */
   NEST_SEARCH: 3,
+  /** In the nest, walking the tunnels; digs where the soil face is and nestmates are many. */
+  DIG: 4,
+  /** Carrying a soil pellet: up and out of the nest, then away from the entrance to drop it. */
+  HAUL: 5,
+  /** Pellet dropped: back to the entrance and down into the nest. */
+  REENTER: 6,
+  /** Resting in the nest (stands still), in a cluster with nestmates. */
+  NEST_REST: 7,
 } as const;
 
-export const CarryKind = { NONE: 0, FOOD: 1 } as const;
+export const CarryKind = { NONE: 0, FOOD: 1, SOIL: 2 } as const;
 
 export type AgentSoA = SoA<typeof AGENT_SCHEMA>;
 
@@ -159,6 +187,12 @@ export class AgentStore {
     a.giveUp[slot] = 0;
     a.searchTime[slot] = 0;
     a.avoidTurn[slot] = 0;
+    a.cell[slot] = -1;
+    a.dirX[slot] = 1; a.dirY[slot] = 0; a.dirZ[slot] = 0;
+    a.upX[slot] = 0; a.upY[slot] = 1; a.upZ[slot] = 0;
+    a.request[slot] = 0;
+    a.requestCell[slot] = -1;
+    a.dumpAt[slot] = 0;
     this.alive++;
     return slot;
   }

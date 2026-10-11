@@ -385,6 +385,44 @@ async function homingViews(cdp: Cdp, seed: string | undefined): Promise<void> {
   console.log(log.join('\n'));
 }
 
+/**
+ * Phase 5 nest excavation: fast-forward a digging colony, then views of the
+ * spoil mound from the surface and of the nest cast with the ground cut away.
+ * Output: docs/reports/phase-5/ (prefix lets several runs coexist).
+ */
+async function nestViews(cdp: Cdp, hoursArg: string | undefined, query: string | undefined): Promise<void> {
+  const dir = 'docs/reports/phase-5';
+  const hours = Number(hoursArg ?? 2);
+  await cdp.goto(BASE + `?preset=digging${query ?? ''}`);
+  const simTime = (): Promise<number> => cdp.eval<number>('window.antverse.host.stats ? window.antverse.host.stats.simTime : 0');
+  await cdp.eval('window.antverse.host.setSpeed(100000)'); // MAX
+  while (await simTime() < hours * 3600) await sleep(1000);
+  await cdp.eval('window.antverse.host.setSpeed(1)');
+  await sleep(3000);
+  const log: string[] = [];
+  const shot = async (name: string): Promise<void> => {
+    await cdp.screenshot(`${dir}/${name}.png`);
+    log.push(`${name}: sim ${(await simTime()).toFixed(0)} s | ${(await cdp.eval<string>(HUD)).split('\n').filter((l) => l.startsWith('foraging') || l.startsWith('nest')).join(' | ')}`);
+  };
+  const y0 = await cdp.eval<number>('window.antverse.terrain.supportHeight(0, 0)');
+  await cdp.eval(cam([60, y0 + 45, 70], [0, y0, 0]));
+  await sleep(1500);
+  await shot('01-mound');
+  await cdp.eval('window.antverse.setCutaway(true)');
+  for (const [name, p, t] of [
+    ['02-cast-side', [260, y0 - 60, 0], [0, y0 - 90, 0]],
+    ['03-cast-oblique', [180, y0 + 40, 180], [0, y0 - 80, 0]],
+    ['04-cast-close', [55, y0 - 15, 55], [0, y0 - 25, 0]],
+  ] as [string, number[], number[]][]) {
+    await cdp.eval(cam(p, t));
+    await sleep(1500);
+    await shot(name);
+  }
+  await cdp.eval('window.antverse.setCutaway(false)');
+  writeFileSync(`${dir}/views.txt`, log.join('\n') + '\n');
+  console.log(log.join('\n'));
+}
+
 /** Phone emulation (390x844 CSS px, DPR 3, touch). `base` lets you target a static/LAN/artifact URL. */
 async function mobile(cdp: Cdp, base: string, backend: string | undefined): Promise<void> {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true, screenWidth: 390, screenHeight: 844 });
@@ -436,6 +474,7 @@ async function main(): Promise<void> {
     else if (cmd === 'walk') await walkViews(cdp);
     else if (cmd === 'bridge') await bridgeViews(cdp, arg);
     else if (cmd === 'homing') await homingViews(cdp, arg);
+    else if (cmd === 'nest') await nestViews(cdp, arg, process.argv[4]);
     else if (cmd === 'eval') { await cdp.goto(BASE + (process.argv[4] ?? '')); console.log(JSON.stringify(await cdp.eval(arg ?? 'null'), null, 1)); }
     else if (cmd === 'bench') await bench(cdp, arg);
     else if (cmd === 'mobile') await mobile(cdp, process.argv[4] ?? BASE, arg && arg !== '-' ? arg : undefined);

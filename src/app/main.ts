@@ -19,6 +19,8 @@ import { applyCameraGuard } from '../render/terrain/camera-guard.ts';
 import { focalPx } from '../render/terrain/quadtree.ts';
 import { buildOverlays } from '../render/debug/overlays.ts';
 import { apparatusFrame, buildApparatus, PheromoneOverlay } from '../render/apparatus.ts';
+import { NestView } from '../render/nest.ts';
+import { Mound } from '../soil/mound.ts';
 import { DoubleBridge } from '../terrain/apparatus.ts';
 import { Terrain } from '../terrain/terrain.ts';
 import { SimHost } from './sim-host.ts';
@@ -178,12 +180,12 @@ async function main(): Promise<void> {
           adapter: info.adapter,
           transport: host.transport,
           viewport: `${window.innerWidth}x${window.innerHeight}@${renderer.getPixelRatio()}`,
-          note: 'Phase 4: terrain + walking workers (LOD0 legs solved), parallel sim, pheromone and path-integration rules',
+          note: 'Phase 5: terrain + walking workers (LOD0 legs solved), parallel sim, pheromone, path integration, nest excavation',
         });
         (window as unknown as { __antverseBench: unknown }).__antverseBench = { rows, csv };
         console.table(rows);
         hud.note(`<pre>${csv}</pre>`);
-        if (import.meta.env.DEV) void saveReportFile(`bench/phase-4-${info.backend.toLowerCase()}.csv`, csv);
+        if (import.meta.env.DEV) void saveReportFile(`bench/phase-5-${info.backend.toLowerCase()}.csv`, csv);
       })
     : null;
 
@@ -225,11 +227,44 @@ async function main(): Promise<void> {
     return `double bridge: short branch ${s} | long branch ${l} | in nest ${nest} | short ${bridge.lengthShort.toFixed(0)} mm, long ${bridge.lengthLong.toFixed(0)} mm`;
   };
   /** Foraging states, indexed like AgentState: search, return, rest, nest search. */
-  const foragingLine = (f: { states: number[]; carrying: number }): string =>
-    `foraging: out ${f.states[0]} | heading home ${f.states[1]} (with food ${f.carrying}) | searching for the nest ${f.states[3]} | in nest ${f.states[2]}`;
+  const foragingLine = (f: { states: number[]; carrying: number }): string => cfg.scenario.digging
+    ? `workers: walking in the nest ${f.states[4] ?? 0} | resting in the nest ${f.states[7] ?? 0} | carrying soil out ${f.states[5] ?? 0} | going back in ${f.states[6] ?? 0}`
+    : `foraging: out ${f.states[0]} | heading home ${f.states[1]} (with food ${f.carrying}) | searching for the nest ${f.states[3]} | in nest ${f.states[2]}`;
+  // Nest of a digging world: the cast of the dug space, the spoil mound, and the mound as a
+  // height overlay of the terrain (for placing feet on it). Rebuilt when the worker reports a new nest.
+  let nest: NestView | null = null;
+  let nestFor: unknown = null;
+  let moundMirror: Mound | null = null;
+  let cutaway = false;
+  let lastNest = -Infinity;
+  const surfaceObjects = (): THREE.Object3D[] => scene.children.filter((o) => ['ground', 'pebbles', 'leaves', 'grass', 'grains'].includes(o.name) || o === grains.mesh || o === ground.group);
+  const syncNest = (now: number): void => {
+    if (host.nest !== nestFor) {
+      nestFor = host.nest;
+      if (nest) { scene.remove(nest.group); nest = null; }
+      terrain.overlay = null;
+      moundMirror = null;
+      if (host.nest) {
+        nest = new NestView(cfg, terrain, host.nest);
+        scene.add(nest.group);
+        const mc = cfg.mound;
+        moundMirror = new Mound({ cx: 0, cz: 0, radius: mc.radius, cell: mc.cell, repose: mc.repose, open: cfg.scenario.nestRadius }, host.nest.mound.shared ?? undefined);
+        terrain.overlay = moundMirror;
+        nest.setCutaway(cutaway, surfaceObjects());
+      }
+    }
+    if (!nest || now - lastNest < r.pheromoneInterval) return;
+    lastNest = now;
+    if (host.soilChunks.length > 0) { nest.applyChunks(host.soilChunks); host.soilChunks = []; }
+    const shared = host.nest?.mound.shared != null;
+    if (!shared && host.moundData && moundMirror) moundMirror.heights.set(host.moundData);
+    if (shared && host.moundData && nest.sharedMoundChanged(host.moundData)) host.moundVersion++;
+    nest.update(host.moundData, host.moundVersion, r.castBudget);
+  };
+  const setCutaway = (on: boolean): void => { cutaway = on; nest?.setCutaway(on, surfaceObjects()); };
   const togglePheromone = (on?: boolean): void => { if (pheromone) pheromone.mesh.visible = on ?? !pheromone.mesh.visible; };
 
-  (window as unknown as { antverse: unknown }).antverse = { host, cfg, info, renderer, camera, controls, hud, terrain, ground, grains, terrainBuildMs, tier, governor, ants, followAnt, togglePheromone };
+  (window as unknown as { antverse: unknown }).antverse = { host, cfg, info, renderer, camera, controls, hud, terrain, ground, grains, terrainBuildMs, tier, governor, ants, followAnt, togglePheromone, setCutaway, nest: () => nest };
 
   renderer.setAnimationLoop(() => {
     const now = performance.now();
@@ -252,6 +287,7 @@ async function main(): Promise<void> {
     grains.update(camera, viewportPx, cfg.terrainRender.genBudget);
     env.update(camera, controls.target);
     syncPheromone(now);
+    syncNest(now);
     renderer.render(scene, camera);
 
     if (pendingShot) {
@@ -292,6 +328,7 @@ async function main(): Promise<void> {
         `camera ${(camera.position.y - terrain.supportHeight(camera.position.x, camera.position.z)).toFixed(2)} mm above surface`,
         ...(bridge ? [bridgeLine()] : []),
         ...(host.stats?.foraging ? [foragingLine(host.stats.foraging)] : []),
+        ...(host.stats?.digging ? [`nest: dug ${host.stats.digging.dug.toFixed(0)} mm³ | pellets on the mound ${host.stats.digging.pellets} | workers in the soil ${host.stats.digging.underground}${nest ? ` | cast chunks pending ${nest.pending}` : ''}`] : []),
         `quality ${tier} | pixel ratio ${renderer.getPixelRatio().toFixed(2)} | LOD error ≤ ${ground.params.maxScreenError.toFixed(1)} px${governor ? (governor.degraded() ? ' (auto: reduced)' : ' (auto)') : ''}`,
       ]);
       if (bench && !bench.done) hud.note(bench.status());

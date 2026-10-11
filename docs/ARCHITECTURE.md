@@ -124,11 +124,13 @@ three.js を import してよいのは `render/` と `app/` だけ。
 - シナリオ: 巣と餌場は `World.nest/feeder`（二重橋では装置の円、野外では `homingSites(config)`）。野外にはフェロモン場を作らない。
 - 実験: `src/sim/experiments/homing.ts`（1 匹を放して帰るまで。移動実験では帰り始めた瞬間に実験者が個体を動かす）。
 
-### 4.3 ボクセル土壌（Phase 5）
-- ボクセル 1 mm、チャンク 32³。チャンクは UNIFORM（配列を持たない）か DENSE。領域は 512 × 512 × 1024 mm。
-- DENSE のボクセルは `fill`・`material`・`moisture`・`chem` を u8 で持つ（チャンク内も SoA）。
-- 温度は土壌熱伝導の解析解 `T(z,t) = T̄ + A·e^(−z/d)·sin(ωt − z/d)` を基本に、局所的な補正だけ粗い格子（8 mm）で持つ。
-- 再メッシュ化は、変更のあったチャンクだけ Worker 上の Surface Nets で行う。掘った土は Item として地表に運ばれ、地表を盛り上げる。
+### 4.3 ボクセル土壌と巣の掘削 [Phase 5 実装済]
+- 土（`src/soil/soil.ts`）: ボクセル 1 mm、チャンク 32³、領域 512 × 1024 × 512 mm（巣口が中心）。手つかずの土は地形の高さから決まる（列ごとの「地表より上の空気のボクセル数」を起動時に計算）。状態として持つのは「掘った」フラグだけで、掘られたチャンクにだけ u8 の配列を確保する（計画の UNIFORM / DENSE に当たる）。水分・化学標識・温度（計画の `moisture`・`chem`・地温）は Phase 7 で足す。
+- 土の山（`src/soil/mound.ts`）: 巣口の周りの 1 mm 格子の高さ場。1 粒ごとに足し、安息角を超えた所は低い方へ滑らせる（砂山の規則）。地形の高さに上乗せされる（`Terrain.overlay`）ので、地上の個体は土の山の上を歩く。
+- 地下の歩行（`src/sim/rules/burrow.ts`）: 掘った空間の中で、壁に沿ってボクセルからボクセルへ歩く（26 近傍、角を切らない）。体は壁の法線を上にして、次のボクセルへ連続的に動く。地下の個体は `AgentFlag.UNDERGROUND` を持ち、地表の規則（explore・bodyPose・navigate）は飛ばす。
+- 掘削（`src/sim/rules/excavate.ts`）: 掘る・土を落とすは要求として出し、`World.completeStep` がスロット順に許可する（同じボクセルを同時に狙ったら若い番号が取る）。混み具合（`src/sim/nest/density.ts`: 8 mm 区画ごとの仲間の数と掘った体積）はティックの終わりに数え直す。どちらも分割の仕方によらず同じ結果になる（`parallel-equivalence.test.ts`）。
+- 再メッシュ化: 計画では Worker 上の Surface Nets だったが、今は描画スレッドで、変わったチャンクとその隣だけを 0.2 s ごとに最大 8 個作り直す（`src/render/nest.ts`）。Worker は変わったチャンクの「掘った」フラグを送り、描画側は同じ設定と地形から作った土の写しに当てる。
+- 掘った土を Item として持ち運ぶ計画は、今は `carryKind = SOIL` の 1 粒で表す（Item プールは Phase 6）。
 
 ### 4.5 地表 [Phase 1 実装済]
 `src/terrain/` は (config, seed) だけで決まる純粋な関数の集まりです。シミュレーション Worker と描画側は、それぞれ同じ `Terrain` を作ります（生成は約 80 ms）。
@@ -181,14 +183,15 @@ src/core/              単位・乱数・決定論的数学関数・時計・SoA
 src/config/            スキーマ・既定値・読み込み
 src/terrain/           ノイズ、地表（土・粒・小石・落葉・草）、空間索引、実験装置（apparatus: 二重橋、ホーミングの巣と餌場）
 src/locomotion/        形態（体の寸法）、脚のリグ（三脚歩容・足場・IK）
-src/sim/               World, headless, population, agents/, pheromone/（場）, rules/（forage, trail, navigate, explore, body-pose）, experiments/（二重橋の観測、ホーミング）
+src/soil/              土のボクセル（soil）、土の山（mound）
+src/sim/               World, headless, population, agents/, pheromone/（場）, nest/（混み具合）, rules/（forage, excavate, trail, navigate, explore, burrow, body-pose）, experiments/（二重橋、ホーミング、掘削）
 src/worker/            protocol, sim-runner, snapshot-writer, sim.worker, parallel + sim-helper.worker（並列化）
-src/render/            renderer, environment（空・霧・影）, interpolation, ants/, terrain/（LOD・チャンク・材質・地表の物体・カメラのガード）, apparatus（装置とフェロモンのヒートマップ）, debug/
+src/render/            renderer, environment（空・霧・影）, interpolation, ants/, terrain/（LOD・チャンク・材質・地表の物体・カメラのガード）, apparatus（装置とフェロモンのヒートマップ）, nest（巣の鋳型と土の山）, debug/
 src/app/               main, sim-host, hud/, report
 src/bench/             描画ベンチのスイープ
 tests/architecture/    層・決定論の衛生・マジックナンバー・根拠ID
 tests/determinism/     シード再現性
-tests/experiments/     ヘッドレス統計実験（Phase 3: 二重橋、Phase 4: ホーミングの縮小版）
+tests/experiments/     ヘッドレス統計実験（Phase 3: 二重橋、Phase 4: ホーミング、Phase 5: 掘削の縮小版）
 ```
 
 ## 6. 実行方法
@@ -208,6 +211,8 @@ node scripts/experiment-double-bridge.ts            # Phase 3 の合格判定（
 node scripts/experiment-double-bridge.ts name --set path=value   # 条件を変えた実験（例: --set scenario.bridgeRatio=1）。--dir phase-4 で出力先を変える
 node scripts/experiment-homing.ts                   # Phase 4 の合格判定（50 試行 × 通常・移動）
 node scripts/browser-run.ts homing    # Phase 4 のホーミングの視点 → docs/reports/phase-4/
+node scripts/experiment-digging.ts                  # Phase 5 の合格判定（4 つの人数 × 5 シード × 12 時間）
+node scripts/browser-run.ts nest 6    # Phase 5: 6 時間分早送りして、土の山と巣の鋳型を撮る → docs/reports/phase-5/
 npm run bench:render    # 個体数スイープ（WebGL2 は `node scripts/browser-run.ts bench webgl`）
 npm run dev:lan         # 同じ Wi-Fi のスマホから開けるように公開する
 npm run build:artifact  # Artifact 用のページを dist/artifact.html に出力する
@@ -216,7 +221,7 @@ npm run build:artifact  # Artifact 用のページを dist/artifact.html に出�
 URL オプション:
 - `?bench=1`: 描画ベンチ。結果は docs/reports/bench/phase-<n>-*.csv に保存される
 - `?backend=webgl`: WebGL2 バックエンドを強制する
-- `?seed=N`、`?preset=ants-10k`、`?preset=double-bridge`（二重橋。クエリが使えない場所では `#double-bridge`）、`?preset=homing`（野外のホーミング、`#homing`）、`?set=population.count=5000`、`?set=render.showPheromone=false`
+- `?seed=N`、`?preset=ants-10k`、`?preset=double-bridge`（二重橋。クエリが使えない場所では `#double-bridge`）、`?preset=homing`（野外のホーミング、`#homing`）、`?preset=digging`（巣の掘削、`#digging`）、`?set=population.count=5000`、`?set=render.showPheromone=false`
 
 キー操作: Space（一時停止 / 再開）、`.`（1 ステップ進める）、`[` `]`（遅く / 速く）、`M`（MAX）。
 

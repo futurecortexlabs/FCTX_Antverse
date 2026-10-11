@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 360" font-family="system-ui, sans-serif" font-size="12">
+<rect width="520" height="360" fill="#fbfaf7"/>
+<text x="56" y="20" font-size="14" font-weight="600" fill="#222">Volume per 10 mm of depth (median of runs)</text>
+<text x="48" y="40" text-anchor="end" fill="#555">0</text>
+<text x="48" y="87.33333333333333" text-anchor="end" fill="#555">10</text>
+<text x="48" y="134.66666666666666" text-anchor="end" fill="#555">20</text>
+<text x="48" y="182" text-anchor="end" fill="#555">30</text>
+<text x="48" y="229.33333333333331" text-anchor="end" fill="#555">40</text>
+<text x="48" y="276.6666666666667" text-anchor="end" fill="#555">50</text>
+<text x="48" y="324" text-anchor="end" fill="#555">60</text>
+<text x="56" y="334" text-anchor="middle" fill="#555">0</text>
+<text x="280" y="334" text-anchor="middle" fill="#555">3000</text>
+<text x="504" y="334" text-anchor="middle" fill="#555">6000</text>
+<text x="260" y="354" text-anchor="middle" fill="#333">volume (mm³)</text>
+<text x="12" y="180" fill="#333" transform="rotate(-90 12 180)" text-anchor="middle">depth below the surface (mm)</text>
+<polyline points="200.9,59.7 159.6,107.0 101.8,154.3 56.0,201.7 56.0,249.0 56.0,296.3" fill="none" stroke="#7a9a3a" stroke-width="2"/>
+<polyline points="247.0,59.7 245.6,107.0 159.3,154.3 92.9,201.7 56.0,249.0 56.0,296.3" fill="none" stroke="#2463a6" stroke-width="2"/>
+<polyline points="341.3,59.7 348.8,107.0 309.4,154.3 178.2,201.7 89.6,249.0 56.0,296.3" fill="none" stroke="#b5651d" stroke-width="2"/>
+<polyline points="413.3,59.7 465.0,107.0 424.8,154.3 299.6,201.7 308.0,249.0 74.7,296.3" fill="none" stroke="#8e2c6b" stroke-width="2"/>
+<text x="434" y="52" fill="#7a9a3a">N = 50</text>
+<text x="434" y="67" fill="#2463a6">N = 100</text>
+<text x="434" y="82" fill="#b5651d">N = 200</text>
+<text x="434" y="97" fill="#8e2c6b">N = 400</text>
+</svg>

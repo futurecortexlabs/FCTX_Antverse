@@ -35,3 +35,29 @@ export function quatRotate(q: ArrayLike<number>, qo: number, vx: number, vy: num
   out[2] = vz + w * tz + (x * ty - y * tx);
   return out;
 }
+
+/**
+ * Orientation whose body axes are forward = f, up = u (both unit, f ⟂ u);
+ * right = f × u. Writes q into out at offset o (Shepperd's method).
+ */
+export function quatFromBasis(fx: number, fy: number, fz: number, ux: number, uy: number, uz: number, out: { [i: number]: number }, o = 0): void {
+  // Columns of the rotation matrix: X = f, Y = u, Z = f × u.
+  const rx = fy * uz - fz * uy, ry = fz * ux - fx * uz, rz = fx * uy - fy * ux;
+  const m00 = fx, m10 = fy, m20 = fz, m01 = ux, m11 = uy, m21 = uz, m02 = rx, m12 = ry, m22 = rz;
+  const tr = m00 + m11 + m22;
+  let x: number, y: number, z: number, w: number;
+  if (tr > 0) {
+    const s = Math.sqrt(tr + 1) * 2;
+    w = 0.25 * s; x = (m21 - m12) / s; y = (m02 - m20) / s; z = (m10 - m01) / s;
+  } else if (m00 > m11 && m00 > m22) {
+    const s = Math.sqrt(1 + m00 - m11 - m22) * 2;
+    w = (m21 - m12) / s; x = 0.25 * s; y = (m01 + m10) / s; z = (m02 + m20) / s;
+  } else if (m11 > m22) {
+    const s = Math.sqrt(1 + m11 - m00 - m22) * 2;
+    w = (m02 - m20) / s; x = (m01 + m10) / s; y = 0.25 * s; z = (m12 + m21) / s;
+  } else {
+    const s = Math.sqrt(1 + m22 - m00 - m11) * 2;
+    w = (m10 - m01) / s; x = (m02 + m20) / s; y = (m12 + m21) / s; z = 0.25 * s;
+  }
+  out[o] = x; out[o + 1] = y; out[o + 2] = z; out[o + 3] = w;
+}

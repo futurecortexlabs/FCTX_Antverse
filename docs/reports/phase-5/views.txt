@@ -1,0 +1,4 @@
+01-mound: sim 43258 s | nest: dug 6999 mm³ | pellets on the mound 6999 | workers in the soil 99 | cast chunks pending 0
+02-cast-side: sim 43259 s | nest: dug 6999 mm³ | pellets on the mound 6999 | workers in the soil 99 | cast chunks pending 0
+03-cast-oblique: sim 43261 s | nest: dug 6999 mm³ | pellets on the mound 6999 | workers in the soil 99 | cast chunks pending 0
+04-cast-close: sim 43263 s | nest: dug 6999 mm³ | pellets on the mound 6999 | workers in the soil 99 | cast chunks pending 0

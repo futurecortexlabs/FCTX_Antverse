@@ -84,4 +84,20 @@ describe('parallel stepping equivalence', () => {
     }
     expect(main.stateHash()).toBe(ref.stateHash());
   });
+
+  it('nest excavation: any slot partition gives the same soil, mound and agents (digs and drops are granted in slot order)', () => {
+    const preset = JSON.parse(readFileSync('config/presets/digging.json', 'utf8')) as Overlay;
+    const cfg = buildConfig([preset, { population: { count: 80 }, soil: { size: [128, 256, 128] } }]).config;
+    const ref = new World(cfg);
+    const split = new World(cfg);
+    for (let t = 0; t < 3600; t++) {
+      ref.step();
+      const n = split.agents.highWater;
+      const cuts = [0, 13, 40, 41, n];
+      for (let k = cuts.length - 2; k >= 0; k--) split.stepRange(cuts[k]!, cuts[k + 1]!);
+      split.completeStep();
+    }
+    expect(ref.soil!.dug).toBeGreaterThan(ref.pitVoxels);
+    expect(split.stateHash()).toBe(ref.stateHash());
+  });
 });

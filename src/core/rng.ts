@@ -38,6 +38,10 @@ export const Stream = {
   PATH_INTEGRATION: 12,
   /** Scenario layout (e.g. where the feeder is). */
   SCENARIO: 13,
+  /** Underground walking (choice of the next voxel). */
+  BURROW: 14,
+  /** Digging (whether and where) and dumping (how far out). */
+  DIG: 15,
   TEST: 0xffff,
 } as const;
 export type StreamId = (typeof Stream)[keyof typeof Stream];

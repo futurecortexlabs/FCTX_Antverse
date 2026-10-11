@@ -1,0 +1,14 @@
+# date: 2026-10-11T19:41:33.052Z
+# backend: WebGPU
+# adapter: nvidia / blackwell
+# transport: shared
+# viewport: 1600x900@1
+# note: Phase 5: terrain + walking workers (LOD0 legs solved), parallel sim, pheromone, path integration, nest excavation
+count,fps,frame_p50_ms,frame_p95_ms,main_cpu_ms,gpu_ms,sim_ms_per_tick,achieved_speed
+1000,59.95,16.680,16.805,10.648,2.680,5.8214,0.998
+2000,59.95,16.680,16.770,8.136,2.877,10.6307,1.000
+5000,59.95,16.680,16.900,9.499,3.461,6.1059,0.998
+10000,59.95,16.680,16.880,9.100,4.402,9.4467,1.001
+20000,59.95,16.680,16.830,9.144,6.479,15.1937,1.001
+50000,59.95,16.680,16.855,11.655,12.600,36.0387,0.451
+100000,43.06,23.230,23.760,14.246,22.673,69.7267,0.233

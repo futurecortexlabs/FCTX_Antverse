@@ -26,6 +26,8 @@ export const META_GEN_SHIFT = 24;
 export const META_BYTE = 0xff;
 /** Bit in the flags byte marking a live agent (mirrors AgentFlag.ALIVE; checked by a test). */
 export const SNAP_FLAG_ALIVE = 1;
+/** Bit in the flags byte marking an ant in the soil (mirrors AgentFlag.UNDERGROUND). */
+export const SNAP_FLAG_UNDERGROUND = 8;
 
 export const SNAP_HEADER_F64 = 16;
 export const SnapH = {
@@ -138,10 +140,12 @@ export interface SimStats {
   /** Simulation threads in use (1 = single-threaded). */
   threads: number;
   /**
-   * In a foraging scenario: agents per foraging state, indexed like AgentState
-   * (search, return, rest, nest search), and how many carry food. Null otherwise.
+   * In a foraging or digging scenario: agents per state, indexed like AgentState,
+   * and how many carry something. Null otherwise.
    */
   foraging: { states: number[]; carrying: number } | null;
+  /** In a digging world: soil dug by the workers (mm³), pellets on the mound, workers in the soil. */
+  digging: { dug: number; pellets: number; underground: number } | null;
 }
 
 export interface DeterminismReport {
@@ -174,8 +178,26 @@ export interface FieldInfo {
   shared: SharedArrayBuffer | null;
 }
 
+/**
+ * The nest of a digging world (Phase 5): the mound heightfield (live with
+ * shared memory, else copies in 'moundData') — the soil itself the renderer
+ * rebuilds from the same config and terrain, then updates from 'soilChunks'.
+ */
+export interface NestInfo {
+  mound: FieldInfo;
+}
+
+/** Dug flags of soil chunks changed since the last message (Soil.takeDirty). */
+export interface SoilChunk {
+  key: number;
+  data: Uint8Array;
+}
+
 export type FromWorker =
   | { type: 'ready'; capacity: number; seed: number; threads: number }
+  | { type: 'nest'; info: NestInfo | null }
+  | { type: 'soilChunks'; chunks: SoilChunk[] }
+  | { type: 'moundData'; data: Float32Array }
   | { type: 'field'; info: FieldInfo | null }
   | { type: 'fieldData'; data: Float32Array }
   | { type: 'snapshot'; buffer: ArrayBuffer }

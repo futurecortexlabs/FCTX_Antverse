@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 360" font-family="system-ui, sans-serif" font-size="12">
+<rect width="520" height="360" fill="#fbfaf7"/>
+<text x="56" y="20" font-size="14" font-weight="600" fill="#222">Final volume vs workers: V = 2055 + 51.3·N mm³, R² = 0.982</text>
+<line x1="56" x2="482.66666666666663" y1="320" y2="320" stroke="#e4e1d8"/>
+<text x="48" y="324" text-anchor="end" fill="#555">0</text>
+<line x1="56" x2="482.66666666666663" y1="249" y2="249" stroke="#e4e1d8"/>
+<text x="48" y="253" text-anchor="end" fill="#555">7500</text>
+<line x1="56" x2="482.66666666666663" y1="178" y2="178" stroke="#e4e1d8"/>
+<text x="48" y="182" text-anchor="end" fill="#555">15000</text>
+<line x1="56" x2="482.66666666666663" y1="107" y2="107" stroke="#e4e1d8"/>
+<text x="48" y="111" text-anchor="end" fill="#555">22500</text>
+<line x1="56" x2="482.66666666666663" y1="36" y2="36" stroke="#e4e1d8"/>
+<text x="48" y="40" text-anchor="end" fill="#555">30000</text>
+<text x="56" y="334" text-anchor="middle" fill="#555">0</text>
+<text x="162.66666666666666" y="334" text-anchor="middle" fill="#555">100</text>
+<text x="269.3333333333333" y="334" text-anchor="middle" fill="#555">200</text>
+<text x="376" y="334" text-anchor="middle" fill="#555">300</text>
+<text x="482.66666666666663" y="334" text-anchor="middle" fill="#555">400</text>
+<text x="260" y="354" text-anchor="middle" fill="#333">workers N</text>
+<text x="12" y="180" fill="#333" transform="rotate(-90 12 180)" text-anchor="middle">final volume (mm³)</text>
+<line x1="56" y1="300.54879884057976" x2="504" y2="96.46452197101452" stroke="#999" stroke-dasharray="5 4"/>
+<circle cx="109.3" cy="282.1" r="4" fill="#7a9a3a" fill-opacity="0.75"/>
+<circle cx="109.3" cy="283.3" r="4" fill="#7a9a3a" fill-opacity="0.75"/>
+<circle cx="109.3" cy="281.9" r="4" fill="#7a9a3a" fill-opacity="0.75"/>
+<circle cx="109.3" cy="284.0" r="4" fill="#7a9a3a" fill-opacity="0.75"/>
+<circle cx="109.3" cy="284.8" r="4" fill="#7a9a3a" fill-opacity="0.75"/>
+<circle cx="162.7" cy="254.0" r="4" fill="#2463a6" fill-opacity="0.75"/>
+<circle cx="162.7" cy="256.4" r="4" fill="#2463a6" fill-opacity="0.75"/>
+<circle cx="162.7" cy="244.5" r="4" fill="#2463a6" fill-opacity="0.75"/>
+<circle cx="162.7" cy="247.9" r="4" fill="#2463a6" fill-opacity="0.75"/>
+<circle cx="162.7" cy="249.7" r="4" fill="#2463a6" fill-opacity="0.75"/>
+<circle cx="269.3" cy="190.6" r="4" fill="#b5651d" fill-opacity="0.75"/>
+<circle cx="269.3" cy="192.3" r="4" fill="#b5651d" fill-opacity="0.75"/>
+<circle cx="269.3" cy="212.3" r="4" fill="#b5651d" fill-opacity="0.75"/>
+<circle cx="269.3" cy="183.0" r="4" fill="#b5651d" fill-opacity="0.75"/>
+<circle cx="269.3" cy="188.7" r="4" fill="#b5651d" fill-opacity="0.75"/>
+<circle cx="482.7" cy="117.8" r="4" fill="#8e2c6b" fill-opacity="0.75"/>
+<circle cx="482.7" cy="109.8" r="4" fill="#8e2c6b" fill-opacity="0.75"/>
+<circle cx="482.7" cy="104.4" r="4" fill="#8e2c6b" fill-opacity="0.75"/>
+<circle cx="482.7" cy="106.9" r="4" fill="#8e2c6b" fill-opacity="0.75"/>
+<circle cx="482.7" cy="114.4" r="4" fill="#8e2c6b" fill-opacity="0.75"/>
+</svg>

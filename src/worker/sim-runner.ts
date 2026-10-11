@@ -10,7 +10,7 @@ import { MS_PER_S } from '../core/units.ts';
 import type { Config } from '../config/params.ts';
 import { AgentFlag, CarryKind } from '../sim/agents/store.ts';
 import { World } from '../sim/world.ts';
-import type { FieldInfo, SimStats, SnapshotView } from './protocol.ts';
+import type { FieldInfo, NestInfo, SimStats, SnapshotView, SoilChunk } from './protocol.ts';
 import { writeSnapshot } from './snapshot-writer.ts';
 
 export interface SnapshotSink {
@@ -65,9 +65,16 @@ export class SimRunner {
     return world;
   }
 
+  private diggingCounts(): { dug: number; pellets: number; underground: number } {
+    const w = this.world, a = w.agents.a;
+    let underground = 0;
+    for (let s = 0; s < w.agents.highWater; s++) if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) === (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) underground++;
+    return { dug: (w.soil!.dug - w.pitVoxels) * w.config.soil.pellet, pellets: w.mound!.pellets, underground };
+  }
+
   private foragingCounts(): { states: number[]; carrying: number } {
     const a = this.world.agents.a;
-    const states = [0, 0, 0, 0];
+    const states = [0, 0, 0, 0, 0, 0, 0, 0];
     let carrying = 0;
     for (let s = 0; s < this.world.agents.highWater; s++) {
       if ((a.flags[s]! & AgentFlag.ALIVE) === 0) continue;
@@ -85,6 +92,29 @@ export class SimRunner {
     return { x0: f.x0, z0: f.z0, cell: f.cell, nx: f.nx, nz: f.nz, shared: isSharedBuffer(b) ? b : null };
   }
 
+  /** The nest of a digging world for display (null otherwise). */
+  nestInfo(): NestInfo | null {
+    const m = this.world.mound;
+    if (!m) return null;
+    const b = m.buffer;
+    return { mound: { x0: m.x0, z0: m.z0, cell: m.cell, nx: m.n, nz: m.n, shared: isSharedBuffer(b) ? b : null } };
+  }
+
+  /** Soil chunks dug into since the last call (empty without soil). */
+  takeSoilChunks(): SoilChunk[] {
+    return this.world.soil ? this.world.soil.takeDirty() : [];
+  }
+
+  /** A copy of the mound when the renderer cannot read it directly, if it changed since the last copy. */
+  moundCopy(): Float32Array | null {
+    const m = this.world.mound;
+    if (!m || isSharedBuffer(m.buffer) || m.version === this.moundVersion) return null;
+    this.moundVersion = m.version;
+    return m.heights.slice();
+  }
+
+  private moundVersion = -1;
+
   /** A copy of the pheromone grid when the renderer cannot read it directly (no shared memory), else null. */
   fieldCopy(): Float32Array | null {
     const f = this.world.pheromone;
@@ -96,6 +126,7 @@ export class SimRunner {
     const { timeScale, paused } = this.clock;
     this.config = config;
     this.world = this.makeWorld(config);
+    this.moundVersion = -1;
     this.clock = new FixedStepClock(config.sim.dt);
     this.clock.timeScale = timeScale;
     this.clock.paused = paused;
@@ -174,6 +205,7 @@ export class SimRunner {
       droppedSteps: this.dropped,
       threads: this.stepper?.active ? this.stepper.threads : 1,
       foraging: this.world.nest ? this.foragingCounts() : null,
+      digging: this.world.soil ? this.diggingCounts() : null,
     };
     this.statStart = now;
     this.statSteps = 0;

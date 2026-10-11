@@ -1,0 +1,5 @@
+{
+  "scenario": { "digging": true },
+  "population": { "count": 100 },
+  "forage": { "exitRate": 0.2 }
+}

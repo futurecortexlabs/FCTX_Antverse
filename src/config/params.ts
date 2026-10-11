@@ -58,6 +58,8 @@ export const DEFAULT_PARAMS = {
     probeAngle: p(0.7, 'rad', 'ASM-SEN-002', { min: 0 }),
     /** Highest rise of the support ahead that the ant walks onto (taller: turn away). */
     maxClimb: p(1.4, 'mm', 'ASM-LOC-008', { min: 0 }),
+    /** A rise is still walkable if the slope up to the probe point is no steeper than this (tan): sand slopes, the spoil mound. */
+    maxSlope: p(0.8, 'x', 'ASM-LOC-008', { min: 0 }),
     /** Deepest drop of the support ahead that the ant walks down (deeper: turn away). Ants climb down more easily than up. */
     maxDrop: p(10, 'mm', 'ASM-LOC-008', { min: 0 }),
     /** Turning rate while facing an obstacle. */
@@ -91,6 +93,67 @@ export const DEFAULT_PARAMS = {
     feederRadius: p(10, 'mm', 'ENG-SCN-003', { min: 1 }),
     /** Distance from the nest entrance at which an ant recognises it and goes in. */
     nestRadius: p(4, 'mm', 'ASM-NAV-005', { min: 0.5 }),
+    /** Nest excavation (Phase 5): workers dig a nest below the entrance at the origin. */
+    digging: p(false, 'bool', 'ENG-SCN-004'),
+  },
+  /** Soil below the nest as voxels (Phase 5). */
+  soil: {
+    /** Region [x, depth, z] centred on the entrance; 1 mm voxels. */
+    size: p([512, 1024, 512], 'mm', 'ENG-SOL-001'),
+    /** The starting pit under the entrance: [radius, depth]. */
+    pit: p([1.5, 3], 'mm', 'ENG-SCN-004'),
+    /** Workers leave this much soil under the surface intact, except within the entrance radius (scenario.nestRadius). */
+    crust: p(3, 'mm', 'ASM-NST-005', { min: 0 }),
+    /** Soil volume of one pellet (= one voxel). */
+    pellet: p(1, 'mm3', 'ASM-NST-001', { min: 0.01 }),
+    /** Side of the cells in which nestmates are counted for the density cue. */
+    densityCell: p(8, 'mm', 'ENG-SOL-002', { min: 1, integer: true }),
+  },
+  /** Excavation behaviour (Phase 5). */
+  dig: {
+    /** Pellets per second a worker at a soil face would dig at high nestmate density. */
+    rate: p(0.05, '1/s', 'ASM-NST-001', { min: 0 }),
+    /**
+     * Crowding: x = (other workers in the density cell) × spacePerWorker / (open volume of the cell);
+     * digging rises as x^n / (x^n + 1), i.e. it is half the full rate when each worker has
+     * spacePerWorker of space, and dies away as the nest gets roomier.
+     */
+    spacePerWorker: p(40, 'mm3', 'ASM-NST-002', { min: 0 }),
+    densityHill: p(4, 'x', 'ASM-NST-002', { min: 0 }),
+    /** Choice of the next voxel underground: persistence of direction and pull towards the goal (log-weights per unit cosine). */
+    persistence: p(2, 'x', 'ASM-NST-003', { min: 0 }),
+    goalPull: p(2, 'x', 'ASM-NST-003', { min: 0 }),
+    /** Preference for digging the face below rather than beside or above (geotaxis in digging). */
+    downPull: p(2, 'x', 'ASM-NST-003', { min: 0 }),
+    /** Pull downwards while walking in the nest without a load (geotaxis in walking). */
+    walkDown: p(0.1, 'x', 'ASM-NST-003', { min: 0 }),
+    /** Blend of the new step into the direction of travel. */
+    turnBlend: p(0.5, 'x', 'ENG-SOL-002', { min: 0, max: 1 }),
+    /**
+     * Body clearance: a worker whose voxel has fewer open neighbours (of 26) than this is
+     * cramped and digs at the full rate; elsewhere (in space wider than its body) at
+     * looseFactor of it. 17 = standing on the wall of a 3-voxel-wide (≈ 3 mm) tunnel.
+     */
+    clearance: p(17, 'count', 'ASM-NST-006', { min: 0, max: 26, integer: true }),
+    looseFactor: p(0.2, 'x', 'ASM-NST-006', { min: 0, max: 1 }),
+    /**
+     * Resting in clusters: a worker walking in the nest stops at (stopBase + stopPerWorker × c)
+     * per second and a resting one moves on at leaveBase / (1 + leaveDamp × c), with c the
+     * other workers in its density cell — so rests gather into clusters.
+     */
+    stopBase: p(0.01, '1/s', 'ASM-NST-007', { min: 0 }),
+    stopPerWorker: p(0.01, '1/s', 'ASM-NST-007', { min: 0 }),
+    leaveBase: p(0.05, '1/s', 'ASM-NST-007', { min: 0 }),
+    leaveDamp: p(0.5, 'x', 'ASM-NST-007', { min: 0 }),
+    /** Pellets are dropped at a distance from the entrance drawn uniformly from this range. */
+    dumpDistance: p([10, 40], 'mm', 'ASM-NST-004'),
+  },
+  /** The mound of excavated soil around the entrance. */
+  mound: {
+    radius: p(150, 'mm', 'ENG-SOL-003', { min: 1 }),
+    cell: p(1, 'mm', 'ENG-SOL-003', { min: 0.1 }),
+    /** Steepest stable slope of the loose pile (tan of the angle of repose). */
+    repose: p(0.7, 'x', 'PHY-SOIL-002', { min: 0.01 }),
   },
   /** Trail pheromone field (Phase 3). Amounts are in arbitrary units u (per mm² cell). */
   pheromone: {
@@ -412,6 +475,10 @@ export const DEFAULT_PARAMS = {
     pheromoneRange: p([5, 1500], 'u', 'ENG-REN-015'),
     pheromoneInterval: p(200, 'ms', 'ENG-REN-015', { min: 16 }),
     showPheromone: p(true, 'bool', 'ENG-REN-015'),
+    /** Nest (Phase 5): colour of the cast of the dug space and of the spoil mound; soil chunks remeshed per refresh. */
+    castColor: p([0.86, 0.82, 0.74], 'rgb', 'ENG-REN-016'),
+    moundColor: p([0.48, 0.38, 0.28], 'rgb', 'ENG-REN-016'),
+    castBudget: p(8, 'count', 'ENG-REN-016', { min: 1, integer: true }),
   },
   ui: {
     hudCollapsed: p(false, 'bool', 'ENG-UI-001'),
@@ -466,6 +533,17 @@ export const DEFAULT_PARAMS = {
     searchTolerance: p(50, 'mm', 'ENG-EXP-002', { min: 0 }),
     /** Double bridge: wipe all pheromone at this time (0 = never). */
     wipeAt: p(0, 's', 'ENG-EXP-002', { min: 0 }),
+    /** Phase 5 excavation protocol: group sizes, seeds per size, simulated time, bin for the rate. */
+    digCounts: p([50, 100, 200, 400], 'count', 'ENG-EXP-003'),
+    digSeeds: p(5, 'count', 'ENG-EXP-003', { min: 1, integer: true }),
+    digFirstSeed: p(5001, 'count', 'ENG-EXP-003', { min: 0, max: 0xffffffff, integer: true }),
+    digDuration: p(43200, 's', 'ENG-EXP-003', { min: 1 }),
+    digBin: p(1800, 's', 'ENG-EXP-003', { min: 1 }),
+    /** Saturation: the rate over the last lateFraction of the run below slowFraction of the peak bin rate. */
+    lateFraction: p(0.2, 'x', 'ENG-EXP-003', { min: 0, max: 1 }),
+    slowFraction: p(0.2, 'x', 'ENG-EXP-003', { min: 0, max: 1 }),
+    /** Proportionality: R² of final volume on group size at least this. */
+    minR2: p(0.9, 'x', 'ENG-EXP-003', { min: 0, max: 1 }),
   },
   bench: {
     counts: p([1000, 2000, 5000, 10000, 20000, 50000, 100000], 'count', 'ENG-BEN-001'),

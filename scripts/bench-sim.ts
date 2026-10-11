@@ -1,7 +1,7 @@
 /**
  * Simulation-only benchmark in Node (no rendering): mean wall time per
  * fixed step for each agent count in bench.counts. Writes
- * docs/reports/bench/phase-4-sim-node.csv.
+ * docs/reports/bench/phase-5-sim-node.csv.
  *
  *   npm run bench:sim
  */
@@ -31,4 +31,4 @@ for (const count of config.bench.counts) {
   console.log(`${String(count).padStart(7)} agents: ${ms.toFixed(4)} ms/tick  (max ×${speed.toFixed(1)} real time)`);
 }
 mkdirSync('docs/reports/bench', { recursive: true });
-writeFileSync('docs/reports/bench/phase-4-sim-node.csv', lines.join('\n') + '\n');
+writeFileSync('docs/reports/bench/phase-5-sim-node.csv', lines.join('\n') + '\n');

@@ -10,7 +10,7 @@ import type { Config } from '../config/params.ts';
 import { MS_PER_S } from '../core/units.ts';
 import {
   SNAP_FLOATS, SnapH, SnapshotView, TripleBufferReader, initTripleBufferControl, snapshotByteLength,
-  type DeterminismReport, type FieldInfo, type FromWorker, type SimStats, type ToWorker, type Transport,
+  type DeterminismReport, type FieldInfo, type FromWorker, type NestInfo, type SimStats, type SoilChunk, type ToWorker, type Transport,
 } from '../worker/protocol.ts';
 
 const SLOT_COUNT = 3;
@@ -28,6 +28,12 @@ export class SimHost {
   /** Pheromone grid of the running world (display only; live view with shared memory, else periodic copies). */
   field: FieldInfo | null = null;
   fieldData: Float32Array | null = null;
+  /** Nest of a digging world: mound heights (live or copied) and dug soil chunks not yet taken by the renderer. */
+  nest: NestInfo | null = null;
+  moundData: Float32Array | null = null;
+  /** Bumped when the mound copy changes (shared memory changes without notice: the renderer polls it). */
+  moundVersion = 0;
+  soilChunks: SoilChunk[] = [];
   timeScale: number;
   paused = false;
   private reader: TripleBufferReader | null = null;
@@ -96,6 +102,18 @@ export class SimHost {
         break;
       case 'fieldData':
         if (this.fieldData && this.fieldData.length === msg.data.length) this.fieldData.set(msg.data);
+        break;
+      case 'nest':
+        this.nest = msg.info;
+        this.soilChunks = [];
+        this.moundData = msg.info ? (msg.info.mound.shared ? new Float32Array(msg.info.mound.shared) : new Float32Array(msg.info.mound.nx * msg.info.mound.nz)) : null;
+        this.moundVersion++;
+        break;
+      case 'soilChunks':
+        this.soilChunks.push(...msg.chunks);
+        break;
+      case 'moundData':
+        if (this.moundData && this.moundData.length === msg.data.length) { this.moundData.set(msg.data); this.moundVersion++; }
         break;
       case 'ready':
         break;

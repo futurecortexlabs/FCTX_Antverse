@@ -85,7 +85,8 @@ export class ParallelStepper {
   step(world: World): void {
     const n = world.agents.highWater;
     const k = this.helpers.length;
-    if (!this.ready || n < this.minPerThread * (k + 1)) {
+    // The soil of a digging world lives only in this thread's World (helpers would not see new tunnels).
+    if (!this.ready || world.soil || n < this.minPerThread * (k + 1)) {
       world.step();
       this.soloTicks++;
       return;

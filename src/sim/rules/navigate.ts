@@ -50,13 +50,17 @@ export function navigate(world: World, from: number, to: number): void {
   const uturn = fc.uturnRate * config.sim.dt;
 
   for (let s = from; s < to; s++) {
-    if ((a.flags[s]! & AgentFlag.ALIVE) === 0) continue;
+    if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) !== AgentFlag.ALIVE) continue; // in the soil: burrow.ts
     const state = a.state[s]!;
-    if (state === AgentState.REST) continue;
+    if (state === AgentState.REST || state === AgentState.DIG) continue;
     const px = a.piX[s]!, pz = a.piZ[s]!;
     let gx = 0, gz = 0, leash = false;
-    if (state === AgentState.RETURN) {
+    if (state === AgentState.RETURN || state === AgentState.REENTER) {
       gx = -px; gz = -pz;
+      leash = a.searchTime[s]! > 0; // a returning digger searching for the entrance
+    } else if (state === AgentState.HAUL) {
+      gx = px; gz = pz; // out of the nest with soil: away from the entrance
+      if (gx * gx + gz * gz < fc.vectorEnd * fc.vectorEnd) continue;
     } else if (state === AgentState.NEST_SEARCH) {
       gx = -px; gz = -pz; leash = true;
     } else if ((a.flags[s]! & AgentFlag.KNOWS_FOOD) !== 0) {
