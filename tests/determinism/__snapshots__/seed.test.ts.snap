@@ -1,3 +1,3 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`seed reproducibility (2000 agents, 10000 ticks) > golden hash for the default config is stable 1`] = `"18c1b820"`;
+exports[`seed reproducibility (2000 agents, 10000 ticks) > golden hash for the default config is stable 1`] = `"dacfd1de"`;

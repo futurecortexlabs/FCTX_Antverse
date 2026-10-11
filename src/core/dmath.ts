@@ -172,6 +172,12 @@ export function dlog(x: number): number {
   return e * LN2_HI + (e * LN2_LO + s * p);
 }
 
+/** x^y for x > 0 via dexp(y * dlog(x)). */
+export function dpow(x: number, y: number): number {
+  if (x === 0) return y > 0 ? 0 : Infinity;
+  return dexp(y * dlog(x));
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 

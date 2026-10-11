@@ -11,7 +11,7 @@
 export type Unit =
   | 's' | 'ms' | 'mm' | 'mm/s' | 'mg' | 'degC'
   | 'rad' | 'rad/sqrt(s)' | 'deg'
-  | 'count' | 'tick' | 'frames' | 'x' | 'bool' | 'px' | 'rgb';
+  | 'count' | 'tick' | 'frames' | 'x' | 'bool' | 'px' | 'rgb' | '1/mm2';
 
 export type RefId = `${'BIO' | 'PHY' | 'ASM' | 'ENG'}-${string}-${number}`;
 export const REF_PATTERN = /\b(?:BIO|PHY|ASM|ENG)-[A-Z]+-\d{3}\b/g;

@@ -24,6 +24,7 @@ export function spawnDebugWalkers(world: World, count: number): void {
     a.posZ[s] = (rand(seed, Stream.DEBUG_WALK_INIT, s, 0, 1) * 2 - 1) * half;
     a.heading[s] = (rand(seed, Stream.DEBUG_WALK_INIT, s, 0, 2) * 2 - 1) * PI;
     a.gaitPhase[s] = rand(seed, Stream.DEBUG_WALK_INIT, s, 0, 3);
+    a.posY[s] = world.terrain.supportHeight(a.posX[s]!, a.posZ[s]!);
     a.speed[s] = speed;
     writeYawQuat(a.heading[s]!, a.rot, s * 4);
   }
@@ -52,6 +53,7 @@ export function debugRandomWalk(world: World): void {
     else if (h < -PI) h += 2 * PI;
 
     a.posX[s] = x;
+    a.posY[s] = world.terrain.supportHeight(x, z); // rest on whatever is underfoot
     a.posZ[s] = z;
     a.heading[s] = h;
     const phase = a.gaitPhase[s]! + step / strideLength;

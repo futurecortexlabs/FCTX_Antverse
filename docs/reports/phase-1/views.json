@@ -1,0 +1,130 @@
+[
+  {
+    "view": "01-overview-1500mm",
+    "fps": 46.8,
+    "cpu": 2.43,
+    "gpu": 0.37,
+    "clearance": 1503.4474335261905,
+    "ground": {
+      "drawn": 22,
+      "cached": 44,
+      "pending": 0,
+      "builtThisFrame": 0,
+      "buildMs": 0.015000000596046448,
+      "triangles": 191488
+    },
+    "grains": 0
+  },
+  {
+    "view": "02-nest-area-100mm",
+    "fps": 59.7,
+    "cpu": 4.31,
+    "gpu": 0.74,
+    "clearance": 101.11187858378976,
+    "ground": {
+      "drawn": 187,
+      "cached": 249,
+      "pending": 0,
+      "builtThisFrame": 0,
+      "buildMs": 0.10500000417232513,
+      "triangles": 1627648
+    },
+    "grains": 10729
+  },
+  {
+    "view": "03-grass-forest-ant-height-2mm",
+    "fps": 59.9,
+    "cpu": 7.07,
+    "gpu": 1.16,
+    "clearance": 2.0000000000000213,
+    "ground": {
+      "drawn": 526,
+      "cached": 793,
+      "pending": 0,
+      "builtThisFrame": 0,
+      "buildMs": 0.2750000059604645,
+      "triangles": 4578304
+    },
+    "grains": 12594
+  },
+  {
+    "view": "04-leaf-litter-15mm",
+    "fps": 60,
+    "cpu": 7.43,
+    "gpu": 1.31,
+    "clearance": 14.528940796599986,
+    "ground": {
+      "drawn": 517,
+      "cached": 1317,
+      "pending": 0,
+      "builtThisFrame": 0,
+      "buildMs": 0.3100000023841858,
+      "triangles": 4499968
+    },
+    "grains": 7650
+  },
+  {
+    "view": "05-pebble-21mm",
+    "fps": 59.9,
+    "cpu": 7.34,
+    "gpu": 1.32,
+    "clearance": 26.64223880432234,
+    "ground": {
+      "drawn": 520,
+      "cached": 1949,
+      "pending": 0,
+      "builtThisFrame": 0,
+      "buildMs": 0.25,
+      "triangles": 4526080
+    },
+    "grains": 14920
+  },
+  {
+    "view": "06-bare-soil-5mm",
+    "fps": 59.9,
+    "cpu": 6.81,
+    "gpu": 1.1,
+    "clearance": 5,
+    "ground": {
+      "drawn": 529,
+      "cached": 2469,
+      "pending": 0,
+      "builtThisFrame": 0,
+      "buildMs": 0.38500000536441803,
+      "triangles": 4604416
+    },
+    "grains": 15728
+  },
+  {
+    "view": "07-ant-eye-1mm",
+    "fps": 60,
+    "cpu": 5.45,
+    "gpu": 1.13,
+    "clearance": 0.9999999999999982,
+    "ground": {
+      "drawn": 520,
+      "cached": 2500,
+      "pending": 0,
+      "builtThisFrame": 0,
+      "buildMs": 0.2850000038743019,
+      "triangles": 4526080
+    },
+    "grains": 15728
+  },
+  {
+    "view": "08-grain-scale-0.2mm",
+    "fps": 59.9,
+    "cpu": 5.42,
+    "gpu": 1.07,
+    "clearance": 0.21135080010967544,
+    "ground": {
+      "drawn": 517,
+      "cached": 2500,
+      "pending": 0,
+      "builtThisFrame": 0,
+      "buildMs": 0.2850000038743019,
+      "triangles": 4499968
+    },
+    "grains": 15728
+  }
+]

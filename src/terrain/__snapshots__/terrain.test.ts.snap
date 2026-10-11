@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Terrain generation > golden digest is stable 1`] = `"fbd7e07c"`;

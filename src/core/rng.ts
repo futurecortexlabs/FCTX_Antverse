@@ -21,6 +21,11 @@ import { dlog, dcos, TAU } from './dmath.ts';
 export const Stream = {
   DEBUG_WALK_INIT: 1,
   DEBUG_WALK_STEP: 2,
+  TERRAIN_SALT: 3,
+  TERRAIN_PEBBLE: 4,
+  TERRAIN_GRAIN: 5,
+  TERRAIN_LEAF: 6,
+  TERRAIN_GRASS: 7,
   TEST: 0xffff,
 } as const;
 export type StreamId = (typeof Stream)[keyof typeof Stream];

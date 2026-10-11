@@ -16,11 +16,12 @@ const layerOf = (rel: string): string => rel.split('/')[0]!;
 const ALLOWED: Record<string, string[]> = {
   core: ['core'],
   config: ['core', 'config'],
-  sim: ['core', 'config', 'sim'],
+  terrain: ['core', 'config', 'terrain'],
+  sim: ['core', 'config', 'terrain', 'sim'],
   worker: ['core', 'config', 'sim', 'worker'],
-  render: ['core', 'config', 'render', 'worker/protocol.ts'],
+  render: ['core', 'config', 'terrain', 'render', 'worker/protocol.ts'],
   bench: ['core', 'config', 'bench'],
-  app: ['core', 'config', 'render', 'bench', 'app', 'worker/protocol.ts'],
+  app: ['core', 'config', 'terrain', 'render', 'bench', 'app', 'worker/protocol.ts'],
 };
 
 describe('layer dependencies', () => {
@@ -41,7 +42,7 @@ describe('layer dependencies', () => {
   });
 });
 
-const DETERMINISTIC_LAYERS = ['core', 'config', 'sim'];
+const DETERMINISTIC_LAYERS = ['core', 'config', 'terrain', 'sim'];
 const BANNED = [
   /\bMath\.(?:random|sin|cos|tan|asin|acos|atan|atan2|sinh|cosh|tanh|asinh|acosh|atanh|exp|expm1|log|log1p|log2|log10|pow|cbrt|hypot)\b/,
   /\bDate\.now\b/,

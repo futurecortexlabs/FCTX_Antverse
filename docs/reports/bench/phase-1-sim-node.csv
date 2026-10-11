@@ -1,0 +1,11 @@
+# date: 2026-10-11T00:45:48.361Z
+# node: v24.19.0 | cpu: Intel(R) Core(TM) Ultra 7 265K
+# ticks per count: 600 (after 60 warm-up ticks)
+count,ms_per_tick,max_realtime_speed
+1000,0.7095,23.5
+2000,1.4504,11.5
+5000,3.8755,4.3
+10000,8.2949,2.0
+20000,16.5064,1.0
+50000,40.1906,0.4
+100000,78.5924,0.2

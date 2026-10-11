@@ -5,7 +5,9 @@
  * running even if the window is covered.
  *
  *   node scripts/browser-run.ts smoke            # backend / adapter / FPS / determinism
- *   node scripts/browser-run.ts shots            # report screenshots -> docs/reports/phase-0/
+ *   node scripts/browser-run.ts shots            # Phase 0 screenshots -> docs/reports/phase-0/
+ *   node scripts/browser-run.ts eval '<expr>' [query]   # evaluate an expression in the running app
+ *   node scripts/browser-run.ts terrain          # Phase 1 terrain views + metrics -> docs/reports/phase-1/
  *   node scripts/browser-run.ts bench [webgl]    # ?bench=1 sweep -> docs/reports/bench/
  *   node scripts/browser-run.ts mobile [webgl|-] [url]  # phone emulation -> docs/reports/mobile/
  *
@@ -152,6 +154,63 @@ async function shots(cdp: Cdp): Promise<void> {
   await cdp.screenshot(`${dir}/04-10k-agents.png`);
 }
 
+/**
+ * Phase 1 terrain views from 1.5 m down to 0.2 mm above the surface, at spots
+ * chosen from the terrain data itself (a grass tuft, a leaf, the largest
+ * pebble, bare soil by the nest). Waits until all ground chunks are built.
+ * Saves screenshots and per-view metrics to docs/reports/phase-1/.
+ */
+async function terrainViews(cdp: Cdp): Promise<void> {
+  const dir = 'docs/reports/phase-1';
+  await cdp.goto(BASE + '?set=debugWalk.count=300');
+  const settle = `(async () => {
+    const a = window.antverse; let calm = 0;
+    for (let i = 0; i < 400 && calm < 6; i++) { await new Promise(r => setTimeout(r, 100)); calm = a.ground.busy ? 0 : calm + 1; }
+    await new Promise(r => setTimeout(r, 1500));
+  })()`;
+  const views = await cdp.eval<{ name: string; cam: number[]; tgt: number[] }[]>(`(() => {
+    const t = window.antverse.terrain, sup = (x, z) => t.supportHeight(x, z);
+    const G = t.grass, L = t.leaves, P = t.pebbles;
+    let bi = 0, bd = Infinity;
+    for (let i = 0; i < G.blades; i++) { const d = Math.hypot(G.base[3*i], G.base[3*i+2]); if (d < bd) { bd = d; bi = i; } }
+    const bx = G.base[3*bi], bz = G.base[3*bi+2];
+    let li = 0, ld = Infinity;
+    for (let k = 0; k < L.count; k++) { const d = Math.hypot(L.cx[k], L.cz[k]); if (d < ld) { ld = d; li = k; } }
+    let pi = 0;
+    for (let i = 1; i < P.count; i++) if (P.radii[3*i] > P.radii[3*pi]) pi = i;
+    const px = P.center[3*pi], pz = P.center[3*pi+2], pr = P.radii[3*pi];
+    const lx = L.cx[li], lz = L.cz[li];
+    const s0 = sup(0, 0);
+    return [
+      { name: '01-overview-1500mm', cam: [0, s0 + 1500, 1800], tgt: [0, s0, 0] },
+      { name: '02-nest-area-100mm', cam: [70, s0 + 100, 90], tgt: [0, s0, 0] },
+      { name: '03-grass-forest-ant-height-2mm', cam: [bx + 70, sup(bx + 70, bz + 70) + 2, bz + 70], tgt: [bx, sup(bx, bz) + 25, bz] },
+      { name: '04-leaf-litter-15mm', cam: [lx + 25, sup(lx, lz) + 15, lz + 25], tgt: [lx, sup(lx, lz), lz] },
+      { name: '05-pebble-' + (2 * pr).toFixed(0) + 'mm', cam: [px + 4 * pr, sup(px, pz) + 2 * pr, pz + 4 * pr], tgt: [px, sup(px, pz), pz] },
+      { name: '06-bare-soil-5mm', cam: [3, sup(3, 3) + 5, 3], tgt: [-2, sup(-2, -2), -2] },
+      { name: '07-ant-eye-1mm', cam: [4, sup(4, 0) + 1, 0], tgt: [-12, sup(-12, 0) + 0.5, 0] },
+      { name: '08-grain-scale-0.2mm', cam: [1, sup(1, 1) + 0.2, 1], tgt: [-1, sup(-1, -1), -1] },
+    ];
+  })()`);
+  const metrics: unknown[] = [];
+  await cdp.eval(`window.antverse.host.setPaused(true)`);
+  for (const v of views) {
+    await cdp.eval(`(() => { const a = window.antverse; a.camera.position.set(${v.cam.join(',')}); a.controls.target.set(${v.tgt.join(',')}); a.controls.update(); })()`);
+    await cdp.eval(settle);
+    const m = await cdp.eval(`(() => {
+      const a = window.antverse, t = a.terrain, c = a.camera.position;
+      const hud = document.querySelector('.hud pre').textContent;
+      const num = (re) => { const m = re.exec(hud); return m ? Number(m[1]) : null; };
+      return { fps: num(/FPS ([0-9.]+)/), cpu: num(/main CPU ([0-9.]+) ms/), gpu: num(/GPU ([0-9.]+) ms/),
+        clearance: c.y - t.supportHeight(c.x, c.z), ground: { ...a.ground.stats }, grains: a.grains.count };
+    })()`);
+    metrics.push({ view: v.name, ...(m as object) });
+    console.log(v.name, JSON.stringify(m));
+    await cdp.screenshot(`${dir}/${v.name}.png`);
+  }
+  writeFileSync(`${dir}/views.json`, JSON.stringify(metrics, null, 2));
+}
+
 /** Phone emulation (390x844 CSS px, DPR 3, touch). `base` lets you target a static/LAN/artifact URL. */
 async function mobile(cdp: Cdp, base: string, backend: string | undefined): Promise<void> {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true, screenWidth: 390, screenHeight: 844 });
@@ -198,6 +257,8 @@ async function main(): Promise<void> {
   try {
     if (cmd === 'smoke') await smoke(cdp);
     else if (cmd === 'shots') await shots(cdp);
+    else if (cmd === 'terrain') await terrainViews(cdp);
+    else if (cmd === 'eval') { await cdp.goto(BASE + (process.argv[4] ?? '')); console.log(JSON.stringify(await cdp.eval(arg ?? 'null'), null, 1)); }
     else if (cmd === 'bench') await bench(cdp, arg);
     else if (cmd === 'mobile') await mobile(cdp, process.argv[4] ?? BASE, arg && arg !== '-' ? arg : undefined);
     else throw new Error(`unknown command ${cmd}`);

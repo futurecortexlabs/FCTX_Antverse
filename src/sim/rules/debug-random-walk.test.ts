@@ -31,11 +31,12 @@ describe('debug random walk fixture (ENG-DBG-001)', () => {
     expect(advance).toBeCloseTo((config.debugWalk.speed * config.sim.dt) / config.debugWalk.strideLength, 5);
   });
 
-  it('stays on the ground plane (y = 0) with unit quaternions', () => {
+  it('rests on the terrain support surface with unit quaternions', () => {
     const w = new World(config);
     for (let t = 0; t < 60; t++) w.step();
     for (let s = 0; s < w.agents.highWater; s++) {
-      expect(w.agents.a.posY[s]).toBe(0);
+      const a = w.agents.a;
+      expect(a.posY[s]).toBeCloseTo(w.terrain.supportHeight(a.posX[s]!, a.posZ[s]!), 3);
       const r = w.agents.a.rot;
       expect(Math.hypot(r[s * 4]!, r[s * 4 + 1]!, r[s * 4 + 2]!, r[s * 4 + 3]!)).toBeCloseTo(1, 5);
     }

@@ -32,11 +32,12 @@ Phase 0 着手前の提案に、プロジェクトオーナーの承認内容（
 |---|---|---|
 | `core/` | 単位・乱数・決定論的数学関数・時計・SoA・ハッシュ | core |
 | `config/` | パラメータ定義・プリセットの合成と検証 | core, config |
-| `sim/` | World と行動ルール（three.js・DOM 非依存） | core, config, sim |
+| `terrain/` | 地表の決定論的な生成と問い合わせ（Phase 1）。シミュレーションと描画が同じものを使う | core, config, terrain |
+| `sim/` | World と行動ルール（three.js・DOM 非依存） | core, config, terrain, sim |
 | `worker/` | Worker の入口・実行ループ・スナップショット | core, config, sim, worker |
-| `render/` | three.js による描画 | core, config, render, `worker/protocol.ts` |
+| `render/` | three.js による描画 | core, config, terrain, render, `worker/protocol.ts` |
 | `bench/` | 性能スイープ | core, config, bench |
-| `app/` | 起動処理・HUD・メイン側のホスト | core, config, render, bench, app, `worker/protocol.ts` |
+| `app/` | 起動処理・HUD・メイン側のホスト | core, config, terrain, render, bench, app, `worker/protocol.ts` |
 
 three.js を import してよいのは `render/` と `app/` だけ。
 
@@ -105,6 +106,27 @@ three.js を import してよいのは `render/` と `app/` だけ。
 - 温度は土壌熱伝導の解析解 `T(z,t) = T̄ + A·e^(−z/d)·sin(ωt − z/d)` を基本に、局所的な補正だけ粗い格子（8 mm）で持つ。
 - 再メッシュ化は、変更のあったチャンクだけ Worker 上の Surface Nets で行う。掘った土は Item として地表に運ばれ、地表を盛り上げる。
 
+### 4.5 地表 [Phase 1 実装済]
+`src/terrain/` は (config, seed) だけで決まる純粋な関数の集まりです。シミュレーション Worker と描画側は、それぞれ同じ `Terrain` を作ります（生成は約 80 ms）。
+同じものになることは、ダイジェスト（ハッシュ）で確かめます。World の状態ハッシュにも、地形のダイジェストを含めています。
+
+| 要素 | 表現 | シミュレーションの問い合わせ | 描画 |
+|---|---|---|---|
+| 土の起伏 | 勾配ノイズの和。大きな起伏（2 m → 6 cm）と細かい凹凸（16 mm → 0.25 mm、ハースト指数 0.6）。導関数は解析的に求める | `ground(x, z, h)`（h = 0 で全詳細） | 四分木 LOD のチャンク + シェーダーによる細部 |
+| 粗砂粒 0.63–2 mm | 2 mm セルごとに決定論的に生成する楕円体（保存しない） | `grainTop` | カメラ近くだけインスタンス描画 |
+| 小石 2–30 mm | 楕円体を約 1,000 個保存 | `pebbleTop` | InstancedMesh |
+| 落ち葉 | 卵形。16×8 の格子に、垂れ下がった形の高さを保存（下の葉にも重なる） | `leafTop` | 同じ格子のメッシュ + 葉脈シェーダー |
+| 草 | 株ごとの葉。中心線をパラメータで表す（Phase 2 で登る対象） | `bladePoints` | 同じ折れ線のリボン |
+| 足が乗る高さ | 上のものの最大値 | `supportHeight(x, z)`（約 0.8 µs） | — |
+
+- **パッチ**: 落葉・草・礫の分布は、低周波ノイズの閾値で決める。閾値は、指定した被覆率に合うよう自動で較正する。巣口から 120 mm は裸地にする。
+- **描画の LOD**:
+  - 形状誤差の上限（落とした凹凸 + 補間誤差の 3σ）が画面上で 2 px を超えるノードを分割する。
+  - チャンクの頂点間隔より細かい凹凸は、シミュレーションと同じハッシュと振幅のノイズを TSL で再現し、ピクセル単位の法線と明るさとして描く。
+  - チャンク間の隙間はスカートでふさぐ。
+  - 4 つの子がそろうまでは親を描くので、地面に穴も重なりも出ない。
+- **カメラのガード**: カメラは常に「足が乗る高さ + 0.1 mm + ニア面の距離」より上にあり、周囲 0.4 mm も確かめる。注視点も地表より下に行かない。
+
 ### 4.4 パラメータ [Phase 0 実装済]
 - `src/config/params.ts` の全値が `{value, unit, ref, min?, max?, integer?}` を持つ。
 - ref の種類: `BIO-*`・`PHY-*`・`ASM-*` は [BIOLOGY.md](BIOLOGY.md)、`ENG-*` は [ENGINEERING.md](ENGINEERING.md) に定義する。
@@ -122,9 +144,10 @@ docs/                  ARCHITECTURE / BIOLOGY / ENGINEERING / reports
 scripts/               bench-sim.ts（Node のシミュレーションベンチ）、browser-run.ts（CDP による実ブラウザでの計測）、vite-report-plugin.ts（開発サーバーでのレポート保存）
 src/core/              単位・乱数・決定論的数学関数・時計・SoA・ハッシュ・ローリング統計
 src/config/            スキーマ・既定値・読み込み
+src/terrain/           ノイズ、地表（土・粒・小石・落葉・草）、空間索引
 src/sim/               World, headless, agents/, rules/
 src/worker/            protocol, sim-runner, snapshot-writer, sim.worker
-src/render/            renderer, scene-reference, interpolation, ants/
+src/render/            renderer, environment（空・霧・影）, interpolation, ants/, terrain/（LOD・チャンク・材質・地表の物体・カメラのガード）, debug/
 src/app/               main, sim-host, hud/, report
 src/bench/             描画ベンチのスイープ
 tests/architecture/    層・決定論の衛生・マジックナンバー・根拠ID
@@ -138,11 +161,18 @@ npm install
 npm run dev        # http://localhost:5173 （COOP/COEP ヘッダ付き）
 npm test           # 全テスト
 npm run typecheck
-npm run bench:sim  # Node でのシミュレーション単体ベンチ → docs/reports/bench/phase-0-sim-node.csv
+npm run bench:sim  # Node でのシミュレーション単体ベンチ → docs/reports/bench/phase-<n>-sim-node.csv
+# 以下は dev サーバー起動中に実行する（Chrome を DevTools 経由で操作）
+npm run browser:smoke   # 両バックエンドの起動確認と決定論チェック
+npm run browser:shots   # Phase 0 のスクリーンショット → docs/reports/phase-0/
+node scripts/browser-run.ts terrain   # Phase 1 の地形の視点 8 種 + 計測値 → docs/reports/phase-1/
+npm run bench:render    # 個体数スイープ（WebGL2 は `node scripts/browser-run.ts bench webgl`）
+npm run dev:lan         # 同じ Wi-Fi のスマホから開けるように公開する
+npm run build:artifact  # Artifact 用のページを dist/artifact.html に出力する
 ```
 
 URL オプション:
-- `?bench=1`: 描画ベンチ。結果は docs/reports/bench/phase-0-*.csv に保存される
+- `?bench=1`: 描画ベンチ。結果は docs/reports/bench/phase-<n>-*.csv に保存される
 - `?backend=webgl`: WebGL2 バックエンドを強制する
 - `?seed=N`、`?preset=ants-10k`、`?set=debugWalk.count=5000`
 

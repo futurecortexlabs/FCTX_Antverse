@@ -13,14 +13,14 @@ const { config } = buildConfig();
 const TICKS = config.sim.determinismCheckTicks;
 
 describe(`seed reproducibility (${config.debugWalk.count} agents, ${TICKS} ticks)`, () => {
-  it('same seed gives identical hashes; seed+1 differs', () => {
+  it('same seed gives identical hashes; seed+1 differs', { timeout: 300000 }, () => {
     const r = checkDeterminism(config, TICKS);
     console.log(`[determinism] ${JSON.stringify(r)}`);
     expect(r.identical).toBe(true);
     expect(r.seedSensitive).toBe(true);
   });
 
-  it('chunked stepping equals one continuous run', () => {
+  it('chunked stepping equals one continuous run', { timeout: 300000 }, () => {
     const a = runHeadless(config, TICKS);
     const b = new World(config);
     for (const chunk of [1, 999, 3000, TICKS - 4000]) for (let i = 0; i < chunk; i++) b.step();

@@ -11,7 +11,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Config } from '../../config/params.ts';
 import { META_BYTE, META_FLAG_SHIFT, META_GEN_SHIFT, SNAP_FLAG_ALIVE, SNAP_FLOATS } from '../../worker/protocol.ts';
 import type { InterpolationState } from '../interpolation.ts';
-import { rgb } from '../scene-reference.ts';
+import { rgb } from '../environment.ts';
 
 const SEGMENT_STRIDE = 3;
 const SPHERE_WIDTH_SEGMENTS = 12;

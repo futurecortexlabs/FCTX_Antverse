@@ -11,8 +11,14 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildConfig, parseUrlOptions, ConfigError, type Overlay } from '../config/load.ts';
 import { MS_PER_S } from '../core/units.ts';
 import { createRenderer } from '../render/renderer.ts';
-import { buildReferenceScene } from '../render/scene-reference.ts';
 import { AntInstances } from '../render/ants/ant-instances.ts';
+import { Environment } from '../render/environment.ts';
+import { GroundRenderer } from '../render/terrain/ground.ts';
+import { GrainField, buildGrass, buildLeaves, buildPebbles } from '../render/terrain/surface-objects.ts';
+import { applyCameraGuard } from '../render/terrain/camera-guard.ts';
+import { focalPx } from '../render/terrain/quadtree.ts';
+import { buildOverlays } from '../render/debug/overlays.ts';
+import { Terrain } from '../terrain/terrain.ts';
 import { SimHost } from './sim-host.ts';
 import { Hud } from './hud/hud.ts';
 import { RollingStats } from '../core/rolling-stats.ts';
@@ -70,14 +76,30 @@ async function main(): Promise<void> {
   document.body.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  buildReferenceScene(scene, cfg);
+  const env = new Environment(scene, cfg);
+  if (cfg.terrainRender.shadows) renderer.shadowMap.enabled = true;
+  // The same deterministic terrain the sim worker builds (identical by construction).
+  const tGen = performance.now();
+  const terrain = new Terrain(cfg);
+  const ground = new GroundRenderer(terrain, cfg);
+  scene.add(ground.group);
+  scene.add(buildPebbles(terrain, cfg));
+  scene.add(buildLeaves(terrain, cfg));
+  scene.add(buildGrass(terrain, cfg));
+  const grains = new GrainField(terrain, cfg);
+  scene.add(grains.mesh);
+  if (cfg.terrainRender.showScaleBar) scene.add(buildOverlays(cfg, terrain));
+  const terrainBuildMs = performance.now() - tGen;
   const ants = new AntInstances(cfg);
+  ants.mesh.castShadow = cfg.terrainRender.shadows;
   scene.add(ants.mesh);
 
   const camera = new THREE.PerspectiveCamera(r.fov, 1, r.near, r.far);
   const [cx, cy, cz] = r.cameraStart;
-  camera.position.set(cx!, cy!, cz!);
+  const originY = terrain.supportHeight(0, 0);
+  camera.position.set(cx!, originY + cy!, cz!);
   const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, originY, 0);
   controls.enableDamping = true;
   controls.minDistance = r.minCameraDistance;
   controls.maxDistance = r.maxCameraDistance;
@@ -111,7 +133,7 @@ async function main(): Promise<void> {
       hud.note('Determinism check running…');
       void host.determinismCheck(cfg.sim.determinismCheckTicks).then((rep) => hud.showDeterminism(rep));
     },
-    screenshot: import.meta.env.DEV ? () => { pendingShot = `phase-0/shot-${Date.now()}.png`; } : undefined,
+    screenshot: import.meta.env.DEV ? () => { pendingShot = `shots/shot-${Date.now()}.png`; } : undefined,
   });
 
   // --- performance measurement ---
@@ -136,17 +158,17 @@ async function main(): Promise<void> {
           adapter: info.adapter,
           transport: host.transport,
           viewport: `${window.innerWidth}x${window.innerHeight}@${renderer.getPixelRatio()}`,
-          note: 'Phase 0 placeholder bodies, debug random walk',
+          note: 'Phase 1 terrain + placeholder bodies (debug random walk on supportHeight)',
         });
         (window as unknown as { __antverseBench: unknown }).__antverseBench = { rows, csv };
         console.table(rows);
         hud.note(`<pre>${csv}</pre>`);
-        if (import.meta.env.DEV) void saveReportFile(`bench/phase-0-${info.backend.toLowerCase()}.csv`, csv);
+        if (import.meta.env.DEV) void saveReportFile(`bench/phase-1-${info.backend.toLowerCase()}.csv`, csv);
       })
     : null;
 
   // Expose a small handle for automated checks (DevTools / test harness).
-  (window as unknown as { antverse: unknown }).antverse = { host, cfg, info, renderer, camera, controls, hud };
+  (window as unknown as { antverse: unknown }).antverse = { host, cfg, info, renderer, camera, controls, hud, terrain, ground, grains, terrainBuildMs };
 
   renderer.setAnimationLoop(() => {
     const now = performance.now();
@@ -157,6 +179,11 @@ async function main(): Promise<void> {
     host.update(performance.timeOrigin + now);
     ants.update(host.interp);
     controls.update();
+    if (applyCameraGuard(terrain, cfg, camera.position, controls.target)) camera.lookAt(controls.target);
+    const viewportPx = renderer.domElement.height / renderer.getPixelRatio();
+    ground.update(camera.position, focalPx(camera.fov * DEG, viewportPx));
+    grains.update(camera, viewportPx, cfg.terrainRender.genBudget);
+    env.update(camera, controls.target);
     renderer.render(scene, camera);
 
     if (pendingShot) {
@@ -185,7 +212,11 @@ async function main(): Promise<void> {
         cpuMs: cpuMs.mean(),
         gpuMs: gpuMs.count > 0 ? gpuMs.mean() : null,
         visible: ants.visible,
-      }, host.stats, info, host.transport);
+      }, host.stats, info, host.transport, [
+        `ground ${ground.stats.drawn} chunks (${ground.stats.pending} pending, ${ground.stats.cached} cached) | ${(ground.stats.triangles / 1000).toFixed(0)}k tris`,
+        `grains ${grains.count} | pebbles ${terrain.pebbles.count} | leaves ${terrain.leaves.count} | grass ${terrain.grass.blades}`,
+        `camera ${(camera.position.y - terrain.supportHeight(camera.position.x, camera.position.z)).toFixed(2)} mm above surface`,
+      ]);
       if (bench && !bench.done) hud.note(bench.status());
     }
   });

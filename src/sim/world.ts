@@ -10,6 +10,7 @@
 import { StateHasher } from '../core/statehash.ts';
 import type { Config } from '../config/params.ts';
 import { AgentStore } from './agents/store.ts';
+import { Terrain } from '../terrain/terrain.ts';
 import { debugRandomWalk, spawnDebugWalkers } from './rules/debug-random-walk.ts';
 
 export type Rule = (world: World) => void;
@@ -20,11 +21,15 @@ export class World {
   /** Index of the next step to compute (= number of completed steps). */
   tick = 0;
   readonly agents: AgentStore;
+  readonly terrain: Terrain;
+  private readonly terrainDigest: number;
   private readonly rules: Rule[];
 
   constructor(config: Config) {
     this.config = config;
     this.seed = config.sim.seed >>> 0;
+    this.terrain = new Terrain(config);
+    this.terrainDigest = this.terrain.digest();
     this.agents = new AgentStore(config.sim.capacity);
     // Phase 0: pipeline fixture only. Replaced by real rules from Phase 2.
     this.rules = [debugRandomWalk];
@@ -41,7 +46,7 @@ export class World {
   }
 
   stateHash(): number {
-    const h = new StateHasher().word(this.seed).word(this.tick);
+    const h = new StateHasher().word(this.seed).word(this.tick).word(this.terrainDigest);
     h.word(this.agents.highWater).word(this.agents.alive);
     for (const s of this.agents.freeSlots()) h.word(s);
     for (const v of this.agents.views()) h.view(v);
