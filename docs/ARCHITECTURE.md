@@ -201,7 +201,7 @@ npm run build:artifact  # Artifact 用のページを dist/artifact.html に出�
 URL オプション:
 - `?bench=1`: 描画ベンチ。結果は docs/reports/bench/phase-<n>-*.csv に保存される
 - `?backend=webgl`: WebGL2 バックエンドを強制する
-- `?seed=N`、`?preset=ants-10k`、`?preset=double-bridge`（二重橋）、`?set=population.count=5000`、`?set=render.showPheromone=false`
+- `?seed=N`、`?preset=ants-10k`、`?preset=double-bridge`（二重橋。クエリが使えない場所では `#double-bridge`）、`?set=population.count=5000`、`?set=render.showPheromone=false`
 
 キー操作: Space（一時停止 / 再開）、`.`（1 ステップ進める）、`[` `]`（遅く / 速く）、`M`（MAX）。
 
