@@ -8,7 +8,7 @@ import { FixedStepClock } from '../core/clock.ts';
 import { MS_PER_S } from '../core/units.ts';
 import type { Config } from '../config/params.ts';
 import { World } from '../sim/world.ts';
-import type { SimStats, SnapshotView } from './protocol.ts';
+import type { FieldInfo, SimStats, SnapshotView } from './protocol.ts';
 import { writeSnapshot } from './snapshot-writer.ts';
 
 export interface SnapshotSink {
@@ -58,9 +58,17 @@ export class SimRunner {
   }
 
   private makeWorld(config: Config): World {
-    const world = new World(config, { sharedAgents: this.stepper !== null });
+    const world = new World(config, { sharedAgents: this.stepper !== null, sharedField: globalThis.crossOriginIsolated === true });
     this.stepper?.attach(world);
     return world;
+  }
+
+  /** The pheromone grid for display (null without a field). */
+  fieldInfo(): FieldInfo | null {
+    const f = this.world.pheromone;
+    if (!f) return null;
+    const b = f.buffer;
+    return { x0: f.x0, z0: f.z0, cell: f.cell, nx: f.nx, nz: f.nz, shared: b instanceof SharedArrayBuffer ? b : null };
   }
 
   /** Rebuild the world (e.g. new agent count) keeping speed and pause state. */

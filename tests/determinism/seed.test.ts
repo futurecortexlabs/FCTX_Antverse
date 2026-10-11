@@ -4,8 +4,9 @@
  * splitting a run into chunks changes nothing.
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { buildConfig } from '../../src/config/load.ts';
+import { buildConfig, type Overlay } from '../../src/config/load.ts';
 import { checkDeterminism, runHeadless } from '../../src/sim/headless.ts';
 import { World } from '../../src/sim/world.ts';
 
@@ -42,5 +43,21 @@ describe(`seed reproducibility (${config.population.count} agents, ${TICKS} tick
     // If this changes, either simulation behaviour or hashing changed on purpose:
     // update the snapshot and record why in the phase report.
     expect(checkDeterminism(config, 600).hashA).toMatchSnapshot();
+  });
+});
+
+describe('seed reproducibility with the pheromone field (double bridge)', () => {
+  const preset = JSON.parse(readFileSync('config/presets/double-bridge.json', 'utf8')) as Overlay;
+  const bridge = buildConfig([preset]).config;
+  const ticks = 3600; // one minute: ants reach the feeder and lay trail both ways
+
+  it('same seed gives identical hashes (agents and field); seed+1 differs', { timeout: 300000 }, () => {
+    const r = checkDeterminism(bridge, ticks);
+    expect(r.identical).toBe(true);
+    expect(r.seedSensitive).toBe(true);
+  });
+
+  it('golden hash for the double-bridge preset is stable', { timeout: 300000 }, () => {
+    expect(checkDeterminism(bridge, 1200).hashA).toMatchSnapshot();
   });
 });

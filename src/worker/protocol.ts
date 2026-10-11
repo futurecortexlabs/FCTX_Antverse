@@ -154,8 +154,25 @@ export interface DeterminismReport {
   ms: number;
 }
 
+/**
+ * The running world's pheromone grid (Phase 3), for display only. Node (i, j)
+ * is at (x0 + i·cell, z0 + j·cell); values are row-major in j. With shared
+ * memory the main thread reads the live grid; otherwise copies arrive as
+ * 'fieldData' messages.
+ */
+export interface FieldInfo {
+  x0: number;
+  z0: number;
+  cell: number;
+  nx: number;
+  nz: number;
+  shared: SharedArrayBuffer | null;
+}
+
 export type FromWorker =
   | { type: 'ready'; capacity: number; seed: number; threads: number }
+  | { type: 'field'; info: FieldInfo | null }
+  | { type: 'fieldData'; data: Float32Array }
   | { type: 'snapshot'; buffer: ArrayBuffer }
   | { type: 'stats'; stats: SimStats }
   | { type: 'hash'; id: number; tick: number; hash: string }

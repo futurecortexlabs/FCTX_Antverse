@@ -8,6 +8,7 @@
  *   node scripts/browser-run.ts shots            # Phase 0 screenshots -> docs/reports/phase-0/
  *   node scripts/browser-run.ts eval '<expr>' [query]   # evaluate an expression in the running app
  *   node scripts/browser-run.ts walk             # Phase 2 walking views + frame sequence -> docs/reports/phase-2/
+ *   node scripts/browser-run.ts bridge [seed]    # Phase 3 double bridge: stills + time-lapse -> docs/reports/phase-3/
  *   node scripts/browser-run.ts tiers            # quality tiers + automatic reduction on a throttled CPU
  *   node scripts/browser-run.ts terrain          # Phase 1 terrain views + metrics -> docs/reports/phase-1/
  *   node scripts/browser-run.ts bench [webgl]    # ?bench=1 sweep -> docs/reports/bench/
@@ -277,6 +278,66 @@ async function walkViews(cdp: Cdp): Promise<void> {
   await cdp.eval(`(() => { window.antverse.followAnt(null); window.antverse.host.setSpeed(1); })()`);
 }
 
+/**
+ * Phase 3 double bridge: the default view of the apparatus at several sim
+ * times (fast-forwarded), a close-up of fork A, and a time-lapse frame
+ * sequence for an animated GIF. Output: docs/reports/phase-3/.
+ */
+async function bridgeViews(cdp: Cdp, seed: string | undefined): Promise<void> {
+  const dir = 'docs/reports/phase-3';
+  await cdp.goto(BASE + `?preset=double-bridge&seed=${seed ?? 1}`);
+  const simTime = (): Promise<number> => cdp.eval<number>('window.antverse.host.stats ? window.antverse.host.stats.simTime : 0');
+  const runTo = async (t: number, speed: number): Promise<void> => {
+    await cdp.eval(`window.antverse.host.setSpeed(${speed})`);
+    while (await simTime() < t) await sleep(200);
+    await cdp.eval('window.antverse.host.setSpeed(1)');
+    await sleep(800);
+  };
+  const home = await cdp.eval<{ p: number[]; t: number[] }>(`(() => { const a = window.antverse; return { p: a.camera.position.toArray(), t: a.controls.target.toArray() }; })()`);
+  const log: string[] = [];
+  const shot = async (name: string): Promise<void> => {
+    await cdp.screenshot(`${dir}/${name}.png`);
+    log.push(`${name}: sim ${(await simTime()).toFixed(0)} s | ${(await cdp.eval<string>(HUD)).split('\n').find((l) => l.startsWith('double bridge')) ?? ''}`);
+  };
+  await runTo(20, 4);
+  await shot('01-leaving-the-nest');
+  await runTo(120, 16);
+  await shot('02-two-minutes');
+  await runTo(600, 32);
+  await shot('03-ten-minutes');
+  // Straight down (nest left, feeder right, short branch at +z = bottom of the image).
+  const [tx, ty, tz] = home.t as [number, number, number];
+  await cdp.eval(cam([tx, ty + 330, tz + 0.01], [tx, ty, tz]));
+  await cdp.eval(`(() => { const a = window.antverse; a.camera.up.set(0, 0, -1); a.camera.lookAt(${tx}, ${ty}, ${tz}); })()`);
+  await sleep(1200);
+  await shot('04-ten-minutes-top-down');
+  await cdp.eval(`window.antverse.camera.up.set(0, 1, 0)`);
+  await cdp.eval(cam(home.p, home.t));
+  await runTo(1200, 32);
+  await shot('05-twenty-minutes');
+  const y0 = await cdp.eval<number>('window.antverse.terrain.supportHeight(0, 0)');
+  await cdp.eval(cam([-25, y0 + 28, 30], [8, y0, 0]));
+  await sleep(1200);
+  await shot('06-fork-a-close');
+  await cdp.eval(cam([-6, y0 + 7, 9], [4, y0, 0]));
+  await sleep(1200);
+  await shot('07-fork-a-ant-level');
+  await cdp.eval(`window.antverse.togglePheromone(false)`);
+  await cdp.eval(cam(home.p, home.t));
+  await sleep(1200);
+  await shot('08-twenty-minutes-no-heatmap');
+  writeFileSync(`${dir}/views.txt`, log.join('\n') + '\n');
+  console.log(log.join('\n'));
+  // Time-lapse from a fresh start: one frame per second of wall time at ×16.
+  await cdp.goto(BASE + `?preset=double-bridge&seed=${seed ?? 1}`);
+  mkdirSync(`${dir}/seq`, { recursive: true });
+  await cdp.eval('window.antverse.host.setSpeed(16)');
+  for (let k = 0; k < 60; k++) {
+    await cdp.screenshot(`${dir}/seq/f${String(k).padStart(2, '0')}.png`);
+    await sleep(1000);
+  }
+}
+
 /** Phone emulation (390x844 CSS px, DPR 3, touch). `base` lets you target a static/LAN/artifact URL. */
 async function mobile(cdp: Cdp, base: string, backend: string | undefined): Promise<void> {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true, screenWidth: 390, screenHeight: 844 });
@@ -326,6 +387,7 @@ async function main(): Promise<void> {
     else if (cmd === 'terrain') await terrainViews(cdp);
     else if (cmd === 'tiers') await tiers(cdp);
     else if (cmd === 'walk') await walkViews(cdp);
+    else if (cmd === 'bridge') await bridgeViews(cdp, arg);
     else if (cmd === 'eval') { await cdp.goto(BASE + (process.argv[4] ?? '')); console.log(JSON.stringify(await cdp.eval(arg ?? 'null'), null, 1)); }
     else if (cmd === 'bench') await bench(cdp, arg);
     else if (cmd === 'mobile') await mobile(cdp, process.argv[4] ?? BASE, arg && arg !== '-' ? arg : undefined);

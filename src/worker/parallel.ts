@@ -24,6 +24,8 @@ export type HelperIn = {
   type: 'attach';
   config: Config;
   buffers: Record<string, SharedArrayBuffer>;
+  /** The pheromone grid (read-only for helpers). */
+  pheromone: SharedArrayBuffer | null;
   control: SharedArrayBuffer;
   index: number;
   attachId: number;
@@ -71,8 +73,10 @@ export class ParallelStepper {
     this.attachId++;
     Atomics.store(this.ctl, Ctl.ATTACH, this.attachId);
     const buffers = world.agents.sharedBuffers();
+    const field = world.pheromone?.buffer;
+    const pheromone = field instanceof SharedArrayBuffer ? field : null;
     this.helpers.forEach((w, index) => {
-      const msg: HelperIn = { type: 'attach', config: world.config, buffers, control: this.control, index, attachId: this.attachId };
+      const msg: HelperIn = { type: 'attach', config: world.config, buffers, pheromone, control: this.control, index, attachId: this.attachId };
       w.postMessage(msg);
     });
   }

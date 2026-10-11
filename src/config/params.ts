@@ -61,6 +61,66 @@ export const DEFAULT_PARAMS = {
     /** Turning rate while facing an obstacle. */
     avoidTurnRate: p(6, 'rad/s', 'ASM-LOC-008', { min: 0 }),
   },
+  /**
+   * Experimental set-ups replacing the open ground (Phase 3): the double bridge
+   * of Goss et al. (1989) / Beckers et al. (1992). Ground is flat inside it.
+   */
+  scenario: {
+    doubleBridge: p(false, 'bool', 'ENG-SCN-001'),
+    /** Distance between the two forks. */
+    bridgeSpan: p(120, 'mm', 'ENG-SCN-002', { min: 1 }),
+    /** Long / short branch length. */
+    bridgeRatio: p(2, 'x', 'BIO-PHE-001', { min: 1 }),
+    /** Angle of both branches either side of the axis at each fork. */
+    bridgeAngle: p(0.5236, 'rad', 'BIO-PHE-001', { min: 0.05, max: 1.5 }),
+    bridgeWidth: p(10, 'mm', 'ENG-SCN-002', { min: 1 }),
+    /** Length of the long branch's first and last legs (at ±bridgeAngle, mirroring the short branch), as a fraction of a short-branch leg. */
+    forkLeg: p(0.5, 'x', 'ENG-SCN-002', { min: 0.05, max: 0.95 }),
+    /** Corridors nest → fork A and fork B → feeder. */
+    stemLength: p(40, 'mm', 'ENG-SCN-002', { min: 0 }),
+    /** Radius of the nest and feeding arenas. */
+    arenaRadius: p(15, 'mm', 'ENG-SCN-002', { min: 1 }),
+  },
+  /** Trail pheromone field (Phase 3). Amounts are in arbitrary units u (per mm² cell). */
+  pheromone: {
+    cell: p(1, 'mm', 'ASM-PHE-001', { min: 0.1 }),
+    /** Mean lifetime of the trail (1/evaporation rate). */
+    lifetime: p(2820, 's', 'BIO-PHE-002', { min: 1 }),
+    diffusion: p(0.02, 'mm2/s', 'ASM-PHE-001', { min: 0 }),
+    /** Field update interval. */
+    period: p(6, 'tick', 'ENG-PHE-001', { min: 1, integer: true }),
+    /** Laid per mm walked: returning with food, and searching (outbound). */
+    depositReturn: p(1, 'u/mm', 'ASM-PHE-002', { min: 0 }),
+    depositSearch: p(0.25, 'u/mm', 'ASM-PHE-002', { min: 0 }),
+    /** Tiles whose pheromone falls below this go idle (numerical). */
+    epsilon: p(1e-4, 'u', 'ENG-PHE-001', { min: 0 }),
+  },
+  /** Trail following by the antennae (osmotropotaxis, Weber's law; Perna et al. 2012). */
+  trail: {
+    /** Antenna tips, as fractions of body length ahead of the mesosoma centre and to each side. */
+    sensorAhead: p(0.7, 'x', 'ASM-SEN-003', { min: 0 }),
+    sensorSide: p(0.27, 'x', 'ASM-SEN-003', { min: 0 }),
+    /** Turning rate at full left–right contrast ((L−R)/(L+R) = ±1). */
+    gain: p(16, 'rad/s', 'ASM-SEN-004', { min: 0 }),
+    /**
+     * Weber contrast with a sensory floor: the turn is gain·(L − R)/(L + R + floor),
+     * so faint trails are followed weakly and strong ones by their ratio alone.
+     */
+    floor: p(10, 'u', 'ASM-SEN-004', { min: 0 }),
+  },
+  /** Foraging trips (Phase 3; homing is refined in Phase 4). */
+  forage: {
+    /** Rate at which each resting ant leaves the nest to forage. */
+    exitRate: p(1 / 60, '1/s', 'ASM-FOR-001', { min: 0 }),
+    /**
+     * Turning rate towards the current goal per radian of heading error — the
+     * nest while returning, the remembered food while going out again
+     * (path-integration stand-in).
+     */
+    vectorGain: p(2, 'rad/s', 'ASM-NAV-001', { min: 0 }),
+    /** U-turn rate when walking directly away from the goal; scales with (1 − cos error)/2. */
+    uturnRate: p(0.5, '1/s', 'ASM-NAV-002', { min: 0 }),
+  },
   /** Body and gait kinematics of a walking worker. */
   locomotion: {
     speed: p(25, 'mm/s', 'ASM-LOC-001', { min: 0 }),
@@ -314,6 +374,19 @@ export const DEFAULT_PARAMS = {
     maxCameraDistance: p(10000, 'mm', 'ENG-REN-007', { min: 1 }),
     maxPolarAngle: p(179, 'deg', 'ENG-REN-007', { min: 1, max: 180 }),
     gpuTiming: p(true, 'bool', 'ENG-PRF-002'),
+    /** Experimental apparatus (Phase 3): walkway, nest and feeder surfaces, raised this far above the ground. */
+    walkwayColor: p([0.82, 0.8, 0.74], 'rgb', 'ENG-REN-014'),
+    nestColor: p([0.14, 0.1, 0.08], 'rgb', 'ENG-REN-014'),
+    feederColor: p([0.93, 0.72, 0.3], 'rgb', 'ENG-REN-014'),
+    apparatusLift: p(0.02, 'mm', 'ENG-REN-014', { min: 0 }),
+    /** Initial camera distance from the apparatus centre, × its longest side. */
+    apparatusView: p(0.9, 'x', 'ENG-REN-014', { min: 0.1 }),
+    /** Pheromone heatmap: colour, opacity at saturation, the concentrations shown as faintest / saturated (log scale), refresh interval. */
+    pheromoneColor: p([0.75, 0.15, 0.85], 'rgb', 'ENG-REN-015'),
+    pheromoneOpacity: p(0.75, 'x', 'ENG-REN-015', { min: 0, max: 1 }),
+    pheromoneRange: p([5, 1500], 'u', 'ENG-REN-015'),
+    pheromoneInterval: p(200, 'ms', 'ENG-REN-015', { min: 16 }),
+    showPheromone: p(true, 'bool', 'ENG-REN-015'),
   },
   ui: {
     hudCollapsed: p(false, 'bool', 'ENG-UI-001'),
@@ -337,6 +410,25 @@ export const DEFAULT_PARAMS = {
   perf: {
     windowFrames: p(240, 'frames', 'ENG-PRF-001', { min: 10, integer: true }),
     hudInterval: p(250, 'ms', 'ENG-PRF-001', { min: 50 }),
+  },
+  /** Double-bridge acceptance protocol (Phase 3; scripts/experiment-double-bridge.ts). */
+  experiment: {
+    trials: p(50, 'count', 'ENG-EXP-001', { min: 1, integer: true }),
+    /**
+     * Seed of the first trial (the others follow). The acceptance run uses
+     * seeds not used while developing the model (those were sim.seed + k).
+     */
+    firstSeed: p(1, 'count', 'ENG-EXP-001', { min: 0, max: 0xffffffff, integer: true }),
+    /** Simulated time per trial. */
+    duration: p(1800, 's', 'ENG-EXP-001', { min: 1 }),
+    /** Traffic is counted in bins of this length. */
+    bin: p(60, 's', 'ENG-EXP-001', { min: 1 }),
+    /** Final window over which the short-branch share is measured. */
+    window: p(300, 's', 'ENG-EXP-001', { min: 1 }),
+    /** A trial has converged when the short branch carries more than this share of the crossings. */
+    convergedShare: p(0.8, 'x', 'ENG-EXP-001', { min: 0, max: 1 }),
+    /** The phase passes when at least this fraction of trials converge. */
+    passFraction: p(0.8, 'x', 'ENG-EXP-001', { min: 0, max: 1 }),
   },
   bench: {
     counts: p([1000, 2000, 5000, 10000, 20000, 50000, 100000], 'count', 'ENG-BEN-001'),

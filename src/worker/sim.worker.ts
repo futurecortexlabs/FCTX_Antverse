@@ -40,7 +40,15 @@ function loop(): void {
   if (!runner) return;
   const owed = runner.iterate();
   const stats = runner.takeStats();
-  if (stats) post({ type: 'stats', stats });
+  if (stats) {
+    post({ type: 'stats', stats });
+    // Without shared memory the renderer gets a copy of the pheromone grid at the stats rate.
+    const field = runner.world.pheromone;
+    if (field && !(field.buffer instanceof SharedArrayBuffer)) {
+      const data = field.data.slice();
+      post({ type: 'fieldData', data }, [data.buffer]);
+    }
+  }
   schedule(owed);
 }
 
@@ -97,12 +105,14 @@ self.onmessage = (e: MessageEvent<ToWorker>) => {
           : null;
         runner = new SimRunner(config, sink, wallNow, stepper);
         post({ type: 'ready', capacity: cap, seed: config.sim.seed, threads: stepper?.threads ?? 1 });
+        post({ type: 'field', info: runner.fieldInfo() });
         schedule(true);
         break;
       }
       case 'reset': {
         if (!runner) break;
         runner.reset(buildConfig(msg.overlays).config);
+        post({ type: 'field', info: runner.fieldInfo() });
         schedule(true);
         break;
       }

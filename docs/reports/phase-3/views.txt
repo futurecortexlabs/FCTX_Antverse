@@ -1,0 +1,8 @@
+01-leaving-the-nest: sim 22 s | double bridge: short branch 7 | long branch 17 | in nest 121 | short 139 mm, long 277 mm
+02-two-minutes: sim 124 s | double bridge: short branch 74 | long branch 2 | in nest 24 | short 139 mm, long 277 mm
+03-ten-minutes: sim 610 s | double bridge: short branch 85 | long branch 2 | in nest 0 | short 139 mm, long 277 mm
+04-ten-minutes-top-down: sim 612 s | double bridge: short branch 89 | long branch 2 | in nest 0 | short 139 mm, long 277 mm
+05-twenty-minutes: sim 1205 s | double bridge: short branch 79 | long branch 12 | in nest 1 | short 139 mm, long 277 mm
+06-fork-a-close: sim 1206 s | double bridge: short branch 66 | long branch 13 | in nest 0 | short 139 mm, long 277 mm
+07-fork-a-ant-level: sim 1208 s | double bridge: short branch 80 | long branch 12 | in nest 0 | short 139 mm, long 277 mm
+08-twenty-minutes-no-heatmap: sim 1209 s | double bridge: short branch 82 | long branch 13 | in nest 0 | short 139 mm, long 277 mm
