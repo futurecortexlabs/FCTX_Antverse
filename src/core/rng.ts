@@ -34,6 +34,10 @@ export const Stream = {
   NEST_EXIT: 10,
   /** Spontaneous U-turns. */
   UTURN: 11,
+  /** Path integration: compass error, odometer gain, give-up time. */
+  PATH_INTEGRATION: 12,
+  /** Scenario layout (e.g. where the feeder is). */
+  SCENARIO: 13,
   TEST: 0xffff,
 } as const;
 export type StreamId = (typeof Stream)[keyof typeof Stream];

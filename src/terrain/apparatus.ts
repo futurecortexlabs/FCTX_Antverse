@@ -16,8 +16,30 @@
  * Walkable space = union of capsules (segments of width w) and the two arenas.
  */
 
-import { dcos, dsin, dhypot } from '../core/dmath.ts';
+import { dcos, dsin, dhypot, PI } from '../core/dmath.ts';
+import { rand, Stream } from '../core/rng.ts';
 import type { Config } from '../config/params.ts';
+
+/** A place an ant recognises on contact: the nest entrance or a food source (disc on the ground). */
+export interface Site {
+  x: number;
+  z: number;
+  r: number;
+}
+
+/**
+ * Open-ground homing scenario (Phase 4, ENG-SCN-003): the nest entrance at
+ * the origin and one feeder feederDistance away, in a direction drawn from
+ * the seed. Shared by the simulation and the renderer.
+ */
+export function homingSites(cfg: Config): { nest: Site; feeder: Site } {
+  const sc = cfg.scenario;
+  const ang = rand(cfg.sim.seed >>> 0, Stream.SCENARIO, 0, 0) * 2 * PI;
+  return {
+    nest: { x: 0, z: 0, r: sc.nestRadius },
+    feeder: { x: sc.feederDistance * dcos(ang), z: -sc.feederDistance * dsin(ang), r: sc.feederRadius },
+  };
+}
 
 export interface Segment {
   x0: number; z0: number; x1: number; z1: number;

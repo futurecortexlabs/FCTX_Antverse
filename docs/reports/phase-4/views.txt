@@ -1,0 +1,3 @@
+01-three-minutes: sim 182 s | foraging: out 24 | heading home 3 (with food 0) | searching for the nest 1 | in nest 2
+02-top-down: sim 184 s | foraging: out 23 | heading home 4 (with food 0) | searching for the nest 1 | in nest 2
+03-nest-entrance: sim 186 s | foraging: out 23 | heading home 4 (with food 0) | searching for the nest 1 | in nest 2

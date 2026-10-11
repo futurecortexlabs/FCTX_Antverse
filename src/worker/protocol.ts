@@ -137,6 +137,11 @@ export interface SimStats {
   droppedSteps: number;
   /** Simulation threads in use (1 = single-threaded). */
   threads: number;
+  /**
+   * In a foraging scenario: agents per foraging state, indexed like AgentState
+   * (search, return, rest, nest search), and how many carry food. Null otherwise.
+   */
+  foraging: { states: number[]; carrying: number } | null;
 }
 
 export interface DeterminismReport {

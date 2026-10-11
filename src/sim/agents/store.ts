@@ -16,8 +16,10 @@ const GEN_MASK = (1 << (32 - SLOT_BITS)) - 1;
 
 export const AgentFlag = {
   ALIVE: 1 << 0,
-  /** Has found food before and remembers where (until Phase 4: the feeder of the apparatus). */
+  /** Has found food before and remembers where (the food vector foodX/foodZ). */
   KNOWS_FOOD: 1 << 1,
+  /** Searching (for the nest or the food): on the way back through the search centre. */
+  LOOP_BACK: 1 << 2,
 } as const;
 
 export const Caste = {
@@ -57,6 +59,27 @@ export const AGENT_SCHEMA = {
   deposit: field('f32'),
   /** Turning rate requested by guidance rules (trail, homing) this tick (rad/s); explore applies it unless blocked. */
   steer: field('f32'),
+  // --- Phase 4: path integration ---
+  /** Displacement walked this tick (mm), as the body moved. */
+  stepX: field('f32'),
+  stepZ: field('f32'),
+  /** Path-integration estimate of the ant's position relative to the nest (mm); the home vector is its negative. */
+  piX: field('f32'),
+  piZ: field('f32'),
+  /** Remembered food site, in the same nest-centred estimate (valid with AgentFlag.KNOWS_FOOD). */
+  foodX: field('f32'),
+  foodZ: field('f32'),
+  /** Current error of the celestial compass (rad), a slowly wandering process. */
+  compassError: field('f32'),
+  /** Odometer gain for the current trip (1 = exact). */
+  odometer: field('f32'),
+  /** Time since leaving the nest (s), and the search time after which this trip is given up. */
+  tripTime: field('f32'),
+  giveUp: field('f32'),
+  /** Time since the home vector ran out without reaching the nest (s). */
+  searchTime: field('f32'),
+  /** While blocked by an obstacle or edge: the way the ant is turning (+1 left, −1 right); 0 when free. */
+  avoidTurn: field('f32'),
 };
 
 export const AgentState = {
@@ -66,6 +89,8 @@ export const AgentState = {
   RETURN: 1,
   /** Inside the nest, not foraging (stands still). */
   REST: 2,
+  /** Home vector run off without finding the nest: searching around where it should be. */
+  NEST_SEARCH: 3,
 } as const;
 
 export const CarryKind = { NONE: 0, FOOD: 1 } as const;
@@ -122,6 +147,18 @@ export class AgentStore {
     a.lastStep[slot] = 0;
     a.deposit[slot] = 0;
     a.steer[slot] = 0;
+    a.stepX[slot] = 0;
+    a.stepZ[slot] = 0;
+    a.piX[slot] = 0;
+    a.piZ[slot] = 0;
+    a.foodX[slot] = 0;
+    a.foodZ[slot] = 0;
+    a.compassError[slot] = 0;
+    a.odometer[slot] = 1;
+    a.tripTime[slot] = 0;
+    a.giveUp[slot] = 0;
+    a.searchTime[slot] = 0;
+    a.avoidTurn[slot] = 0;
     this.alive++;
     return slot;
   }

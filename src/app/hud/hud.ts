@@ -157,7 +157,7 @@ export class Hud {
   render(perf: PerfSnapshot, sim: SimStats | null, info: RendererInfo, transport: Transport, extra: readonly string[] = []): void {
     const speedLabel = (s: number): string => (s >= this.cfg.time.maxSpeed ? 'MAX' : `×${s}`);
     const lines = [
-      `Antverse — Phase 3`,
+      `Antverse — Phase 4`,
       `${info.backend} | depth ${info.depth} | ${transport === 'shared' ? 'SharedArrayBuffer' : 'copy transfer'} | ${this.tier}`,
       `GPU ${info.adapter}`,
       `FPS ${fmt(perf.fps)} | frame p50 ${fmt(perf.frameP50, 2)} / p95 ${fmt(perf.frameP95, 2)} ms`,

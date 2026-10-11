@@ -9,6 +9,7 @@
  *   node scripts/browser-run.ts eval '<expr>' [query]   # evaluate an expression in the running app
  *   node scripts/browser-run.ts walk             # Phase 2 walking views + frame sequence -> docs/reports/phase-2/
  *   node scripts/browser-run.ts bridge [seed]    # Phase 3 double bridge: stills + time-lapse -> docs/reports/phase-3/
+ *   node scripts/browser-run.ts homing [seed]    # Phase 4 homing on open ground: stills -> docs/reports/phase-4/
  *   node scripts/browser-run.ts tiers            # quality tiers + automatic reduction on a throttled CPU
  *   node scripts/browser-run.ts terrain          # Phase 1 terrain views + metrics -> docs/reports/phase-1/
  *   node scripts/browser-run.ts bench [webgl]    # ?bench=1 sweep -> docs/reports/bench/
@@ -338,6 +339,52 @@ async function bridgeViews(cdp: Cdp, seed: string | undefined): Promise<void> {
   }
 }
 
+/**
+ * Phase 4 homing on open ground: the default view, straight down, the nest
+ * entrance close up, and a forager carrying food followed on its way home.
+ * Output: docs/reports/phase-4/.
+ */
+async function homingViews(cdp: Cdp, seed: string | undefined): Promise<void> {
+  const dir = 'docs/reports/phase-4';
+  await cdp.goto(BASE + `?preset=homing&seed=${seed ?? 1}`);
+  const simTime = (): Promise<number> => cdp.eval<number>('window.antverse.host.stats ? window.antverse.host.stats.simTime : 0');
+  const runTo = async (t: number, speed: number): Promise<void> => {
+    await cdp.eval(`window.antverse.host.setSpeed(${speed})`);
+    while (await simTime() < t) await sleep(200);
+    await cdp.eval('window.antverse.host.setSpeed(1)');
+    await sleep(800);
+  };
+  const log: string[] = [];
+  const shot = async (name: string): Promise<void> => {
+    await cdp.screenshot(`${dir}/${name}.png`);
+    log.push(`${name}: sim ${(await simTime()).toFixed(0)} s | ${(await cdp.eval<string>(HUD)).split('\n').find((l) => l.startsWith('foraging')) ?? ''}`);
+  };
+  const home = await cdp.eval<{ p: number[]; t: number[] }>(`(() => { const a = window.antverse; return { p: a.camera.position.toArray(), t: a.controls.target.toArray() }; })()`);
+  await runTo(180, 16);
+  await shot('01-three-minutes');
+  const [tx, ty, tz] = home.t as [number, number, number];
+  await cdp.eval(cam([tx, ty + 700, tz + 0.01], [tx, ty, tz]));
+  await cdp.eval(`(() => { const a = window.antverse; a.camera.up.set(0, 0, -1); a.camera.lookAt(${tx}, ${ty}, ${tz}); })()`);
+  await sleep(1200);
+  await shot('02-top-down');
+  await cdp.eval('window.antverse.camera.up.set(0, 1, 0)');
+  const y0 = await cdp.eval<number>('window.antverse.terrain.supportHeight(0, 0)');
+  await cdp.eval(cam([-30, y0 + 35, 40], [0, y0, 0]));
+  await sleep(1200);
+  await shot('03-nest-entrance');
+  // Follow an ant carrying food (meta carry byte), the one farthest from the nest.
+  const slot = await cdp.eval<number>(`(() => { const s = window.antverse.host.interp; let best = -1, bd = -1;
+    for (let i = 0; i < s.count; i++) { if (((s.currMeta[i] >>> 16) & 0xff) === 0) continue; const o = i * 9, d = Math.hypot(s.curr[o], s.curr[o + 2]); if (d > bd) { bd = d; best = i; } } return best; })()`);
+  if (slot >= 0) {
+    await cdp.eval(`window.antverse.followAnt(${slot}, [0, 14, 40])`);
+    await sleep(1500);
+    await shot('04-carrying-food-home');
+    await cdp.eval('window.antverse.followAnt(null)');
+  }
+  writeFileSync(`${dir}/views.txt`, log.join('\n') + '\n');
+  console.log(log.join('\n'));
+}
+
 /** Phone emulation (390x844 CSS px, DPR 3, touch). `base` lets you target a static/LAN/artifact URL. */
 async function mobile(cdp: Cdp, base: string, backend: string | undefined): Promise<void> {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true, screenWidth: 390, screenHeight: 844 });
@@ -388,6 +435,7 @@ async function main(): Promise<void> {
     else if (cmd === 'tiers') await tiers(cdp);
     else if (cmd === 'walk') await walkViews(cdp);
     else if (cmd === 'bridge') await bridgeViews(cdp, arg);
+    else if (cmd === 'homing') await homingViews(cdp, arg);
     else if (cmd === 'eval') { await cdp.goto(BASE + (process.argv[4] ?? '')); console.log(JSON.stringify(await cdp.eval(arg ?? 'null'), null, 1)); }
     else if (cmd === 'bench') await bench(cdp, arg);
     else if (cmd === 'mobile') await mobile(cdp, process.argv[4] ?? BASE, arg && arg !== '-' ? arg : undefined);

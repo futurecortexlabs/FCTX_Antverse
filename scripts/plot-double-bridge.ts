@@ -3,15 +3,15 @@
  * every trial (thin lines), their median (thick), and the convergence
  * threshold. Reads <name>-bins.csv written by experiment-double-bridge.ts.
  *
- *   node scripts/plot-double-bridge.ts <name> [title] [threshold]
+ *   node scripts/plot-double-bridge.ts <name> [title] [threshold] [dir]
  *
- * Writes docs/reports/phase-3/<name>.svg.
+ * Writes docs/reports/<dir>/<name>.svg (dir defaults to phase-3).
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const [name = 'double-bridge', title = 'Short-branch share of crossings', thr = '0.8'] = process.argv.slice(2);
-const dir = 'docs/reports/phase-3';
+const [name = 'double-bridge', title = 'Short-branch share of crossings', thr = '0.8', sub = 'phase-3'] = process.argv.slice(2);
+const dir = `docs/reports/${sub}`;
 const rows = readFileSync(`${dir}/${name}-bins.csv`, 'utf8').trim().split('\n').slice(1).map((l) => l.split(',').map(Number));
 // seed, bin, t_end_s, short, long, trips
 const bySeed = new Map<number, { t: number; share: number | null }[]>();

@@ -18,6 +18,8 @@ export interface BinCounts {
   long: number;
   /** Food deliveries to the nest. */
   trips: number;
+  /** Ants searching for the nest (home vector run off) at the end of the bin. */
+  searching: number;
 }
 
 export class BridgeObserver {
@@ -28,7 +30,7 @@ export class BridgeObserver {
   private readonly branch: Int8Array;
   private readonly fromB: Uint8Array;
   private readonly carrying: Uint8Array;
-  private current: BinCounts = { short: 0, long: 0, trips: 0 };
+  private current: BinCounts = { short: 0, long: 0, trips: 0, searching: 0 };
   private ticks = 0;
 
   constructor(world: World, binSeconds: number) {
@@ -69,8 +71,9 @@ export class BridgeObserver {
       this.carrying[s] = ret;
     }
     if (++this.ticks % this.binTicks === 0) {
+      for (let s = 0; s < this.world.agents.highWater; s++) if (a.state[s] === AgentState.NEST_SEARCH) c.searching++;
       this.bins.push(c);
-      this.current = { short: 0, long: 0, trips: 0 };
+      this.current = { short: 0, long: 0, trips: 0, searching: 0 };
     }
   }
 }
@@ -96,7 +99,9 @@ export function runBridgeTrial(config: Config): TrialResult {
   const world = new World(config);
   const obs = new BridgeObserver(world, ex.bin);
   const ticks = Math.round(ex.duration / config.sim.dt);
+  const wipe = ex.wipeAt > 0 ? Math.round(ex.wipeAt / config.sim.dt) : -1;
   for (let t = 0; t < ticks; t++) {
+    if (t === wipe) world.pheromone?.clear();
     world.step();
     obs.observe();
   }

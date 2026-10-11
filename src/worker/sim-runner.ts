@@ -8,6 +8,7 @@ import { FixedStepClock } from '../core/clock.ts';
 import { isSharedBuffer } from '../core/soa.ts';
 import { MS_PER_S } from '../core/units.ts';
 import type { Config } from '../config/params.ts';
+import { AgentFlag, CarryKind } from '../sim/agents/store.ts';
 import { World } from '../sim/world.ts';
 import type { FieldInfo, SimStats, SnapshotView } from './protocol.ts';
 import { writeSnapshot } from './snapshot-writer.ts';
@@ -62,6 +63,18 @@ export class SimRunner {
     const world = new World(config, { sharedAgents: this.stepper !== null, sharedField: globalThis.crossOriginIsolated === true });
     this.stepper?.attach(world);
     return world;
+  }
+
+  private foragingCounts(): { states: number[]; carrying: number } {
+    const a = this.world.agents.a;
+    const states = [0, 0, 0, 0];
+    let carrying = 0;
+    for (let s = 0; s < this.world.agents.highWater; s++) {
+      if ((a.flags[s]! & AgentFlag.ALIVE) === 0) continue;
+      states[a.state[s]!] = (states[a.state[s]!] ?? 0) + 1;
+      if (a.carryKind[s] !== CarryKind.NONE) carrying++;
+    }
+    return { states, carrying };
   }
 
   /** The pheromone grid for display (null without a field). */
@@ -160,6 +173,7 @@ export class SimRunner {
       paused: this.clock.paused,
       droppedSteps: this.dropped,
       threads: this.stepper?.active ? this.stepper.threads : 1,
+      foraging: this.world.nest ? this.foragingCounts() : null,
     };
     this.statStart = now;
     this.statSteps = 0;

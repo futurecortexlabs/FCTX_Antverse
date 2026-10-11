@@ -76,7 +76,7 @@ three.js を import してよいのは `render/` と `app/` だけ。
 
 ## 4. データ設計
 
-### 4.1 エージェント（SoA）[Phase 0 で一部実装]
+### 4.1 エージェント（SoA）[Phase 0〜4 で一部実装]
 容量固定の TypedArray プールを使う。参照は `ref = (gen << 20) | slot` で、死んだ個体への古い参照を検出できる。
 フィールドは**必要になったフェーズで末尾に追加する**（順序を変えると状態ハッシュの定義が変わるため）。
 
@@ -92,12 +92,18 @@ three.js を import してよいのは `render/` と `app/` だけ。
 | turnRate | f32 | 旋回の角速度（相関ランダムウォーク） | 2 ✓ |
 | colony | u16 | 所属コロニー | 6 |
 | domain | u8 | 地表 / 地下 / 物体の上 | 2 |
-| state, stateTime | u8, f32 | 行動の状態機械 | 2 |
-| homeVec, odometer | f32×2, f32 | 経路積分（水平面に投影） | 4 |
+| state | u8 | 採餌の状態（SEARCH / RETURN / REST / NEST_SEARCH） | 3 ✓ |
+| lastStep, deposit, steer | f32 | 歩いた距離・置くフェロモン量・旋回の要求 | 3 ✓ |
+| stepX, stepZ | f32 | このティックに動いた一歩（経路積分の入力） | 4 ✓ |
+| piX, piZ | f32 | 経路積分による巣に対する位置の推定（帰巣ベクトルはその逆） | 4 ✓ |
+| foodX, foodZ | f32 | 記憶した餌場（推定の座標） | 4 ✓ |
+| compassError, odometer | f32 | コンパスの誤差・外出ごとの距離計の倍率 | 4 ✓ |
+| tripTime, giveUp, searchTime | f32 | 外出の経過時間・あきらめ時間・探索の経過時間 | 4 ✓ |
+| avoidTurn | f32 | 障害物を避けて回る向き（回り始めたら同じ向きを保つ） | 4 ✓ |
 | task, threshold[T] | u8, f32×T | 分業（反応閾値モデル） | 6 |
 | ageDays | f32 | 齢による分業 | 6 |
 | crop, reserve | f32 | 社会胃・体内エネルギー | 6 |
-| carryMass, carryRef, targetRef | f32, u32, u32 | 運搬・追従 | 3 |
+| carryMass, carryRef, targetRef | f32, u32, u32 | 運搬・追従 | 5〜6 |
 
 - 脚の関節角は状態として持たず、描画側で gaitPhase と地形への問い合わせから IK で求める（LOD0 のみ。§4.6）。
 - 近傍探索には一様グリッドを使い、毎 tick カウンティングソートで作り直す（走査順も決定的）。
@@ -109,7 +115,14 @@ three.js を import してよいのは `render/` と `app/` だけ。
 - 読み書きの順序（決定論）: 規則（`trail`）は tick の開始時点の場を読むだけ。置く量は各個体のスロットに書き（`agents.deposit`）、全スレッドの合流後に `World.completeStep` がスロット順に場へ加える。補助スレッドは共有メモリ上の同じ格子を読む。スレッド数によらずビット単位で同じ結果になる（`parallel-equivalence.test.ts`）。
 - チャネルは今は `trail` だけ。`alarm` は Phase 7 で足す。巣へ戻るためのフェロモンは持たない（帰巣は経路積分と視覚が担う。Phase 3 では目標方向への偏り ASM-NAV-001 で代用）。
 - 表示: 共有メモリが使えるときはメインスレッドが同じ格子を直接読み、0.2 s ごとにテクスチャへ写す（ENG-REN-015）。使えないときは Worker が統計と同じ間隔でコピーを送る。
-- 行動ルールの順序: `forage`（巣・餌場での状態の切り替え）→ `trail`（触角の左右比較と目標方向。旋回の要求 `steer` と U ターン）→ `explore`（ランダムな旋回に `steer` を足す。縁や障害物に触れている間は回避だけ）→ `layTrail`（歩いた距離に比例して置く量）→ `bodyPose`。
+- 行動ルールの順序（Phase 4 以降）: `forage`（巣・餌場での状態の切り替え）→ `trail`（触角の左右比較。旋回の要求 `steer` を始める）→ `navigate`（経路積分の推定から目標の向きを足す。U ターン、探索のループ）→ `explore`（ランダムな旋回に `steer` を足す。縁や障害物に触れている間は回避だけ）→ `pathIntegrate`（今の一歩を、誤差のあるコンパスと距離計で推定に足す）→ `layTrail`（歩いた距離に比例して置く量）→ `bodyPose`。
+
+### 4.7 ナビゲーション（経路積分）[Phase 4 実装済]
+- `src/sim/rules/navigate.ts`。各個体は巣に対する自分の位置の推定（`agents.piX/piZ`）を持つ。毎ティック、実際に動いた一歩（`stepX/stepZ`）を、ゆっくりさまようコンパスの誤差だけ回し、外出ごとの距離計の倍率をかけて足す（ASM-NAV-003）。推定を真の位置に合わせ直すのは巣にいるときだけ。
+- 行動の向きは推定だけから決める: 帰巣中は −推定（帰巣ベクトル）、往路は記憶した餌場（`foodX/foodZ`、餌を見つけた時点の推定）− 推定。本当の巣と餌場の位置は「そこに触れたか」の判定にしか使わない（ASM-NAV-005）。
+- 状態: REST（巣の中）→ SEARCH（外出。餌を見つけるか、あきらめ時間で帰る）→ RETURN（帰巣ベクトルに沿って帰る）→ NEST_SEARCH（ベクトルが尽きても巣がない: 推定の巣の周りをループで探す）→ 巣に入ると SEARCH に戻って再び外出。
+- シナリオ: 巣と餌場は `World.nest/feeder`（二重橋では装置の円、野外では `homingSites(config)`）。野外にはフェロモン場を作らない。
+- 実験: `src/sim/experiments/homing.ts`（1 匹を放して帰るまで。移動実験では帰り始めた瞬間に実験者が個体を動かす）。
 
 ### 4.3 ボクセル土壌（Phase 5）
 - ボクセル 1 mm、チャンク 32³。チャンクは UNIFORM（配列を持たない）か DENSE。領域は 512 × 512 × 1024 mm。
@@ -163,19 +176,19 @@ three.js を import してよいのは `render/` と `app/` だけ。
 ```
 config/presets/        実験条件の上書き JSON
 docs/                  ARCHITECTURE / BIOLOGY / ENGINEERING / reports
-scripts/               bench-sim.ts（Node のシミュレーションベンチ）、experiment-double-bridge.ts（二重橋の合格判定）、browser-run.ts（CDP による実ブラウザでの計測）、vite-report-plugin.ts（開発サーバーでのレポート保存）
+scripts/               bench-sim.ts（Node のシミュレーションベンチ）、experiment-double-bridge.ts（二重橋の合格判定）、experiment-homing.ts（ホーミングの合格判定）、plot-*.ts（結果の SVG）、browser-run.ts（CDP による実ブラウザでの計測）、vite-report-plugin.ts（開発サーバーでのレポート保存）
 src/core/              単位・乱数・決定論的数学関数・時計・SoA・ハッシュ・ローリング統計
 src/config/            スキーマ・既定値・読み込み
-src/terrain/           ノイズ、地表（土・粒・小石・落葉・草）、空間索引、実験装置（apparatus: 二重橋）
+src/terrain/           ノイズ、地表（土・粒・小石・落葉・草）、空間索引、実験装置（apparatus: 二重橋、ホーミングの巣と餌場）
 src/locomotion/        形態（体の寸法）、脚のリグ（三脚歩容・足場・IK）
-src/sim/               World, headless, population, agents/, pheromone/（場）, rules/（forage, trail, explore, body-pose）, experiments/（二重橋の観測）
+src/sim/               World, headless, population, agents/, pheromone/（場）, rules/（forage, trail, navigate, explore, body-pose）, experiments/（二重橋の観測、ホーミング）
 src/worker/            protocol, sim-runner, snapshot-writer, sim.worker, parallel + sim-helper.worker（並列化）
 src/render/            renderer, environment（空・霧・影）, interpolation, ants/, terrain/（LOD・チャンク・材質・地表の物体・カメラのガード）, apparatus（装置とフェロモンのヒートマップ）, debug/
 src/app/               main, sim-host, hud/, report
 src/bench/             描画ベンチのスイープ
 tests/architecture/    層・決定論の衛生・マジックナンバー・根拠ID
 tests/determinism/     シード再現性
-tests/experiments/     ヘッドレス統計実験（Phase 3: 二重橋の縮小版）
+tests/experiments/     ヘッドレス統計実験（Phase 3: 二重橋、Phase 4: ホーミングの縮小版）
 ```
 
 ## 6. 実行方法
@@ -192,7 +205,9 @@ node scripts/browser-run.ts terrain   # Phase 1 の地形の視点 8 種 + 計�
 node scripts/browser-run.ts walk      # Phase 2 の歩行の視点 + 連続フレーム → docs/reports/phase-2/（GIF は scripts/make-gif.py で作る）
 node scripts/browser-run.ts bridge    # Phase 3 の二重橋の視点 + タイムラプス → docs/reports/phase-3/
 node scripts/experiment-double-bridge.ts            # Phase 3 の合格判定（50 試行 × 30 分、Node の worker_threads で並列）
-node scripts/experiment-double-bridge.ts name --set path=value   # 条件を変えた実験（例: --set scenario.bridgeRatio=1）
+node scripts/experiment-double-bridge.ts name --set path=value   # 条件を変えた実験（例: --set scenario.bridgeRatio=1）。--dir phase-4 で出力先を変える
+node scripts/experiment-homing.ts                   # Phase 4 の合格判定（50 試行 × 通常・移動）
+node scripts/browser-run.ts homing    # Phase 4 のホーミングの視点 → docs/reports/phase-4/
 npm run bench:render    # 個体数スイープ（WebGL2 は `node scripts/browser-run.ts bench webgl`）
 npm run dev:lan         # 同じ Wi-Fi のスマホから開けるように公開する
 npm run build:artifact  # Artifact 用のページを dist/artifact.html に出力する
@@ -201,7 +216,7 @@ npm run build:artifact  # Artifact 用のページを dist/artifact.html に出�
 URL オプション:
 - `?bench=1`: 描画ベンチ。結果は docs/reports/bench/phase-<n>-*.csv に保存される
 - `?backend=webgl`: WebGL2 バックエンドを強制する
-- `?seed=N`、`?preset=ants-10k`、`?preset=double-bridge`（二重橋。クエリが使えない場所では `#double-bridge`）、`?set=population.count=5000`、`?set=render.showPheromone=false`
+- `?seed=N`、`?preset=ants-10k`、`?preset=double-bridge`（二重橋。クエリが使えない場所では `#double-bridge`）、`?preset=homing`（野外のホーミング、`#homing`）、`?set=population.count=5000`、`?set=render.showPheromone=false`
 
 キー操作: Space（一時停止 / 再開）、`.`（1 ステップ進める）、`[` `]`（遅く / 速く）、`M`（MAX）。
 
