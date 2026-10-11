@@ -23,6 +23,7 @@ import { navigate, pathIntegrate } from './rules/navigate.ts';
 import { burrow } from './rules/burrow.ts';
 import { excavate } from './rules/excavate.ts';
 import { DensityGrid } from './nest/density.ts';
+import { DigLog } from './nest/dig-log.ts';
 import { Soil } from '../soil/soil.ts';
 import { Mound } from '../soil/mound.ts';
 import { AgentFlag, AgentState, CarryKind, Request } from './agents/store.ts';
@@ -57,6 +58,16 @@ export interface WorldOptions {
   sharedField?: boolean;
   /** Attach to an existing mound heightfield. */
   moundBuffer?: SharedArrayBuffer;
+  /** Thread helpers of a digging world: the coordinator's density counts and dig log (see sharedNest()). */
+  densityBuffer?: SharedArrayBuffer;
+  digLogBuffer?: SharedArrayBuffer;
+}
+
+/** Shared memory a helper thread needs to step a slice of a digging world. */
+export interface SharedNest {
+  mound: SharedArrayBuffer;
+  density: SharedArrayBuffer;
+  digLog: SharedArrayBuffer;
 }
 
 export class World {
@@ -85,6 +96,12 @@ export class World {
   readonly density: DensityGrid | null;
   /** Voxels of the starting pit (dug by the set-up, not by workers). */
   readonly pitVoxels: number;
+  /**
+   * Digging with helper threads: the coordinator writes the log, helpers
+   * replay it (readsDigLog) before each slice. Null when stepping alone.
+   */
+  readonly digLog: DigLog | null;
+  private readonly readsDigLog: boolean;
   private readonly terrainDigest: number;
 
   constructor(config: Config, opts: WorldOptions = {}) {
@@ -113,13 +130,18 @@ export class World {
       this.mound = new Mound({ cx: 0, cz: 0, radius: mc.radius, cell: mc.cell, repose: mc.repose, open: config.scenario.nestRadius },
         opts.moundBuffer, opts.sharedAgents === true || opts.sharedField === true);
       this.terrain.overlay = this.mound;
-      this.density = new DensityGrid(this.soil, config.soil.densityCell);
+      const shared = opts.sharedAgents === true;
+      this.density = new DensityGrid(this.soil, config.soil.densityCell, shared, opts.densityBuffer);
       this.pitVoxels = this.digPit();
+      this.readsDigLog = opts.digLogBuffer !== undefined;
+      this.digLog = opts.digLogBuffer ? new DigLog(0, opts.digLogBuffer) : shared ? new DigLog(config.soil.digLog) : null;
     } else {
       this.soil = null;
       this.mound = null;
       this.density = null;
       this.pitVoxels = 0;
+      this.digLog = null;
+      this.readsDigLog = false;
     }
     if (opts.agents) {
       this.agents = opts.agents;
@@ -165,7 +187,25 @@ export class World {
 
   /** Run every rule on slots [from, to) for the current tick (does not advance the tick). */
   stepRange(from: number, to: number): void {
+    if (this.readsDigLog) this.replayDigs();
     for (const rule of RULES) rule(this, from, to);
+  }
+
+  /** A helper's world catches up with the coordinator's digging. */
+  private replayDigs(): void {
+    const soil = this.soil!, density = this.density!;
+    this.digLog!.replay((voxel) => {
+      soil.unindex(voxel, this.cell3);
+      if (soil.dig(this.cell3[0]!, this.cell3[1]!, this.cell3[2]!)) density.dug(this.cell3[0]!, this.cell3[1]!, this.cell3[2]!);
+    });
+  }
+
+  /** Buffers a helper thread attaches to (null unless this world digs and was built with shared agents). */
+  sharedNest(): SharedNest | null {
+    if (!this.digLog || this.readsDigLog) return null;
+    const m = this.mound!.buffer, d = this.density!.buffer;
+    if (!(m instanceof SharedArrayBuffer) || !(d instanceof SharedArrayBuffer)) return null;
+    return { mound: m, density: d, digLog: this.digLog.buffer };
   }
 
   /**
@@ -196,6 +236,7 @@ export class World {
           soil.unindex(a.requestCell[s]!, this.cell3);
           if (soil.dig(this.cell3[0]!, this.cell3[1]!, this.cell3[2]!)) {
             density.dug(this.cell3[0]!, this.cell3[1]!, this.cell3[2]!);
+            this.digLog?.append(a.requestCell[s]!);
             a.carryKind[s] = CarryKind.SOIL;
             a.state[s] = AgentState.HAUL;
           }

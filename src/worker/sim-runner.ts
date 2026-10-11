@@ -28,6 +28,8 @@ export interface Stepper {
   readonly threads: number;
   /** True once helpers are attached (otherwise steps run single-threaded). */
   readonly active: boolean;
+  /** Threads that stepped the last tick. */
+  readonly lastThreads: number;
 }
 
 export class SimRunner {
@@ -203,7 +205,7 @@ export class SimRunner {
       targetSpeed: this.clock.timeScale,
       paused: this.clock.paused,
       droppedSteps: this.dropped,
-      threads: this.stepper?.active ? this.stepper.threads : 1,
+      threads: this.stepper?.lastThreads ?? 1,
       foraging: this.world.nest ? this.foragingCounts() : null,
       digging: this.world.soil ? this.diggingCounts() : null,
     };

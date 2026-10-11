@@ -100,4 +100,33 @@ describe('parallel stepping equivalence', () => {
     expect(ref.soil!.dug).toBeGreaterThan(ref.pitVoxels);
     expect(split.stateHash()).toBe(ref.stateHash());
   });
+
+  it('nest excavation with a helper thread: it replays the dig log (also what was dug before it attached) and walks the same tunnels', () => {
+    const preset = JSON.parse(readFileSync('config/presets/digging.json', 'utf8')) as Overlay;
+    const cfg = buildConfig([preset, { population: { count: 80 }, soil: { size: [128, 256, 128] } }]).config;
+    const ref = new World(cfg);
+    const main = new World(cfg, { sharedAgents: true });
+    const step = (w: World): void => { w.stepRange(0, w.agents.highWater); w.completeStep(); };
+    for (let t = 0; t < 1200; t++) { ref.step(); step(main); } // the helper attaches late
+    const nest = main.sharedNest()!;
+    expect(nest).not.toBeNull();
+    const helper = new World(cfg, {
+      agents: new AgentStore(cfg.sim.capacity, { buffers: main.agents.sharedBuffers() }),
+      moundBuffer: nest.mound, densityBuffer: nest.density, digLogBuffer: nest.digLog,
+    });
+    expect(helper.sharedNest()).toBeNull(); // helpers never hand out the log
+    for (let t = 0; t < 2400; t++) {
+      ref.step();
+      const n = main.agents.highWater, cut = 29;
+      helper.tick = main.tick;
+      helper.stepRange(cut, n);
+      main.stepRange(0, cut);
+      main.completeStep();
+    }
+    expect(ref.soil!.dug - ref.pitVoxels).toBeGreaterThan(50);
+    expect(main.digLog!.count).toBe(main.soil!.dug - main.pitVoxels);
+    expect(main.stateHash()).toBe(ref.stateHash());
+    expect(helper.soil!.dug).toBe(main.soil!.dug);
+    expect(helper.density!.open).toEqual(main.density!.open);
+  });
 });

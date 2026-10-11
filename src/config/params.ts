@@ -108,6 +108,8 @@ export const DEFAULT_PARAMS = {
     pellet: p(1, 'mm3', 'ASM-NST-001', { min: 0.01 }),
     /** Side of the cells in which nestmates are counted for the density cue. */
     densityCell: p(8, 'mm', 'ENG-SOL-002', { min: 1, integer: true }),
+    /** Voxels the dig log holds for helper threads (Phase 6; 4 Mi voxels = 16 MB). */
+    digLog: p(4194304, 'count', 'ENG-SOL-004', { min: 1, integer: true }),
   },
   /** Excavation behaviour (Phase 5). */
   dig: {

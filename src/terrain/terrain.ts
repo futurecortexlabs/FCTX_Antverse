@@ -169,6 +169,12 @@ export class Terrain {
     return this.overlay ? this.s.v + this.overlay.heightAt(x, z) : this.s.v;
   }
 
+  /** Generated soil height only, without the overlay (what grains and pebbles were laid on). */
+  baseHeight(x: number, z: number, h = 0): number {
+    this.ground(x, z, h, this.s);
+    return this.s.v;
+  }
+
   /**
    * Dynamic material added on top of the soil (Phase 5: the mound of excavated
    * soil around the nest entrance). Owned by the simulation state, not by the
@@ -258,7 +264,10 @@ export class Terrain {
         tilt: (r(K.TILT, i) * 2 - 1) * maxTilt,
       };
       const embed = lerp(t.embedFraction[0]!, t.embedFraction[1]!, r(K.EMBED, i));
-      e.cy = this.groundHeight(x, z) + ellipsoidHalfHeight(e) * (1 - 2 * embed);
+      // On the generated soil: grains are generated lazily (grainCell), and their
+      // place must not depend on when a cell is first needed, i.e. on how high
+      // the mound was then. The mound buries them instead (supportHeight).
+      e.cy = this.baseHeight(x, z) + ellipsoidHalfHeight(e) * (1 - 2 * embed);
       emit(e, r(K.COLOR, i));
     }
   }
