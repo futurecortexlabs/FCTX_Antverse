@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" font-family="system-ui, sans-serif" font-size="12">
+<rect width="760" height="360" fill="#fbfaf7"/>
+<text x="56" y="20" font-size="14" font-weight="600" fill="#222">Foragers out (10-min mean of colonies) around a 10 mm/h shower at 12:00–13:00 (shaded); hour 0 = 06:00</text>
+<rect x="514.6666666666666" y="36" width="76.44444444444446" height="284" fill="#d9e6f2"/>
+<line x1="56" x2="667.5555555555555" y1="320" y2="320" stroke="#e4e1d8"/>
+<text x="48" y="324" text-anchor="end" fill="#555">0</text>
+<line x1="56" x2="667.5555555555555" y1="178" y2="178" stroke="#e4e1d8"/>
+<text x="48" y="182" text-anchor="end" fill="#555">2</text>
+<line x1="56" x2="667.5555555555555" y1="36" y2="36" stroke="#e4e1d8"/>
+<text x="48" y="40" text-anchor="end" fill="#555">4</text>
+<text x="56" y="334" text-anchor="middle" fill="#555">0</text>
+<text x="208.88888888888889" y="334" text-anchor="middle" fill="#555">2</text>
+<text x="361.77777777777777" y="334" text-anchor="middle" fill="#555">4</text>
+<text x="514.6666666666666" y="334" text-anchor="middle" fill="#555">6</text>
+<text x="667.5555555555555" y="334" text-anchor="middle" fill="#555">8</text>
+<text x="380" y="354" text-anchor="middle" fill="#333">hours from 06:00</text>
+<text x="12" y="180" fill="#333" transform="rotate(-90 12 180)" text-anchor="middle">foragers out</text>
+<polyline points="62.4,63.0 75.1,54.5 87.9,119.8 100.6,98.5 113.3,126.9 126.1,126.9 138.8,148.2 151.6,170.9 164.3,180.1 177.0,193.6 189.8,190.8 202.5,206.4 215.3,211.4 228.0,241.9 240.7,229.8 253.5,245.4 266.2,236.9 279.0,245.5 291.7,257.5 304.4,265.3 317.2,263.2 329.9,268.2 342.7,283.1 355.4,277.4 368.1,277.4 380.9,269.6 393.6,270.3 406.4,281.7 419.1,284.5 431.9,291.6 444.6,283.8 457.3,293.7 470.1,299.4 482.8,294.4 495.6,295.9 508.3,292.3 521.0,317.2 533.8,320.0 546.5,320.0 559.3,320.0 572.0,320.0 584.7,320.0 597.5,293.0 610.2,293.7 623.0,292.3 635.7,290.9 648.4,290.2 661.2,293.7 673.9,285.2 686.7,295.9 699.4,288.8 712.1,291.6 724.9,302.3 737.6,285.2" fill="none" stroke="#2463a6" stroke-width="1.6"/>
+</svg>
