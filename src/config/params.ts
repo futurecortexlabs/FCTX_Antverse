@@ -302,6 +302,33 @@ export const DEFAULT_PARAMS = {
     foragingTemp: p([12, 38], 'degC', 'BIO-ENV-002'),
     /** The temperatures are refreshed this often (they change by minutes). */
     updateInterval: p(60, 's', 'ENG-ENV-001', { min: 0.01 }),
+    /** Rain showers as [start (h after the start of the run), duration (h), intensity (mm/h)] triples. */
+    rain: p([], 'x', 'ENG-ENV-002'),
+    /** Raindrops: diameter (the volume a drop brings), and what one does to an ant it hits: dazed for [min, max] s, pushed up to rainPush. */
+    rainDrop: p(2, 'mm', 'PHY-ENV-003', { min: 0.1 }),
+    rainStun: p([2, 10], 's', 'ASM-ENV-003'),
+    rainPush: p(3, 'mm', 'ASM-ENV-003', { min: 0 }),
+    /** Body width as a fraction of body length: raindrops falling on length × width hit the ant. */
+    antWidth: p(0.3, 'x', 'ASM-ENV-003', { min: 0 }),
+    /** Sessile drops formed on leaves and stones per mm² of such surface per mm of rain; footprint radius drawn in dropRadius, never more than dropMaxRadius (more runs off). */
+    dropForm: p(0.002, '1/mm2', 'ASM-ENV-004', { min: 0 }),
+    dropRadius: p([0.5, 2], 'mm', 'ASM-ENV-004'),
+    dropMaxRadius: p(3, 'mm', 'ASM-ENV-004', { min: 0.1 }),
+    /** Height above the bare soil from which a surface sheds water instead of soaking it up (a leaf, a stone). */
+    dropSurface: p(0.3, 'mm', 'ASM-ENV-004', { min: 0 }),
+    /** A drop of 1 mm radius lasts this long at referenceTemp and the base humidity; d(r²)/dt is constant, ×2 per evaporationDoubling °C, ∝ (1 − humidity). */
+    dropLifetime: p(1800, 's', 'PHY-ENV-004', { min: 1 }),
+    evaporationDoubling: p(11, 'degC', 'PHY-ENV-004', { min: 1 }),
+    /** Relative humidity: dry-weather value, saturated in rain, back to the dry value over humidityRelax after it. */
+    humidity: p(0.6, 'x', 'ASM-ENV-005', { min: 0, max: 0.99 }),
+    humidityRelax: p(7200, 's', 'ASM-ENV-005', { min: 1 }),
+    /** An ant a drop forms on is stuck for [min, max] s. */
+    trapTime: p([20, 120], 's', 'ASM-ENV-004'),
+    /** Rain washes trail pheromone away: its lifetime is divided by this while it rains. */
+    washout: p(10, 'x', 'ASM-ENV-006', { min: 1 }),
+    /** Drop store size and the side of its lookup grid. */
+    dropCapacity: p(4096, 'count', 'ENG-ENV-002', { min: 1, integer: true }),
+    dropCell: p(8, 'mm', 'ENG-ENV-002', { min: 1 }),
   },
   /** Trail pheromone field (Phase 3). Amounts are in arbitrary units u (per mm² cell). */
   pheromone: {

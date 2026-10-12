@@ -94,6 +94,32 @@ export class Environment {
     return Math.max(this.cfg.env.twilightLight, dsin(el));
   }
 
+  /** Rain intensity (mm/h) at simulated time t. */
+  rain(t: number): number {
+    if (!this.enabled) return 0;
+    const r = this.cfg.env.rain as readonly number[];
+    let mmh = 0;
+    for (let i = 0; i + 2 < r.length; i += 3) {
+      const a = r[i]! * S_PER_H, b = a + r[i + 1]! * S_PER_H;
+      if (t >= a && t < b) mmh += r[i + 2]!;
+    }
+    return mmh;
+  }
+
+  /** Relative humidity at t: saturated in rain, relaxing back to the dry value after it (ASM-ENV-005). */
+  humidity(t: number): number {
+    const e = this.cfg.env;
+    if (!this.enabled) return e.humidity;
+    if (this.rain(t) > 0) return 1;
+    const r = e.rain as readonly number[];
+    let since = Infinity;
+    for (let i = 0; i + 2 < r.length; i += 3) {
+      const end = (r[i]! + r[i + 1]!) * S_PER_H;
+      if (t >= end) since = Math.min(since, t - end);
+    }
+    return since === Infinity ? e.humidity : e.humidity + (1 - e.humidity) * dexp(-since / e.humidityRelax);
+  }
+
   /** Temperature at the soil surface (°C). */
   surfaceTemp(t: number): number {
     return this.soilTemp(0, t);

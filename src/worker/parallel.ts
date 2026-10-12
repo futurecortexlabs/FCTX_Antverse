@@ -29,8 +29,9 @@ export type HelperIn = {
   pheromone: SharedArrayBuffer | null;
   /** A digging world's mound, density counts and dig log (helpers replay the digs). */
   nest: SharedNest | null;
-  /** The surface grid for collision avoidance. */
+  /** The surface grid for collision avoidance, and the water drops. */
   surface: SharedArrayBuffer[] | null;
+  drops: SharedArrayBuffer[] | null;
   control: SharedArrayBuffer;
   index: number;
   attachId: number;
@@ -85,9 +86,10 @@ export class ParallelStepper {
     const pheromone = field && isSharedBuffer(field) ? field : null;
     const nest = world.sharedNest();
     const surface = world.sharedSurface();
-    this.nestOk = (world.soil === null || nest !== null) && (world.surface === null || surface !== null);
+    const drops = world.sharedDrops();
+    this.nestOk = (world.soil === null || nest !== null) && (world.surface === null || surface !== null) && (world.drops === null || drops !== null);
     this.helpers.forEach((w, index) => {
-      const msg: HelperIn = { type: 'attach', config: world.config, buffers, pheromone, nest, surface, control: this.control, index, attachId: this.attachId };
+      const msg: HelperIn = { type: 'attach', config: world.config, buffers, pheromone, nest, surface, drops, control: this.control, index, attachId: this.attachId };
       w.postMessage(msg);
     });
   }

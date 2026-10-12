@@ -120,6 +120,8 @@ export const AGENT_SCHEMA = {
   // --- Phase 7: environment ---
   /** Brood item carried (BroodStore index), −1 for none. Written only in World.completeStep. */
   load: field('i32'),
+  /** Dazed by a raindrop or stuck in a water drop: seconds left (set in completeStep, counted down by explore). */
+  stun: field('f32'),
 };
 
 /** Changes to shared state an agent asks for; World.completeStep applies them in slot order. */
@@ -247,6 +249,7 @@ export class AgentStore {
     a.hunger[slot] = 0;
     a.partner[slot] = -1;
     a.load[slot] = -1;
+    a.stun[slot] = 0;
     this.alive++;
     return slot;
   }

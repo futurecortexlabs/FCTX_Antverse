@@ -48,6 +48,8 @@ export const Stream = {
   CONTACT: 17,
   /** Phase 6: taking up and leaving tasks. */
   TASK: 18,
+  /** Phase 7: raindrops hitting ants, drops forming. */
+  RAIN: 19,
   TEST: 0xffff,
 } as const;
 export type StreamId = (typeof Stream)[keyof typeof Stream];

@@ -27,6 +27,8 @@ import { Colony } from './colony/colony.ts';
 import { tend } from './rules/tend.ts';
 import { avoid } from './rules/avoid.ts';
 import { Climate } from './env/climate.ts';
+import { Drops, type DropBuffers } from './env/drops.ts';
+import { weather } from './env/weather.ts';
 import { SurfaceGrid, type SurfaceBuffers } from './space/surface-grid.ts';
 import { DigLog } from './nest/dig-log.ts';
 import { Soil } from '../soil/soil.ts';
@@ -70,6 +72,8 @@ export interface WorldOptions {
   contactBuffers?: ContactBuffers;
   /** Thread helpers: the coordinator's surface grid (collision avoidance). */
   surfaceBuffers?: SurfaceBuffers;
+  /** Thread helpers: the coordinator's water drops. */
+  dropBuffers?: DropBuffers;
 }
 
 /** Shared memory a helper thread needs to step a slice of a digging world. */
@@ -113,6 +117,8 @@ export class World {
   readonly digLog: DigLog | null;
   /** Light and temperatures of the current interval (Phase 7; constant when env is off). */
   readonly climate: Climate;
+  /** Water drops on leaves and stones (Phase 7; null when the environment is off). */
+  readonly drops: Drops | null;
   /** Surface neighbours for collision avoidance (Phase 7; null unless explore.collide). */
   readonly surface: SurfaceGrid | null;
   /** Colony life (Phase 6): queen, brood, physiology. Only the coordinator's copy changes. */
@@ -161,6 +167,9 @@ export class World {
       this.readsDigLog = false;
     }
     this.climate = new Climate(this);
+    this.drops = config.env.enabled
+      ? new Drops(config.env.dropCapacity, config.world.arenaSize, config.env.dropCell, opts.sharedAgents === true, opts.dropBuffers)
+      : null;
     this.colony = config.scenario.colony ? new Colony(this) : null;
     this.surface = config.explore.collide
       ? new SurfaceGrid(config.world.arenaSize, config.explore.collideCell, config.sim.capacity, opts.sharedAgents === true, opts.surfaceBuffers)
@@ -291,6 +300,7 @@ export class World {
       this.colony?.live(this);
       this.rebuildDensity();
     }
+    weather(this);
     this.rebuildSurface();
     this.tick++;
   }
@@ -304,6 +314,11 @@ export class World {
     for (let s = 0; s < this.agents.highWater; s++) if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) === AgentFlag.ALIVE) g.add(a.posX[s]!, a.posZ[s]!);
     g.layout();
     for (let s = 0; s < this.agents.highWater; s++) if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) === AgentFlag.ALIVE) g.place(s, a.posX[s]!, a.posZ[s]!, a.heading[s]!);
+  }
+
+  /** The water drops' buffers for helper threads (null without the environment or shared memory). */
+  sharedDrops(): DropBuffers | null {
+    return this.drops ? this.drops.buffers() : null;
   }
 
   /** The surface grid's buffers for helper threads (null without collisions or shared memory). */
@@ -349,6 +364,7 @@ export class World {
     if (this.pheromone) h.view(this.pheromone.data);
     if (this.soil) { this.soil.hashInto(h); h.word(this.mound!.pellets).view(this.mound!.heights); }
     this.colony?.hashInto(h);
+    if (this.drops) for (const v of this.drops.views()) h.view(v);
     return h.digest();
   }
 }

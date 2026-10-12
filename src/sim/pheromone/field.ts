@@ -151,6 +151,17 @@ export class PheromoneField {
     }
   }
 
+  /** Multiply all pheromone by f (rain washing it away). */
+  scale(f: number): void {
+    const { data, active, tilesX, nx, nz } = this;
+    for (let t = 0; t < active.length; t++) {
+      if (!active[t]) continue;
+      const ti = t % tilesX, tj = (t - ti) / tilesX;
+      const i0 = ti * TILE, j0 = tj * TILE, i1 = Math.min(nx, i0 + TILE), j1 = Math.min(nz, j0 + TILE);
+      for (let j = j0; j < j1; j++) for (let i = i0; i < i1; i++) data[j * nx + i] = data[j * nx + i]! * f;
+    }
+  }
+
   /** Remove all pheromone (an experimenter wiping the substrate). */
   clear(): void {
     this.data.fill(0);
