@@ -771,8 +771,12 @@ export const DEFAULT_PARAMS = {
     morningHours: p([9, 11], 'count', 'ENG-EXP-005'),
     afternoonHours: p([15, 17], 'count', 'ENG-EXP-005'),
     thermoReduction: p(0.3, 'x', 'ENG-EXP-005', { min: 0, max: 1 }),
-    /** Temperature: a cool day's mean surface temperature against the default, run length. */
+    /** Temperature: a cool and a hot day's mean surface temperature against the default, run length, midday hours, the hot day's midday share of the default's to stay under, the cool day's delay of the start of foraging to reach (h). */
     coolTemp: p(16, 'degC', 'ENG-EXP-005'),
+    hotTemp: p(32, 'degC', 'ENG-EXP-005'),
+    middayHours: p([12, 16], 'count', 'ENG-EXP-005'),
+    hotMiddayShare: p(0.3, 'x', 'ENG-EXP-005', { min: 0, max: 1 }),
+    coolDelay: p(0.5, 'count', 'ENG-EXP-005', { min: 0 }),
     tempDuration: p(43200, 's', 'ENG-EXP-005', { min: 600 }),
     /** Rain: the shower [start h after 06:00, duration h, mm/h]; foragers out counted from rainResponse after it starts; recovery time after it; shares to reach. */
     rainShower: p([6, 1, 10], 'x', 'ENG-EXP-005'),

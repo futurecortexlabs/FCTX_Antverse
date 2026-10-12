@@ -66,21 +66,24 @@ export function weather(world: World): void {
       if (y - world.terrain.groundHeight(x, z) < e.dropSurface) continue; // bare soil: soaks in
       let r = r0 + (r1 - r0) * rand(world.seed, Stream.RAIN, id, world.tick, Key.R);
       const hit = drops.at(x, z);
+      let cx = x, cz = z;
       if (hit >= 0) {
         // Merge into the drop already there: volumes (∝ r³) add.
         const R = drops.r[hit]!;
-        drops.r[hit] = Math.min(e.dropMaxRadius, dpow(R * R * R + r * r * r, 1 / 3));
-        continue;
+        r = Math.min(e.dropMaxRadius, dpow(R * R * R + r * r * r, 1 / 3));
+        drops.r[hit] = r;
+        cx = drops.x[hit]!; cz = drops.z[hit]!;
+      } else {
+        r = Math.min(r, e.dropMaxRadius);
+        if (!drops.add(x, z, r, y)) break;
+        changed = true;
       }
-      r = Math.min(r, e.dropMaxRadius);
-      if (!drops.add(x, z, r, y)) break;
-      changed = true;
-      // Ants under the new drop are caught in it.
+      // Ants under the new (or grown) drop are caught in it.
       for (let s = 0; s < world.agents.highWater; s++) {
-        if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) !== AgentFlag.ALIVE) continue;
-        const dx = a.posX[s]! - x, dz = a.posZ[s]! - z;
+        if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) !== AgentFlag.ALIVE || a.stun[s]! > 0) continue;
+        const dx = a.posX[s]! - cx, dz = a.posZ[s]! - cz;
         if (dx * dx + dz * dz > r * r) continue;
-        a.stun[s] = Math.max(a.stun[s]!, t0 + (t1 - t0) * rand(world.seed, Stream.RAIN, s, world.tick, Key.TRAP));
+        a.stun[s] = t0 + (t1 - t0) * rand(world.seed, Stream.RAIN, s, world.tick, Key.TRAP);
       }
     }
     // Rain washes the trail away: the extra decay on top of evaporation.
