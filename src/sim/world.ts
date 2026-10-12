@@ -25,6 +25,8 @@ import { excavate } from './rules/excavate.ts';
 import { DensityGrid, type ContactBuffers } from './nest/density.ts';
 import { Colony } from './colony/colony.ts';
 import { tend } from './rules/tend.ts';
+import { avoid } from './rules/avoid.ts';
+import { SurfaceGrid, type SurfaceBuffers } from './space/surface-grid.ts';
 import { DigLog } from './nest/dig-log.ts';
 import { Soil } from '../soil/soil.ts';
 import { Mound } from '../soil/mound.ts';
@@ -45,7 +47,7 @@ export type Rule = (world: World, from: number, to: number) => void;
  * underground, pathIntegrate measures the move. excavate decides to dig or
  * drop soil (requests applied in completeStep).
  */
-export const RULES: readonly Rule[] = [forage, excavate, tend, trail, navigate, explore, burrow, pathIntegrate, layTrail, bodyPose];
+export const RULES: readonly Rule[] = [forage, excavate, tend, trail, navigate, avoid, explore, burrow, pathIntegrate, layTrail, bodyPose];
 
 export type { Site };
 
@@ -65,6 +67,8 @@ export interface WorldOptions {
   digLogBuffer?: SharedArrayBuffer;
   /** Thread helpers of a colony: the coordinator's contact index. */
   contactBuffers?: ContactBuffers;
+  /** Thread helpers: the coordinator's surface grid (collision avoidance). */
+  surfaceBuffers?: SurfaceBuffers;
 }
 
 /** Shared memory a helper thread needs to step a slice of a digging world. */
@@ -106,6 +110,8 @@ export class World {
    * replay it (readsDigLog) before each slice. Null when stepping alone.
    */
   readonly digLog: DigLog | null;
+  /** Surface neighbours for collision avoidance (Phase 7; null unless explore.collide). */
+  readonly surface: SurfaceGrid | null;
   /** Colony life (Phase 6): queen, brood, physiology. Only the coordinator's copy changes. */
   readonly colony: Colony | null;
   private readonly readsDigLog: boolean;
@@ -152,6 +158,9 @@ export class World {
       this.readsDigLog = false;
     }
     this.colony = config.scenario.colony ? new Colony(this) : null;
+    this.surface = config.explore.collide
+      ? new SurfaceGrid(config.world.arenaSize, config.explore.collideCell, config.sim.capacity, opts.sharedAgents === true, opts.surfaceBuffers)
+      : null;
     if (opts.agents) {
       this.agents = opts.agents;
     } else {
@@ -160,6 +169,7 @@ export class World {
         this.colony.found(this, config.population.count);
         this.rebuildDensity();
       } else spawnWorkers(this, config.population.count);
+      this.rebuildSurface();
     }
   }
 
@@ -273,7 +283,24 @@ export class World {
       this.colony?.live(this);
       this.rebuildDensity();
     }
+    this.rebuildSurface();
     this.tick++;
+  }
+
+  /** Sort the agents on the surface into the surface grid (collision avoidance). */
+  private rebuildSurface(): void {
+    const g = this.surface;
+    if (!g) return;
+    const a = this.agents.a;
+    g.clear();
+    for (let s = 0; s < this.agents.highWater; s++) if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) === AgentFlag.ALIVE) g.add(a.posX[s]!, a.posZ[s]!);
+    g.layout();
+    for (let s = 0; s < this.agents.highWater; s++) if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) === AgentFlag.ALIVE) g.place(s, a.posX[s]!, a.posZ[s]!, a.heading[s]!);
+  }
+
+  /** The surface grid's buffers for helper threads (null without collisions or shared memory). */
+  sharedSurface(): SurfaceBuffers | null {
+    return this.surface ? this.surface.buffers() : null;
   }
 
   /** Count the underground agents per density cell (and, in a colony, index them for contacts). */
