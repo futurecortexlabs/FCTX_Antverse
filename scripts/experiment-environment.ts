@@ -7,7 +7,9 @@
  *                    ≥ thermoReduction smaller than in the same colony without brood
  *                    carrying, and the brood lies shallower at morningHours than at
  *                    afternoonHours, in ≥ passFraction;
- *   3. temperature   a cool day (coolTemp) brings in less food than a warm one, in ≥ passFraction;
+ *   3. temperature   on a cool day (coolTemp) foraging starts ≥ coolDelay h later, and on a hot
+ *                    day (hotTemp) foragers out at middayHours are ≤ hotMiddayShare of a normal
+ *                    day's, in ≥ passFraction;
  *   4. rain          during a shower foragers out fall to ≤ rainDuringShare of the hour
  *                    before, and recover to ≥ rainAfterShare within rainRecovery, in
  *                    ≥ passFraction; no free ant ever steps into a water drop;
@@ -29,7 +31,7 @@ import {
 } from '../src/sim/experiments/environment.ts';
 
 type Kind = 'day' | 'temp' | 'rain' | 'food';
-interface Job { kind: Kind; overlays: Overlay[]; seed: number; variant: boolean }
+interface Job { kind: Kind; overlays: Overlay[]; seed: number; variant: number }
 type Result = { kind: 'day'; r: DayResult } | { kind: 'temp'; r: TempResult } | { kind: 'rain'; r: RainResult } | { kind: 'food'; r: NewFoodResult };
 
 if (!isMainThread) {
@@ -38,9 +40,10 @@ if (!isMainThread) {
     const base = [...job.overlays, { sim: { seed: job.seed } }];
     const ex = buildConfig(base).config.experiment;
     if (job.kind === 'day') {
-      parentPort!.postMessage({ kind: 'day', r: runDayTrial(buildConfig([...base, job.variant ? {} : { colony: { pickRate: 0 } }]).config, job.variant) });
+      parentPort!.postMessage({ kind: 'day', r: runDayTrial(buildConfig([...base, job.variant ? {} : { colony: { pickRate: 0 } }]).config, job.variant === 1) });
     } else if (job.kind === 'temp') {
-      parentPort!.postMessage({ kind: 'temp', r: runTempTrial(buildConfig([...base, job.variant ? {} : { env: { meanTemp: ex.coolTemp } }]).config) });
+      const meanTemp = [buildConfig(base).config.env.meanTemp, ex.coolTemp, ex.hotTemp][job.variant]!;
+      parentPort!.postMessage({ kind: 'temp', r: runTempTrial(buildConfig([...base, { env: { meanTemp } }]).config) });
     } else if (job.kind === 'rain') {
       parentPort!.postMessage({ kind: 'rain', r: runRainTrial(buildConfig([...base, { env: { rain: ex.rainShower } }]).config) });
     } else {
@@ -65,7 +68,7 @@ if (!isMainThread) {
   const jobs: Job[] = [];
   for (const kind of ['day', 'food', 'temp', 'rain'] as Kind[]) {
     if (!only.includes(kind)) continue;
-    for (const seed of seeds) for (const variant of kind === 'rain' ? [true] : [true, false]) jobs.push({ kind, overlays, seed, variant });
+    for (const seed of seeds) for (const variant of kind === 'rain' ? [1] : kind === 'temp' ? [0, 1, 2] : [1, 0]) jobs.push({ kind, overlays, seed, variant });
   }
   const threads = Math.min(jobs.length, Math.max(1, availableParallelism() - 1));
   const results: Result[] = [];
@@ -81,7 +84,7 @@ if (!isMainThread) {
       results.push(m);
       const tag = `${results.length}/${jobs.length} ${((performance.now() - t0) / 60000).toFixed(0)} min`;
       if (m.kind === 'day') console.log(`day seed ${m.r.seed} ${m.r.carry ? 'carry' : 'still'}: out by day ${m.r.day.toFixed(2)} / night ${m.r.night.toFixed(2)}, brood off ${m.r.off.toFixed(2)} °C, depth ${m.r.morningDepth.toFixed(0)} → ${m.r.afternoonDepth.toFixed(0)} mm (${tag})`);
-      else if (m.kind === 'temp') console.log(`temp seed ${m.r.seed} ${m.r.meanTemp} °C: intake ${m.r.intake.toFixed(1)} mg, out ${m.r.out.toFixed(2)} (${tag})`);
+      else if (m.kind === 'temp') console.log(`temp seed ${m.r.seed} ${m.r.meanTemp} °C: foraging from ${m.r.start.toFixed(2)} h, out morning ${m.r.morning.toFixed(2)} / midday ${m.r.midday.toFixed(2)}, intake ${m.r.intake.toFixed(1)} mg (${tag})`);
       else if (m.kind === 'rain') console.log(`rain seed ${m.r.seed}: out ${m.r.before.toFixed(2)} → ${m.r.during.toFixed(2)} → ${m.r.after.toFixed(2)}, hits ${m.r.hits}, entered drops ${m.r.entered}, drops ${m.r.dropsAtEnd} → ${m.r.dropsLeft} (${tag})`);
       else console.log(`food seed ${m.r.seed} ${m.r.trails ? 'trails' : 'none'}: found at ${(m.r.found / 3600).toFixed(2)} h, fills ${m.r.fills}, recruits ${m.r.recruits} (${tag})`);
       feed();
@@ -120,16 +123,19 @@ if (!isMainThread) {
       ...day.flatMap((r) => r.hourly.map((h, i) => `${r.seed},${r.carry ? 1 : 0},${i},${h.map((x) => x.toFixed(3)).join(',')}`))].join('\n') + '\n');
   }
   if (temp.length) {
-    let less = 0, pairs = 0;
+    let cool = 0, hot = 0, pairs = 0;
     for (const seed of seeds) {
-      const warm = temp.find((r) => r.seed === seed && r.meanTemp !== ex.coolTemp), cool = temp.find((r) => r.seed === seed && r.meanTemp === ex.coolTemp);
-      if (!warm || !cool) continue;
+      const n = temp.find((r) => r.seed === seed && r.meanTemp !== ex.coolTemp && r.meanTemp !== ex.hotTemp);
+      const c = temp.find((r) => r.seed === seed && r.meanTemp === ex.coolTemp), h = temp.find((r) => r.seed === seed && r.meanTemp === ex.hotTemp);
+      if (!n || !c || !h) continue;
       pairs++;
-      if (cool.intake < warm.intake) less++;
+      if (c.start >= n.start + ex.coolDelay) cool++;
+      if (h.midday <= ex.hotMiddayShare * n.midday && n.midday > 0) hot++;
     }
-    header.push(`# result temperature: ${less}/${pairs} colonies bringing in less food on a ${ex.coolTemp} °C day → ${pass(less, pairs) ? 'PASS' : 'FAIL'}`);
-    writeFileSync(`${dir}/${name}-temp.csv`, [...header, 'seed,mean_temp_C,intake_mg,out_mean',
-      ...temp.sort((a, b) => a.seed - b.seed || b.meanTemp - a.meanTemp).map((r) => [r.seed, r.meanTemp, r.intake.toFixed(2), r.out.toFixed(3)].join(','))].join('\n') + '\n');
+    header.push(`# result temperature: ${cool}/${pairs} colonies starting to forage ≥ ${ex.coolDelay} h later on a ${ex.coolTemp} °C day → ${pass(cool, pairs) ? 'PASS' : 'FAIL'}; ${hot}/${pairs} with ≤ ${ex.hotMiddayShare * 100}% of the normal midday foragers on a ${ex.hotTemp} °C day → ${pass(hot, pairs) ? 'PASS' : 'FAIL'}`);
+    writeFileSync(`${dir}/${name}-temp.csv`, [...header, 'seed,mean_temp_C,start_h,out_morning,out_midday,intake_mg',
+      ...temp.sort((a, b) => a.seed - b.seed || a.meanTemp - b.meanTemp).map((r) => [r.seed, r.meanTemp, r.start.toFixed(2), r.morning.toFixed(3), r.midday.toFixed(3), r.intake.toFixed(2)].join(','))].join('\n') + '\n');
+    writeFileSync(`${dir}/${name}-temp-series.csv`, ['seed,mean_temp_C,minute,out', ...temp.flatMap((r) => r.series.map((f, i) => `${r.seed},${r.meanTemp},${i + 1},${f}`))].join('\n') + '\n');
   }
   if (rain.length) {
     const ok = rain.filter((r) => r.during <= ex.rainDuringShare * r.before && r.after >= ex.rainAfterShare * r.before && r.before > 0).length;

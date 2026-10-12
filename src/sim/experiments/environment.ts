@@ -97,15 +97,33 @@ export function runDayTrial(config: Config, carry: boolean): DayResult {
   };
 }
 
-export interface TempResult { seed: number; meanTemp: number; intake: number; out: number }
+export interface TempResult {
+  seed: number;
+  meanTemp: number;
+  intake: number;
+  /** Solar time (h) of the first minute with a forager out; mean foragers out over middayHours and morningHours. */
+  start: number;
+  midday: number;
+  morning: number;
+  series: number[];
+}
 
-/** One day (06:00–18:00) at a given mean temperature: food taken in and foragers out (mean). */
+/** One day from 06:00 at a given mean temperature: when foraging starts, foragers out at midday and in the morning. */
 export function runTempTrial(config: Config): TempResult {
-  const w = new World(config);
-  let out = 0, n = 0;
-  const end = config.experiment.tempDuration;
-  for (let t = 0; t < end; t += SAMPLE) { stepFor(w, SAMPLE); out += foragersOut(w); n++; }
-  return { seed: config.sim.seed, meanTemp: config.env.meanTemp, intake: w.colony!.intake, out: out / n };
+  const w = new World(config), ex = config.experiment;
+  const series: number[] = [];
+  let start = NaN, mid = 0, nm = 0, morn = 0, nr = 0;
+  const [m0, m1] = ex.middayHours as readonly [number, number];
+  const [r0, r1] = ex.morningHours as readonly [number, number];
+  for (let t = 0; t < ex.tempDuration; t += SAMPLE) {
+    stepFor(w, SAMPLE);
+    const f = foragersOut(w), h = w.climate.env.hour(w.simTime());
+    series.push(f);
+    if (f > 0 && Number.isNaN(start)) start = h;
+    if (h >= m0 && h < m1) { mid += f; nm++; }
+    if (h >= r0 && h < r1) { morn += f; nr++; }
+  }
+  return { seed: config.sim.seed, meanTemp: config.env.meanTemp, intake: w.colony!.intake, start, midday: mid / Math.max(1, nm), morning: morn / Math.max(1, nr), series };
 }
 
 export interface RainResult {
@@ -136,11 +154,14 @@ export function runRainTrial(config: Config): RainResult {
     const t = w.simTime();
     const d = w.drops!;
     // Entries into water by free ants, and new hits (stun rising).
+    // An ant that walked (it was on the surface, free, and stepped) from a spot that is dry
+    // now into a drop: a step into water. (Drops that grow over ants trap them instead.)
     const now: boolean[] = [];
     for (let s = 0; s < w.agents.highWater; s++) {
       const out = (a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) === AgentFlag.ALIVE;
-      now[s] = out && d.at(a.posX[s]!, a.posZ[s]!) >= 0;
-      if (now[s] && wet[s] === false && stun[s] === 0 && a.stun[s] === 0) entered++;
+      now[s] = out;
+      if (out && wet[s] === true && stun[s] === 0 && a.stun[s] === 0 && a.lastStep[s]! > 0
+        && d.at(a.posX[s]!, a.posZ[s]!) >= 0 && d.at(a.posX[s]! - a.stepX[s]!, a.posZ[s]! - a.stepZ[s]!) < 0) entered++;
       if (out && a.stun[s]! > (stun[s] ?? 0) + dt) hits++;
     }
     wet = now;
