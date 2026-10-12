@@ -259,6 +259,37 @@ export const DEFAULT_PARAMS = {
     unloadedFill: p(0.1, 'x', 'ASM-COL-007', { min: 0, max: 1 }),
     unloadTime: p(180, 's', 'ASM-COL-007', { min: 0 }),
   },
+  /**
+   * The physical environment (Phase 7): sun, light and temperature over the day.
+   * Off: constant noon at referenceTemp (the Phase 2–6 scenarios).
+   */
+  env: {
+    enabled: p(false, 'bool', 'ENG-ENV-001'),
+    /** Where and when: latitude (Tokyo), day of the year (mid-July), local solar time at the start. */
+    latitude: p(35.7, 'deg', 'ENG-ENV-001', { min: -90, max: 90 }),
+    dayOfYear: p(200, 'count', 'ENG-ENV-001', { min: 1, max: 365, integer: true }),
+    startHour: p(6, 'count', 'ENG-ENV-001', { min: 0, max: 24 }),
+    /** Civil twilight: light fades from twilightLight to 0 between the horizon and twilight degrees below it. */
+    twilight: p(6, 'deg', 'PHY-ENV-001', { min: 0.1 }),
+    twilightLight: p(0.01, 'x', 'PHY-ENV-001', { min: 0, max: 1 }),
+    /** Soil surface temperature: daily mean and amplitude, and the hour of the maximum (open ground in summer). */
+    meanTemp: p(26, 'degC', 'ASM-ENV-001'),
+    surfaceAmplitude: p(10, 'degC', 'ASM-ENV-001', { min: 0 }),
+    peakHour: p(14, 'count', 'ASM-ENV-001', { min: 0, max: 24 }),
+    /** Depth at which the daily temperature wave in the soil is damped to 1/e (and delayed by a radian). */
+    dampingDepth: p(100, 'mm', 'PHY-ENV-002', { min: 1 }),
+    /** Rates of the ants (walking speed, metabolism) relative to referenceTemp: Q10 up to the optimum. */
+    referenceTemp: p(25, 'degC', 'ASM-ENV-002'),
+    q10: p(2, 'x', 'BIO-ENV-001', { min: 1 }),
+    /** [critical minimum, optimum, critical maximum]: torpid outside, falling linearly above the optimum. */
+    thermalLimits: p([5, 35, 45], 'degC', 'ASM-ENV-002'),
+    torpidRate: p(0.02, 'x', 'ASM-ENV-002', { min: 0, max: 1 }),
+    /** Surface conditions in which foragers go out: light at least foragingLight, temperature within foragingTemp. */
+    foragingLight: p(0.05, 'x', 'BIO-ENV-002', { min: 0, max: 1 }),
+    foragingTemp: p([12, 38], 'degC', 'BIO-ENV-002'),
+    /** The temperatures are refreshed this often (they change by minutes). */
+    updateInterval: p(60, 's', 'ENG-ENV-001', { min: 0.01 }),
+  },
   /** Trail pheromone field (Phase 3). Amounts are in arbitrary units u (per mm² cell). */
   pheromone: {
     cell: p(1, 'mm', 'ASM-PHE-001', { min: 0.1 }),

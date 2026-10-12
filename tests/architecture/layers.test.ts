@@ -17,13 +17,14 @@ const ALLOWED: Record<string, string[]> = {
   core: ['core'],
   config: ['core', 'config'],
   terrain: ['core', 'config', 'terrain'],
+  env: ['core', 'config', 'env'],
   locomotion: ['core', 'config', 'terrain', 'locomotion'],
   soil: ['core', 'config', 'terrain', 'soil'],
-  sim: ['core', 'config', 'terrain', 'locomotion', 'soil', 'sim'],
+  sim: ['core', 'config', 'terrain', 'locomotion', 'soil', 'env', 'sim'],
   worker: ['core', 'config', 'sim', 'worker'],
-  render: ['core', 'config', 'terrain', 'locomotion', 'soil', 'render', 'worker/protocol.ts'],
+  render: ['core', 'config', 'terrain', 'locomotion', 'soil', 'env', 'render', 'worker/protocol.ts'],
   bench: ['core', 'config', 'bench'],
-  app: ['core', 'config', 'terrain', 'soil', 'render', 'bench', 'app', 'worker/protocol.ts'],
+  app: ['core', 'config', 'terrain', 'soil', 'env', 'render', 'bench', 'app', 'worker/protocol.ts'],
 };
 
 describe('layer dependencies', () => {
@@ -44,7 +45,7 @@ describe('layer dependencies', () => {
   });
 });
 
-const DETERMINISTIC_LAYERS = ['core', 'config', 'terrain', 'locomotion', 'soil', 'sim'];
+const DETERMINISTIC_LAYERS = ['core', 'config', 'terrain', 'locomotion', 'soil', 'env', 'sim'];
 const BANNED = [
   /\bMath\.(?:random|sin|cos|tan|asin|acos|atan|atan2|sinh|cosh|tanh|asinh|acosh|atanh|exp|expm1|log|log1p|log2|log10|pow|cbrt|hypot)\b/,
   /\bDate\.now\b/,

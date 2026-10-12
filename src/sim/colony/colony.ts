@@ -167,7 +167,8 @@ export class Colony {
       if ((a.flags[s]! & AgentFlag.ALIVE) === 0) continue;
       const queen = a.caste[s] === Caste.QUEEN;
       const cap = queen ? cc.queenReserve : cc.reserve;
-      const active = a.lastStep[s]! > 0 ? cc.activeFactor : 1;
+      // Energy use: more while walking, and by Q10 with the temperature where the ant is (Phase 7).
+      const active = (a.lastStep[s]! > 0 ? cc.activeFactor : 1) * world.climate.rateAt(a.posY[s]!);
       let reserve = a.reserve[s]! - ((queen ? cc.queenMetabolism : cc.metabolism) / S_PER_DAY) * active * dt;
       // The crop passes food on to the worker's own gut, slowly (faster in the queen, scaled to her reserve).
       const take = Math.min(a.crop[s]!, (cc.absorb / S_PER_DAY) * (cap / cc.reserve) * dt, cap - reserve);
@@ -205,17 +206,21 @@ export class Colony {
     const b = this.brood, cc = world.config.colony, dt = world.config.sim.dt;
     const intake = (cc.larvalFood / (cc.larvaDays as readonly number[])[0]! / S_PER_DAY) * dt;
     const starve = cc.larvalStarve * S_PER_DAY;
+    const soil = world.soil!;
     for (let i = 0; i < b.highWater; i++) {
       const stage = b.stage[i]!;
       if (stage === BroodStage.NONE) continue;
-      b.timer[i] = b.timer[i]! - dt;
+      // Development runs faster where it is warmer (Q10 of the soil temperature at the item, Phase 7).
+      soil.unindex(b.cell[i]!, v);
+      const rate = world.climate.rateAt(soil.centreY(v[1]!));
+      b.timer[i] = b.timer[i]! - dt * rate;
       if (stage === BroodStage.EGG) {
         if (b.timer[i]! <= 0) {
           b.stage[i] = BroodStage.LARVA;
           b.timer[i] = this.draw(world, cc.larvaDays as readonly number[], i, world.tick);
         }
       } else if (stage === BroodStage.LARVA) {
-        const take = Math.min(b.gut[i]!, intake, cc.larvalFood - b.eaten[i]!);
+        const take = Math.min(b.gut[i]!, intake * rate, cc.larvalFood - b.eaten[i]!);
         b.gut[i] = b.gut[i]! - take;
         b.eaten[i] = b.eaten[i]! + take;
         b.hungry[i] = b.gut[i]! > 0 || b.eaten[i]! >= cc.larvalFood ? 0 : b.hungry[i]! + dt;

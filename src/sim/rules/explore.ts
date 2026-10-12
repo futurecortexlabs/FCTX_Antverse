@@ -106,7 +106,8 @@ export function explore(world: World, from: number, to: number): void {
     a.avoidTurn[s] = slide ? 0 : turn;
     // Turning on the spot is walked too: the feet travel the arc at the stance radius.
     const turnArc = blocked ? ex.avoidTurnRate * dt * turnRadius : 0;
-    const v = a.speed[s]!;
+    // Walking speed follows the temperature (env, BIO-ENV-001).
+    const v = a.speed[s]! * world.climate.surfaceRate;
     const step = blocked ? 0 : v * dt;
     let x = x0 + step * dcos(h);
     let z = z0 - step * dsin(h);

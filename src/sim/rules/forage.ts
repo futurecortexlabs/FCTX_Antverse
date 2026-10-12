@@ -90,7 +90,8 @@ export function forage(world: World, from: number, to: number): void {
       a.flags[s] = a.flags[s]! & ~AgentFlag.LOOP_BACK;
       a.heading[s] = a.heading[s]! + PI;
       a.turnRate[s] = 0;
-    } else if (state === AgentState.SEARCH && a.tripTime[s]! > a.giveUp[s]!) {
+    } else if (state === AgentState.SEARCH && (a.tripTime[s]! > a.giveUp[s]! || (colony && !world.climate.foraging))) {
+      // Nothing found in time — or night falls, or the ground gets too hot or cold: home.
       a.state[s] = AgentState.RETURN; // nothing found: home without food
       a.searchTime[s] = 0;
       a.flags[s] = a.flags[s]! & ~AgentFlag.LOOP_BACK;

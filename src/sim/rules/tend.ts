@@ -120,15 +120,19 @@ export function tend(world: World, from: number, to: number): void {
     const [fF, fN] = ageFactors(age, cc.ageGain, cc.ageScale);
     if (task === Task.IDLE && (state === AgentState.DIG || state === AgentState.NEST_REST)) {
       const dem = density.demandAround(ix, d, iz);
-      const pF = cc.engageRate * dt * response(a.hunger[s]!, a.thetaF[s]! * fF);
+      // Foraging only by day and in tolerable surface temperatures (env, BIO-ENV-002).
+      const pF = world.climate.foraging ? cc.engageRate * dt * response(a.hunger[s]!, a.thetaF[s]! * fF) : 0;
       const pN = cc.engageRate * dt * response(dem / (dem + cc.broodHalf), a.thetaN[s]! * fN);
       const u = rand(world.seed, Stream.TASK, s, world.tick, TaskKey.ENGAGE);
       if (u < pF) { a.task[s] = Task.FORAGE; a.state[s] = AgentState.EXIT; }
       else if (u < pF + pN) { a.task[s] = Task.NURSE; a.state[s] = AgentState.NURSE; }
+    } else if (state === AgentState.EXIT && !world.climate.foraging) {
+      // On the way out when it gets dark (or too hot / cold): stay in.
+      a.task[s] = Task.IDLE; a.state[s] = AgentState.DIG;
     } else if (state === AgentState.NURSE) {
       if (rand(world.seed, Stream.TASK, s, world.tick, TaskKey.QUIT) < cc.nurseQuit * dt) { a.task[s] = Task.IDLE; a.state[s] = AgentState.DIG; }
     } else if (state === AgentState.UNLOAD && (a.crop[s]! <= cc.unloadedFill * cc.crop || (a.searchTime[s] = a.searchTime[s]! + dt) >= cc.unloadTime)) {
-      if (rand(world.seed, Stream.TASK, s, world.tick, TaskKey.CONTINUE) < response(a.hunger[s]!, a.thetaF[s]! * fF)) a.state[s] = AgentState.EXIT;
+      if (world.climate.foraging && rand(world.seed, Stream.TASK, s, world.tick, TaskKey.CONTINUE) < response(a.hunger[s]!, a.thetaF[s]! * fF)) a.state[s] = AgentState.EXIT;
       else { a.task[s] = Task.IDLE; a.state[s] = AgentState.DIG; }
     }
   }
