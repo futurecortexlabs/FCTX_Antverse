@@ -98,6 +98,9 @@ export function explore(world: World, from: number, to: number): void {
       // Two heights compared: no clear answer when they are alike, so keep the way already chosen.
       turn = keep !== 0 ? keep : Math.abs(left - here) < Math.abs(right - here) ? 1 : -1;
     }
+    // A nestmate right in front (avoid.ts): turn on the spot, away from it, like at an obstacle.
+    if (turn === 0 && (a.flags[s]! & AgentFlag.BLOCKED) !== 0) turn = a.steer[s]! !== 0 ? (a.steer[s]! > 0 ? 1 : -1) : keep !== 0 ? keep : (omega >= 0 ? 1 : -1);
+    a.flags[s] = a.flags[s]! & ~AgentFlag.BLOCKED;
     if (turn !== 0) h = free + turn * ex.avoidTurnRate * dt;
     const blocked = turn !== 0 && !slide;
     a.avoidTurn[s] = slide ? 0 : turn;

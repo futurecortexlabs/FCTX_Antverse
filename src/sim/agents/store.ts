@@ -22,6 +22,8 @@ export const AgentFlag = {
   LOOP_BACK: 1 << 2,
   /** In the soil (walking the voxel lattice of the nest), not on the surface. */
   UNDERGROUND: 1 << 3,
+  /** A nestmate right in front (avoid.ts): turn on the spot this tick instead of stepping (cleared by explore). */
+  BLOCKED: 1 << 4,
 } as const;
 
 export const Caste = {

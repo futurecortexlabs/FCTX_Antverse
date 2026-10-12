@@ -64,6 +64,19 @@ export const DEFAULT_PARAMS = {
     maxDrop: p(10, 'mm', 'ASM-LOC-008', { min: 0 }),
     /** Turning rate while facing an obstacle. */
     avoidTurnRate: p(6, 'rad/s', 'ASM-LOC-008', { min: 0 }),
+    /**
+     * Collision avoidance between ants on the surface (Phase 7): off by default (the Phase 2–5
+     * scenarios were judged without it). A nestmate ahead within collideRadius body lengths
+     * (centre to centre) makes the ant turn away at up to collideTurn.
+     */
+    collide: p(false, 'bool', 'ASM-SOC-001'),
+    collideRadius: p(0.9, 'x', 'ASM-SOC-001', { min: 0 }),
+    collideTurn: p(6, 'rad/s', 'ASM-SOC-001', { min: 0 }),
+    /** A nestmate closer than collideStop body lengths within collideCone (rad) of straight ahead: stop and turn instead of stepping. */
+    collideStop: p(0.6, 'x', 'ASM-SOC-001', { min: 0 }),
+    collideCone: p(0.785, 'rad', 'ASM-SOC-001', { min: 0, max: 3.15 }),
+    /** Side of the cells of the surface grid the neighbours are looked up in. */
+    collideCell: p(5, 'mm', 'ENG-SIM-009', { min: 0.5 }),
   },
   /**
    * Experimental set-ups replacing the open ground (Phase 3): the double bridge
