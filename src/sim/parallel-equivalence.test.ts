@@ -129,4 +129,28 @@ describe('parallel stepping equivalence', () => {
     expect(helper.soil!.dug).toBe(main.soil!.dug);
     expect(helper.density!.open).toEqual(main.density!.open);
   });
+
+  it('a colony with helper threads: contacts, trophallaxis, tasks and brood demand read from shared memory', () => {
+    const preset = JSON.parse(readFileSync('config/presets/colony.json', 'utf8')) as Overlay;
+    const cfg = buildConfig([preset, { population: { count: 90 }, soil: { size: [128, 256, 128] }, scenario: { feeders: [40, 0] }, colony: { engageRate: 0.05 } }]).config;
+    const ref = new World(cfg);
+    const main = new World(cfg, { sharedAgents: true });
+    const nest = main.sharedNest()!;
+    expect(nest.contacts).not.toBeNull();
+    const helpers = [0, 1].map(() => new World(cfg, {
+      agents: new AgentStore(cfg.sim.capacity, { buffers: main.agents.sharedBuffers() }),
+      pheromoneBuffer: main.pheromone!.buffer as SharedArrayBuffer,
+      moundBuffer: nest.mound, densityBuffer: nest.density, digLogBuffer: nest.digLog, contactBuffers: nest.contacts!,
+    }));
+    for (let t = 0; t < 3600; t++) {
+      ref.step();
+      const n = main.agents.highWater, c1 = 31, c2 = 64;
+      helpers[1]!.tick = main.tick; helpers[1]!.stepRange(c2, n);
+      helpers[0]!.tick = main.tick; helpers[0]!.stepRange(c1, c2);
+      main.stepRange(0, c1);
+      main.completeStep();
+    }
+    expect(ref.colony!.intake).toBeGreaterThan(0);
+    expect(main.stateHash()).toBe(ref.stateHash());
+  });
 });

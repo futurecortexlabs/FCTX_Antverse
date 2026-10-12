@@ -58,6 +58,31 @@ describe('walking in the soil', () => {
     expect(deepest).toBeGreaterThan(20); // they explore the whole shaft
   });
 
+  it('the memoised wall tests (Soil.memoGet) always equal a fresh evaluation, however the soil was dug since', () => {
+    const w = make({ dig: { rate: 0 } }), soil = w.soil!;
+    const fresh = make({ dig: { rate: 0 } }).soil!;
+    const cx = soil.voxelX(0), cz = soil.voxelZ(0), top = soil.airTop[cx + cz * soil.nx]!;
+    const probe = (): void => {
+      for (let d = top; d < top + 12; d++) for (let z = cz - 4; z <= cz + 4; z++) for (let x = cx - 4; x <= cx + 4; x++) {
+        expect(nearWall(soil, x, d, z)).toBe(nearWall(fresh, x, d, z));
+        expect(standable(soil, x, d, z)).toBe(standable(fresh, x, d, z));
+      }
+    };
+    probe(); // fill the memo
+    // Dig into `soil` (whose memo must be invalidated) and the same voxels into a soil without a memo.
+    const dug: [number, number, number][] = [];
+    for (let k = 0; k < 24; k++) {
+      const x = cx + ((k * 5) % 7) - 3, d = top + 2 + ((k * 3) % 8), z = cz + ((k * 2) % 7) - 3;
+      soil.dig(x, d, z);
+      dug.push([x, d, z]);
+      const f = make({ dig: { rate: 0 } }).soil!;
+      for (const [px, pd, pz] of dug) f.dig(px, pd, pz);
+      for (let dd = top; dd < top + 12; dd++) for (let zz = cz - 4; zz <= cz + 4; zz++) for (let xx = cx - 4; xx <= cx + 4; xx++) {
+        expect(nearWall(soil, xx, dd, zz)).toBe(nearWall(f, xx, dd, zz));
+      }
+    }
+  });
+
   it('a worker carrying soil climbs out of the nest', () => {
     const w = make({ dig: { rate: 0 } }), a = w.agents.a, soil = w.soil!;
     const cx = soil.voxelX(0), cz = soil.voxelZ(0), top = soil.airTop[cx + cz * soil.nx]!;

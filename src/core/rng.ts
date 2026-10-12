@@ -42,6 +42,12 @@ export const Stream = {
   BURROW: 14,
   /** Digging (whether and where) and dumping (how far out). */
   DIG: 15,
+  /** Phase 6: founding the colony, laying, development, deaths. */
+  COLONY: 16,
+  /** Phase 6: choosing a nestmate in contact. */
+  CONTACT: 17,
+  /** Phase 6: taking up and leaving tasks. */
+  TASK: 18,
   TEST: 0xffff,
 } as const;
 export type StreamId = (typeof Stream)[keyof typeof Stream];

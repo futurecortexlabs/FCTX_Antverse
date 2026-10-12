@@ -50,6 +50,8 @@ function loop(): void {
     if (chunks.length > 0) post({ type: 'soilChunks', chunks }, chunks.map((c) => c.data.buffer));
     const mound = runner.moundCopy();
     if (mound) post({ type: 'moundData', data: mound }, [mound.buffer]);
+    const brood = runner.broodCopy();
+    if (brood) post({ type: 'brood', data: brood }, [brood.buffer]);
   }
   schedule(owed);
 }

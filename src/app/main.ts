@@ -24,7 +24,7 @@ import { Mound } from '../soil/mound.ts';
 import { DoubleBridge } from '../terrain/apparatus.ts';
 import { Terrain } from '../terrain/terrain.ts';
 import { SimHost } from './sim-host.ts';
-import { SNAP_FLOATS } from '../worker/protocol.ts';
+import { SNAP_FLOATS, type SimStats } from '../worker/protocol.ts';
 import { Hud } from './hud/hud.ts';
 import { RollingStats } from '../core/rolling-stats.ts';
 import { BenchSweep, benchCsv } from '../bench/sweep.ts';
@@ -180,7 +180,7 @@ async function main(): Promise<void> {
           adapter: info.adapter,
           transport: host.transport,
           viewport: `${window.innerWidth}x${window.innerHeight}@${renderer.getPixelRatio()}`,
-          note: 'Phase 5: terrain + walking workers (LOD0 legs solved), parallel sim, pheromone, path integration, nest excavation',
+          note: 'Phase 6: terrain + walking workers (LOD0 legs solved), parallel sim, pheromone, path integration, nest excavation, colony life and division of labour',
         });
         (window as unknown as { __antverseBench: unknown }).__antverseBench = { rows, csv };
         console.table(rows);
@@ -208,7 +208,7 @@ async function main(): Promise<void> {
     if (host.field !== pheromoneFor) {
       pheromoneFor = host.field;
       if (pheromone) { scene.remove(pheromone.mesh); pheromone.dispose(); pheromone = null; }
-      if (host.field) { pheromone = new PheromoneOverlay(host.field, cfg, originY); scene.add(pheromone.mesh); }
+      if (host.field) { pheromone = new PheromoneOverlay(host.field, cfg, originY, cfg.scenario.colony ? terrain : undefined); scene.add(pheromone.mesh); }
     }
     if (pheromone && host.fieldData) pheromone.update(now, host.fieldData);
   };
@@ -227,15 +227,20 @@ async function main(): Promise<void> {
     return `double bridge: short branch ${s} | long branch ${l} | in nest ${nest} | short ${bridge.lengthShort.toFixed(0)} mm, long ${bridge.lengthLong.toFixed(0)} mm`;
   };
   /** Foraging states, indexed like AgentState: search, return, rest, nest search. */
-  const foragingLine = (f: { states: number[]; carrying: number }): string => cfg.scenario.digging
+  const foragingLine = (f: { states: number[]; carrying: number }): string => cfg.scenario.colony
+    ? `workers: out ${f.states[0]! + f.states[1]! + f.states[3]!} (with food ${f.carrying}) | unloading ${f.states[9] ?? 0} | nursing ${f.states[8] ?? 0} | idle in the nest ${(f.states[4] ?? 0) + (f.states[7] ?? 0)} | carrying soil ${f.states[5] ?? 0}`
+    : cfg.scenario.digging
     ? `workers: walking in the nest ${f.states[4] ?? 0} | resting in the nest ${f.states[7] ?? 0} | carrying soil out ${f.states[5] ?? 0} | going back in ${f.states[6] ?? 0}`
     : `foraging: out ${f.states[0]} | heading home ${f.states[1]} (with food ${f.carrying}) | searching for the nest ${f.states[3]} | in nest ${f.states[2]}`;
+  const colonyLine = (c: NonNullable<SimStats['colony']>): string =>
+    `colony: tasks idle ${c.tasks[0]} / forage ${c.tasks[1]} / nurse ${c.tasks[2]} | brood eggs ${c.brood[0]} larvae ${c.brood[1]} pupae ${c.brood[2]} | food in ${c.intake.toFixed(1)} mg | crops ${(c.cropFill * 100).toFixed(0)} % full | eclosed ${c.eclosed} died ${c.died}${c.queen ? '' : ' | queen dead'}`;
   // Nest of a digging world: the cast of the dug space, the spoil mound, and the mound as a
   // height overlay of the terrain (for placing feet on it). Rebuilt when the worker reports a new nest.
   let nest: NestView | null = null;
   let nestFor: unknown = null;
   let moundMirror: Mound | null = null;
   let cutaway = false;
+  let broodShown = -1;
   let lastNest = -Infinity;
   const surfaceObjects = (): THREE.Object3D[] => scene.children.filter((o) => ['ground', 'pebbles', 'leaves', 'grass', 'grains'].includes(o.name) || o === grains.mesh || o === ground.group);
   const syncNest = (now: number): void => {
@@ -260,6 +265,7 @@ async function main(): Promise<void> {
     if (!shared && host.moundData && moundMirror) moundMirror.heights.set(host.moundData);
     if (shared && host.moundData && nest.sharedMoundChanged(host.moundData)) host.moundVersion++;
     nest.update(host.moundData, host.moundVersion, r.castBudget);
+    if (host.brood && host.broodVersion !== broodShown) { broodShown = host.broodVersion; nest.setBrood(host.brood); }
   };
   const setCutaway = (on: boolean): void => { cutaway = on; nest?.setCutaway(on, surfaceObjects()); };
   const togglePheromone = (on?: boolean): void => { if (pheromone) pheromone.mesh.visible = on ?? !pheromone.mesh.visible; };
@@ -328,6 +334,7 @@ async function main(): Promise<void> {
         `camera ${(camera.position.y - terrain.supportHeight(camera.position.x, camera.position.z)).toFixed(2)} mm above surface`,
         ...(bridge ? [bridgeLine()] : []),
         ...(host.stats?.foraging ? [foragingLine(host.stats.foraging)] : []),
+        ...(host.stats?.colony ? [colonyLine(host.stats.colony)] : []),
         ...(host.stats?.digging ? [`nest: dug ${host.stats.digging.dug.toFixed(0)} mm³ | pellets on the mound ${host.stats.digging.pellets} | workers in the soil ${host.stats.digging.underground}${nest ? ` | cast chunks pending ${nest.pending}` : ''}`] : []),
         `quality ${tier} | pixel ratio ${renderer.getPixelRatio().toFixed(2)} | LOD error ≤ ${ground.params.maxScreenError.toFixed(1)} px${governor ? (governor.degraded() ? ' (auto: reduced)' : ' (auto)') : ''}`,
       ]);

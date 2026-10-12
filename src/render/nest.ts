@@ -8,6 +8,8 @@
  *   (setCutaway) to hide the surface and see it.
  * - the mound of excavated soil around the entrance, a heightfield draped on
  *   the ground.
+ * - in a colony (Phase 6): the brood lying in the nest — eggs, larvae (growing
+ *   with what they have eaten) and pupae in their cocoons.
  *
  * The renderer keeps its own mirror of the soil (built from the same config
  * and terrain, updated with the chunks the worker sends) and reads the mound
@@ -18,12 +20,14 @@ import * as THREE from 'three/webgpu';
 import type { Config } from '../config/params.ts';
 import { CHUNK, Soil } from '../soil/soil.ts';
 import type { Terrain } from '../terrain/terrain.ts';
-import type { NestInfo, SoilChunk } from '../worker/protocol.ts';
+import { BROOD_FLOATS, type NestInfo, type SoilChunk } from '../worker/protocol.ts';
 import { rgb } from './environment.ts';
 
 /** Edge directions of the voxel lattice: +x, +d (down), +z. */
 const AXES = [[1, 0, 0], [0, 1, 0], [0, 0, 1]] as const;
-const SPAN = CHUNK + 2; // cube cache covers the chunk plus a margin of one on each side
+const SPAN = CHUNK + 2;
+/** Successive brood items are turned by the golden angle: evenly varied, no state needed. */
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); // cube cache covers the chunk plus a margin of one on each side
 
 export class NestView {
   readonly group = new THREE.Group();
@@ -45,7 +49,12 @@ export class NestView {
     this.info = info;
     this.soil = new Soil(cfg, terrain);
     this.group.name = 'nest';
-    this.castMaterial = new THREE.MeshStandardNodeMaterial({ color: rgb(cfg.render.castColor), roughness: 0.6, side: THREE.DoubleSide });
+    // In a colony the cast is see-through, so what lives in the nest shows.
+    const see = cfg.scenario.colony && cfg.render.castOpacity < 1;
+    this.castMaterial = new THREE.MeshStandardNodeMaterial({
+      color: rgb(cfg.render.castColor), roughness: 0.6, side: THREE.DoubleSide,
+      ...(see ? { transparent: true, opacity: cfg.render.castOpacity, depthWrite: false } : {}),
+    });
     // Mound: one vertex per mound cell, lifted by the pile height over the bare ground.
     const m = info.mound;
     this.base = new Float32Array(m.nx * m.nz);
@@ -62,6 +71,42 @@ export class NestView {
     this.mound.receiveShadow = true;
     this.mound.castShadow = true;
     this.group.add(this.mound);
+  }
+
+  private brood: THREE.InstancedMesh | null = null;
+
+  /** Show the colony's brood ([x, y, z, stage, growth] per item): ellipsoids lying on the floor of their voxel. */
+  setBrood(data: Float32Array): void {
+    const n = data.length / BROOD_FLOATS;
+    if (!this.brood || this.brood.instanceMatrix.count < n) {
+      if (this.brood) { this.group.remove(this.brood); this.brood.geometry.dispose(); }
+      const geo = new THREE.SphereGeometry(0.5, 12, 8);
+      this.brood = new THREE.InstancedMesh(geo, new THREE.MeshStandardNodeMaterial({ roughness: 0.7 }), Math.max(64, n * 2));
+      this.brood.name = 'brood';
+      this.group.add(this.brood);
+    }
+    const r = this.cfg.render;
+    const size = r.broodSize as readonly number[];
+    const pale = new THREE.Color(...(r.broodColor as [number, number, number])), cocoon = new THREE.Color(...(r.cocoonColor as [number, number, number]));
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    for (let i = 0; i < n; i++) {
+      const o = i * BROOD_FLOATS;
+      const stage = data[o + 3]! - 1; // 0 egg, 1 larva, 2 pupa
+      // Larvae grow from the size of an egg to their full size with what they have eaten.
+      const g = stage === 1 ? data[o + 4]! : 1;
+      const len = stage === 1 ? size[0]! + (size[2]! - size[0]!) * g : size[2 * stage]!;
+      const wid = stage === 1 ? size[1]! + (size[3]! - size[1]!) * g : size[2 * stage + 1]!;
+      // Lying on the voxel floor, turned by a fixed per-item angle (no state needed).
+      q.setFromAxisAngle(up, i * GOLDEN_ANGLE);
+      p.set(data[o]!, data[o + 1]! - 0.5 + wid / 2, data[o + 2]!);
+      s.set(len, wid, wid);
+      m.compose(p, q, s);
+      this.brood.setMatrixAt(i, m);
+      this.brood.setColorAt(i, stage === 2 ? cocoon : pale);
+    }
+    this.brood.count = n;
+    this.brood.instanceMatrix.needsUpdate = true;
+    if (this.brood.instanceColor) this.brood.instanceColor.needsUpdate = true;
   }
 
   /** Dug chunks from the worker: update the mirror and mark them (and their neighbours) for remeshing. */

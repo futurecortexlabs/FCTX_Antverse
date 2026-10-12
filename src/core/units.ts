@@ -25,6 +25,8 @@ export type Rad = number;
 
 export const MM_PER_M = 1000;
 export const MS_PER_S = 1000;
+export const S_PER_H = 3600;
+export const S_PER_DAY = 86400;
 
 export const UP = { x: 0, y: 1, z: 0 } as const;
 export const MODEL_FORWARD = { x: 1, y: 0, z: 0 } as const;

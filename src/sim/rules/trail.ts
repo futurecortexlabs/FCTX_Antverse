@@ -18,7 +18,7 @@
  */
 
 import { dcos, dsin } from '../../core/dmath.ts';
-import { AgentFlag, CarryKind } from '../agents/store.ts';
+import { AgentFlag, AgentState, CarryKind } from '../agents/store.ts';
 import type { World } from '../world.ts';
 
 export function trail(world: World, from: number, to: number): void {
@@ -34,7 +34,7 @@ export function trail(world: World, from: number, to: number): void {
 
   for (let s = from; s < to; s++) {
     a.steer[s] = 0;
-    if ((a.flags[s]! & AgentFlag.ALIVE) === 0) continue;
+    if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) !== AgentFlag.ALIVE) continue; // dead, or in the nest
     const x = a.posX[s]!, z = a.posZ[s]!, h = a.heading[s]!;
     const fx = dcos(h), fz = -dsin(h), rx = dsin(h), rz = dcos(h);
     const cl = field.sample(x + fx * ahead - rx * side, z + fz * ahead - rz * side);
@@ -57,7 +57,10 @@ export function layTrail(world: World, from: number, to: number): void {
   const pc = world.config.pheromone;
   const bridge = world.bridge;
   for (let s = from; s < to; s++) {
-    if ((a.flags[s]! & AgentFlag.ALIVE) === 0) { a.deposit[s] = 0; continue; }
+    const st = a.state[s]!;
+    // Only foraging trips lay trail (not diggers carrying soil, nor anyone in the nest).
+    if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) !== AgentFlag.ALIVE
+      || (st !== AgentState.SEARCH && st !== AgentState.RETURN && st !== AgentState.NEST_SEARCH)) { a.deposit[s] = 0; continue; }
     const x = a.posX[s]!, z = a.posZ[s]!;
     if (bridge && (bridge.inNest(x, z) || bridge.inFeeder(x, z))) { a.deposit[s] = 0; continue; }
     const rate = a.carryKind[s] === CarryKind.FOOD ? pc.depositReturn : pc.depositSearch;

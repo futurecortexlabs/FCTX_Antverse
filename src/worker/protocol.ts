@@ -17,6 +17,8 @@ import type { Overlay } from '../config/load.ts';
 
 /** Per-agent float record: pos(3) rot(4) gaitPhase(1) speed(1). */
 export const SNAP_FLOATS = 9;
+/** Floats per brood item in a 'brood' message: x, y, z, stage, growth. */
+export const BROOD_FLOATS = 5;
 export const SnapF = { PX: 0, PY: 1, PZ: 2, QX: 3, QY: 4, QZ: 5, QW: 6, GAIT: 7, SPEED: 8 } as const;
 
 /** Per-agent u32: caste | flags<<8 | carryKind<<16 | (gen & 0xff)<<24. */
@@ -28,6 +30,8 @@ export const META_BYTE = 0xff;
 export const SNAP_FLAG_ALIVE = 1;
 /** Bit in the flags byte marking an ant in the soil (mirrors AgentFlag.UNDERGROUND). */
 export const SNAP_FLAG_UNDERGROUND = 8;
+/** Caste byte of the queen (mirrors Caste.QUEEN). */
+export const SNAP_CASTE_QUEEN = 1;
 
 export const SNAP_HEADER_F64 = 16;
 export const SnapH = {
@@ -146,6 +150,8 @@ export interface SimStats {
   foraging: { states: number[]; carrying: number } | null;
   /** In a digging world: soil dug by the workers (mm³), pellets on the mound, workers in the soil. */
   digging: { dug: number; pellets: number; underground: number } | null;
+  /** In a colony: workers per task (idle, forage, nurse), brood per stage (egg, larva, pupa), food taken in (mg), mean crop fill (0–1), queen alive. */
+  colony: { tasks: number[]; brood: number[]; intake: number; cropFill: number; eclosed: number; died: number; queen: boolean } | null;
 }
 
 export interface DeterminismReport {
@@ -198,6 +204,8 @@ export type FromWorker =
   | { type: 'nest'; info: NestInfo | null }
   | { type: 'soilChunks'; chunks: SoilChunk[] }
   | { type: 'moundData'; data: Float32Array }
+  /** Colony brood for display: [x, y, z, stage, growth (0–1)] per item. */
+  | { type: 'brood'; data: Float32Array }
   | { type: 'field'; info: FieldInfo | null }
   | { type: 'fieldData'; data: Float32Array }
   | { type: 'snapshot'; buffer: ArrayBuffer }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AgentFlag, AgentStore, Caste } from './store.ts';
-import { SNAP_FLAG_ALIVE } from '../../worker/protocol.ts';
+import { SNAP_CASTE_QUEEN, SNAP_FLAG_ALIVE, SNAP_FLAG_UNDERGROUND } from '../../worker/protocol.ts';
 
 describe('AgentStore', () => {
   it('spawns into consecutive slots and tracks counts', () => {
@@ -35,5 +35,7 @@ describe('AgentStore', () => {
 
   it('snapshot alive bit mirrors AgentFlag.ALIVE', () => {
     expect(SNAP_FLAG_ALIVE).toBe(AgentFlag.ALIVE);
+    expect(SNAP_FLAG_UNDERGROUND).toBe(AgentFlag.UNDERGROUND);
+    expect(SNAP_CASTE_QUEEN).toBe(Caste.QUEEN);
   });
 });
