@@ -24,6 +24,11 @@
  * Guidance rules (trail following, homing) request a turning rate in
  * agents.steer; it is added to the random turning while the way ahead is free.
  *
+ * Weather (Phase 7): an ant dazed by a raindrop or stuck in a water drop
+ * (agents.stun, set in completeStep) does not move until it recovers; a water
+ * drop ahead is an obstacle like a pebble wall (surface tension makes it a
+ * solid dome at this scale).
+ *
  * Obstacles: the antennae probe the support surface probeDistance ahead. If it
  * rises more than maxClimb — unless it is a slope no steeper than maxSlope,
  * like the side of a sand pile — or drops more than maxDrop, from the ground
@@ -54,10 +59,16 @@ export function explore(world: World, from: number, to: number): void {
   const ride = config.locomotion.rideHeight;
   // Mid-leg neutral lateral offset: radius of the feet's circle when turning on the spot.
   const turnRadius = config.locomotion.neutralFoot[3]! * config.ant.workerBodyLength;
+  const drops = world.drops !== null && world.drops.count > 0 ? world.drops : null;
 
   for (let s = from; s < to; s++) {
     if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) !== AgentFlag.ALIVE) continue; // dead, or in the soil (burrow.ts)
     if (a.state[s] === AgentState.REST) { a.lastStep[s] = 0; a.stepX[s] = 0; a.stepZ[s] = 0; continue; }
+    if (a.stun[s]! > 0) {
+      a.stun[s] = Math.max(0, a.stun[s]! - dt);
+      a.lastStep[s] = 0; a.stepX[s] = 0; a.stepZ[s] = 0;
+      continue;
+    }
     const omega = a.turnRate[s]! * decay + kick * randNormal(seed, Stream.EXPLORE_STEP, s, tick);
     a.turnRate[s] = omega;
     const free = a.heading[s]! + omega * dt;
@@ -91,10 +102,16 @@ export function explore(world: World, from: number, to: number): void {
       let diff = toCentre - h;
       if (diff > PI) diff -= 2 * PI; else if (diff < -PI) diff += 2 * PI;
       turn = diff > 0 ? 1 : -1;
-    } else if ((ahead - here > ex.maxClimb && ahead - here > ex.maxSlope * probe) || here - ahead > ex.maxDrop) {
+    } else if ((ahead - here > ex.maxClimb && ahead - here > ex.maxSlope * probe) || here - ahead > ex.maxDrop
+      || (drops !== null && (drops.at(nx, nz) >= 0 || drops.at((x0 + nx) / 2, (z0 + nz) / 2) >= 0
+        || drops.at(x0 + stride * dcos(h), z0 - stride * dsin(h)) >= 0))) {
       // +angle turns left (towards -Z when facing +X).
-      const left = world.terrain.supportHeight(x0 + probe * dcos(h + ex.probeAngle), z0 - probe * dsin(h + ex.probeAngle));
-      const right = world.terrain.supportHeight(x0 + probe * dcos(h - ex.probeAngle), z0 - probe * dsin(h - ex.probeAngle));
+      const lx = x0 + probe * dcos(h + ex.probeAngle), lz = z0 - probe * dsin(h + ex.probeAngle);
+      const rx = x0 + probe * dcos(h - ex.probeAngle), rz = z0 - probe * dsin(h - ex.probeAngle);
+      // Water counts as a wall far above.
+      const wet = (x: number, z: number): number => (drops !== null && drops.at(x, z) >= 0 ? Infinity : world.terrain.supportHeight(x, z));
+      const left = wet(lx, lz);
+      const right = wet(rx, rz);
       // Two heights compared: no clear answer when they are alike, so keep the way already chosen.
       turn = keep !== 0 ? keep : Math.abs(left - here) < Math.abs(right - here) ? 1 : -1;
     }

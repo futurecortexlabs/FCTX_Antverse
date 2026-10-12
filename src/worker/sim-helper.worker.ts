@@ -42,6 +42,7 @@ self.onmessage = (e: MessageEvent<HelperIn>) => {
       ...(m.nest ? { moundBuffer: m.nest.mound, densityBuffer: m.nest.density, digLogBuffer: m.nest.digLog } : {}),
       ...(m.nest?.contacts ? { contactBuffers: m.nest.contacts } : {}),
       ...(m.surface ? { surfaceBuffers: m.surface } : {}),
+      ...(m.drops ? { dropBuffers: m.drops } : {}),
     });
     const ctl = new Int32Array(m.control);
     post({ type: 'attached', attachId: m.attachId, index: m.index });

@@ -105,3 +105,18 @@ describe('seed reproducibility of a colony (queen, brood, contacts, tasks)', () 
     expect(checkDeterminism(colony, 1800).hashA).toMatchSnapshot();
   });
 });
+
+describe('seed reproducibility of the environment (sun, temperature, rain, drops, collisions)', () => {
+  const field = buildConfig([JSON.parse(readFileSync('config/presets/field.json', 'utf8')) as Overlay,
+    { population: { count: 120 }, env: { rain: [0, 0.5, 30], startHour: 9 } }]).config;
+
+  it('same seed → same state; different seed → different state', { timeout: 300000 }, () => {
+    const r = checkDeterminism(field, 3600);
+    expect(r.identical).toBe(true);
+    expect(r.seedSensitive).toBe(true);
+  });
+
+  it('golden hash for the field preset in rain is stable', { timeout: 300000 }, () => {
+    expect(checkDeterminism(field, 1800).hashA).toMatchSnapshot();
+  });
+});
