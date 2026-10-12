@@ -144,6 +144,18 @@ export class SimRunner {
     return out;
   }
 
+  /** Water drops for display ([x, y, z, r] per drop), when there are any or were last time. */
+  dropsCopy(): Float32Array | null {
+    const d = this.world.drops;
+    if (!d || (d.count === 0 && this.dropsSent === 0)) return null;
+    const out = new Float32Array(d.count * 4);
+    for (let k = 0; k < d.count; k++) { out[4 * k] = d.x[k]!; out[4 * k + 1] = d.y[k]!; out[4 * k + 2] = d.z[k]!; out[4 * k + 3] = d.r[k]!; }
+    this.dropsSent = d.count;
+    return out;
+  }
+
+  private dropsSent = 0;
+
   /** A copy of the mound when the renderer cannot read it directly, if it changed since the last copy. */
   moundCopy(): Float32Array | null {
     const m = this.world.mound;

@@ -115,6 +115,8 @@ export const DEFAULT_PARAMS = {
     colony: p(false, 'bool', 'ENG-SCN-005'),
     /** Food sources of the colony scenario as [x0, z0, x1, z1, …] (radius feederRadius); empty = no food. */
     feeders: p([150, 0, -90, 120], 'mm', 'ENG-SCN-005'),
+    /** Food sources that appear during the run: [x, z, hours after the start] triples (Phase 7 recruitment test). */
+    lateFeeders: p([], 'x', 'ENG-SCN-005'),
     /** Side of the square around the entrance over which the colony's trail pheromone is kept. */
     fieldSize: p(400, 'mm', 'ENG-SCN-005', { min: 1 }),
   },
@@ -631,7 +633,17 @@ export const DEFAULT_PARAMS = {
     sunDirection: p([1, 2, 1.5], 'x', 'ENG-REN-012'),
     /** With the environment on: night sky colour, the fill light kept at night (moon, sky glow), the light level at which the sky is fully day-coloured. */
     nightSkyColor: p([0.03, 0.04, 0.08], 'rgb', 'ENG-REN-018'),
-    nightLight: p(0.04, 'x', 'ENG-REN-018', { min: 0, max: 1 }),
+    /** Water (Phase 7): colour, drop dome height / radius, falling raindrops (speed, streak opacity, most per frame, splash time). */
+    waterColor: p([0.85, 0.92, 1], 'rgb', 'ENG-REN-019'),
+    dropHeight: p(0.8, 'x', 'ENG-REN-019', { min: 0.01 }),
+    rainSpeed: p(6500, 'mm/s', 'PHY-ENV-003', { min: 0 }),
+    rainOpacity: p(0.3, 'x', 'ENG-REN-019', { min: 0, max: 1 }),
+    dropOpacity: p(0.45, 'x', 'ENG-REN-019', { min: 0, max: 1 }),
+    rainMaxStreaks: p(400, 'count', 'ENG-REN-019', { min: 1, integer: true }),
+    rainSplash: p(0.3, 's', 'ENG-REN-019', { min: 0.01 }),
+    /** Rain is drawn over a square this many camera distances wide round the point of interest. */
+    rainExtentFactor: p(2, 'x', 'ENG-REN-019', { min: 0.1 }),
+    nightLight: p(0.12, 'x', 'ENG-REN-018', { min: 0, max: 1 }),
     dayLight: p(0.3, 'x', 'ENG-REN-018', { min: 0.001, max: 1 }),
     interpolationLagTicks: p(1, 'tick', 'ENG-REN-009', { min: 0 }),
     interpolationSmoothing: p(0.2, 'x', 'ENG-REN-009', { min: 0.01, max: 1 }),
@@ -749,6 +761,29 @@ export const DEFAULT_PARAMS = {
     /** Recruits: naive workers sent out at the end of the recruitment run, and the time they are given to reach food. */
     recruits: p(50, 'count', 'ENG-EXP-004', { min: 1, integer: true }),
     recruitTime: p(180, 's', 'ENG-EXP-004', { min: 1 }),
+    /** Phase 7 environment protocol (scripts/experiment-environment.ts): seeds held out from development. */
+    envSeeds: p(10, 'count', 'ENG-EXP-005', { min: 1, integer: true }),
+    envFirstSeed: p(7001, 'count', 'ENG-EXP-005', { min: 0, max: 0xffffffff, integer: true }),
+    /** Day/night: run length, light counted as day, day/night forager ratio to reach; brood: hours compared and the reduction of its distance from broodTemp to reach. */
+    dayDuration: p(172800, 's', 'ENG-EXP-005', { min: 3600 }),
+    dayLight: p(0.2, 'x', 'ENG-EXP-005', { min: 0, max: 1 }),
+    dayNightRatio: p(5, 'x', 'ENG-EXP-005', { min: 1 }),
+    morningHours: p([9, 11], 'count', 'ENG-EXP-005'),
+    afternoonHours: p([15, 17], 'count', 'ENG-EXP-005'),
+    thermoReduction: p(0.3, 'x', 'ENG-EXP-005', { min: 0, max: 1 }),
+    /** Temperature: a cool day's mean surface temperature against the default, run length. */
+    coolTemp: p(16, 'degC', 'ENG-EXP-005'),
+    tempDuration: p(43200, 's', 'ENG-EXP-005', { min: 600 }),
+    /** Rain: the shower [start h after 06:00, duration h, mm/h]; foragers out counted from rainResponse after it starts; recovery time after it; shares to reach. */
+    rainShower: p([6, 1, 10], 'x', 'ENG-EXP-005'),
+    rainResponse: p(600, 's', 'ENG-EXP-005', { min: 0 }),
+    rainRecovery: p(7200, 's', 'ENG-EXP-005', { min: 600 }),
+    rainDuringShare: p(0.2, 'x', 'ENG-EXP-005', { min: 0, max: 1 }),
+    rainAfterShare: p(0.5, 'x', 'ENG-EXP-005', { min: 0, max: 1 }),
+    /** Recruitment to new food: the feeder [x, z, h after the start], the window after its discovery, the longest run. */
+    newFood: p([-170, -90, 2], 'x', 'ENG-EXP-005'),
+    newFoodWindow: p(7200, 's', 'ENG-EXP-005', { min: 60 }),
+    newFoodLimit: p(36000, 's', 'ENG-EXP-005', { min: 600 }),
   },
   bench: {
     counts: p([1000, 2000, 5000, 10000, 20000, 50000, 100000], 'count', 'ENG-BEN-001'),

@@ -17,7 +17,7 @@
  * Food is counted in mg of sugar throughout.
  */
 
-import { S_PER_DAY } from '../../core/units.ts';
+import { S_PER_DAY, S_PER_H } from '../../core/units.ts';
 import { dcos, dsin, PI } from '../../core/dmath.ts';
 import type { StateHasher } from '../../core/statehash.ts';
 import { rand, randNormal, Stream } from '../../core/rng.ts';
@@ -41,6 +41,11 @@ export class Colony {
   readonly brood = new BroodStore();
   queen = -1;
   readonly feeders: Site[];
+  /** Simulated time each feeder appears (s; 0 for the ones there from the start). */
+  readonly feederFrom: number[];
+  /** Per feeder: crop fills taken, and the time of the first (−1: none yet). */
+  readonly fills: number[];
+  readonly firstFill: number[];
   /** Food taken at the feeders so far (mg) and fed to larvae (mg). */
   intake = 0;
   fed = 0;
@@ -55,7 +60,12 @@ export class Colony {
     const f = world.config.scenario.feeders as readonly number[];
     const r = world.config.scenario.feederRadius;
     this.feeders = [];
-    for (let i = 0; i + 1 < f.length; i += 2) this.feeders.push({ x: f[i]!, z: f[i + 1]!, r });
+    this.feederFrom = [];
+    for (let i = 0; i + 1 < f.length; i += 2) { this.feeders.push({ x: f[i]!, z: f[i + 1]!, r }); this.feederFrom.push(0); }
+    const late = world.config.scenario.lateFeeders as readonly number[];
+    for (let i = 0; i + 2 < late.length; i += 3) { this.feeders.push({ x: late[i]!, z: late[i + 1]!, r }); this.feederFrom.push(late[i + 2]! * S_PER_H); }
+    this.fills = this.feeders.map(() => 0);
+    this.firstFill = this.feeders.map(() => -1);
     this.broodHead = new Int32Array(world.density!.counts.length).fill(-1);
   }
 
@@ -151,12 +161,25 @@ export class Colony {
   }
 
   /** Grant a FILL request: a forager that reached a feeder this tick fills its crop (food is unlimited there). */
-  fill(world: World, s: number): void {
+  fill(world: World, s: number, feeder: number): void {
     const a = world.agents.a, cc = world.config.colony;
+    if (feeder >= 0 && feeder < this.fills.length) {
+      this.fills[feeder]!++;
+      if (this.firstFill[feeder]! < 0) this.firstFill[feeder] = world.simTime();
+    }
     const amount = cc.crop - a.crop[s]!;
     if (amount <= 0) return;
     a.crop[s] = cc.crop;
     this.intake += amount;
+  }
+
+  /** Index of the feeder (already there at time t) covering (x, z), or −1. */
+  feederAt(x: number, z: number, t: number): number {
+    for (let i = 0; i < this.feeders.length; i++) {
+      const f = this.feeders[i]!;
+      if (t >= this.feederFrom[i]! && (x - f.x) * (x - f.x) + (z - f.z) * (z - f.z) <= f.r * f.r) return i;
+    }
+    return -1;
   }
 
   /** Physiology, laying and brood development for one tick (after the requests). */
@@ -244,6 +267,7 @@ export class Colony {
 
   hashInto(h: StateHasher): void {
     h.word(this.queen).f64(this.intake).f64(this.fed).word(this.eclosed).word(this.died);
+    for (const n of this.fills) h.word(n);
     for (const view of this.brood.views()) h.view(view);
   }
 

@@ -13,6 +13,7 @@ import { MS_PER_S } from '../core/units.ts';
 import { createRenderer } from '../render/renderer.ts';
 import { AntRenderer } from '../render/ants/ant-renderer.ts';
 import { Environment } from '../render/environment.ts';
+import { WaterView } from '../render/water.ts';
 import { Environment as Climate } from '../env/environment.ts';
 import { GroundRenderer } from '../render/terrain/ground.ts';
 import { GrainField, buildGrass, buildLeaves, buildPebbles } from '../render/terrain/surface-objects.ts';
@@ -87,10 +88,14 @@ async function main(): Promise<void> {
 
   const scene = new THREE.Scene();
   const env = new Environment(scene, cfg);
+  let dropsShown = -1, lastRenderTime = 0;
   if (cfg.terrainRender.shadows) renderer.shadowMap.enabled = true;
   // The same deterministic terrain the sim worker builds (identical by construction).
   const tGen = performance.now();
   const terrain = new Terrain(cfg);
+  // Water drops and falling rain (Phase 7; only with the environment on).
+  const water = cfg.env.enabled ? new WaterView(cfg, terrain) : null;
+  if (water) scene.add(water.group);
   const ground = new GroundRenderer(terrain, cfg);
   scene.add(ground.group);
   scene.add(buildPebbles(terrain, cfg));
@@ -300,6 +305,12 @@ async function main(): Promise<void> {
     grains.update(camera, viewportPx, cfg.terrainRender.genBudget);
     env.setTime(host.interp.renderTime);
     env.update(camera, controls.target);
+    if (water) {
+      if (host.drops && host.dropsVersion !== dropsShown) { dropsShown = host.dropsVersion; water.setDrops(host.drops); }
+      const simDt = Math.max(0, host.interp.renderTime - lastRenderTime);
+      lastRenderTime = host.interp.renderTime;
+      water.update(host.interp.renderTime, simDt, controls.target, Math.min(cfg.world.arenaSize, cfg.render.rainExtentFactor * camera.position.distanceTo(controls.target)));
+    }
     syncPheromone(now);
     syncNest(now);
     renderer.render(scene, camera);

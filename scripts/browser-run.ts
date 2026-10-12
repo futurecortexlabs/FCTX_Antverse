@@ -467,6 +467,56 @@ async function colonyViews(cdp: Cdp, hoursArg: string | undefined, query: string
   console.log(log.join('\n'));
 }
 
+/**
+ * Phase 7 environment: rain on the colony's ground (drops on leaves, falling
+ * rain), the same place at night, and the nest's brood in the morning warmth.
+ * Output: docs/reports/phase-7/.
+ */
+async function weatherViews(cdp: Cdp): Promise<void> {
+  const dir = 'docs/reports/phase-7';
+  mkdirSync(dir, { recursive: true });
+  const log: string[] = [];
+  const simTime = (): Promise<number> => cdp.eval<number>('window.antverse.host.stats ? window.antverse.host.stats.simTime : 0');
+  const shot = async (name: string): Promise<void> => {
+    await cdp.screenshot(`${dir}/${name}.png`);
+    log.push(`${name}: sim ${(await simTime()).toFixed(0)} s | ${(await cdp.eval<string>(HUD)).split('\n').filter((l) => l.startsWith('environment') || l.startsWith('workers') || l.startsWith('colony')).join(' | ')}`);
+  };
+  const until = async (t: number): Promise<void> => {
+    while (!(await cdp.eval<boolean>('!!(window.antverse && window.antverse.host && window.antverse.host.stats)'))) await sleep(500);
+    await cdp.eval('window.antverse.host.setSpeed(100000)');
+    while (await simTime() < t) await sleep(500);
+    await cdp.eval('window.antverse.host.setSpeed(1)');
+    await sleep(2500);
+  };
+  // 1. Rain at noon: 30 mm/h from the start for an hour.
+  await cdp.goto(BASE + '?preset=field&set=env.startHour=11.5&set=env.rain=0,1,30');
+  const y0 = await cdp.eval<number>('window.antverse.terrain.supportHeight(60, 40)');
+  await until(1200);
+  await cdp.eval(cam([75, y0 + 25, 70], [60, y0, 40]));
+  await sleep(2000);
+  await shot('01-rain-drops');
+  await cdp.eval(cam([20, y0 + 120, 160], [20, y0, 20]));
+  await sleep(2000);
+  await shot('02-rain-overview');
+  // 2. Night (22:00) over the same ground.
+  await cdp.goto(BASE + '?preset=field&set=env.startHour=22');
+  await until(60);
+  await cdp.eval(cam([20, y0 + 120, 160], [20, y0, 20]));
+  await sleep(2000);
+  await shot('03-night');
+  // 3. Late morning: brood brought up into the warm upper soil (cut-away).
+  await cdp.goto(BASE + '?preset=field&set=env.startHour=6');
+  await until(4 * 3600);
+  await cdp.eval('window.antverse.setCutaway(true)');
+  const yN = await cdp.eval<number>('window.antverse.terrain.supportHeight(0, 0)');
+  await cdp.eval(cam([110, yN - 30, 0], [0, yN - 30, 0]));
+  await sleep(2000);
+  await shot('04-brood-morning');
+  await cdp.eval('window.antverse.setCutaway(false)');
+  writeFileSync(`${dir}/views.txt`, log.join('\n') + '\n');
+  console.log(log.join('\n'));
+}
+
 /** Phone emulation (390x844 CSS px, DPR 3, touch). `base` lets you target a static/LAN/artifact URL. */
 async function mobile(cdp: Cdp, base: string, backend: string | undefined): Promise<void> {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true, screenWidth: 390, screenHeight: 844 });
@@ -520,6 +570,7 @@ async function main(): Promise<void> {
     else if (cmd === 'homing') await homingViews(cdp, arg);
     else if (cmd === 'nest') await nestViews(cdp, arg, process.argv[4]);
     else if (cmd === 'colony') await colonyViews(cdp, arg, process.argv[4]);
+    else if (cmd === 'weather') await weatherViews(cdp);
     else if (cmd === 'eval') { await cdp.goto(BASE + (process.argv[4] ?? '')); console.log(JSON.stringify(await cdp.eval(arg ?? 'null'), null, 1)); }
     else if (cmd === 'bench') await bench(cdp, arg);
     else if (cmd === 'mobile') await mobile(cdp, process.argv[4] ?? BASE, arg && arg !== '-' ? arg : undefined);

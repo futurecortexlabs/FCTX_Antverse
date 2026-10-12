@@ -293,7 +293,7 @@ export class World {
           a.state[s] = AgentState.REENTER;
         } else if (r === Request.GIVE) this.colony!.give(this, s, a.requestCell[s]!);
         else if (r === Request.FEED) this.colony!.feed(this, s, a.requestCell[s]!);
-        else if (r === Request.FILL) this.colony!.fill(this, s);
+        else if (r === Request.FILL) this.colony!.fill(this, s, a.requestCell[s]!);
         else if (r === Request.PICK) this.colony!.pick(this, s, a.requestCell[s]!);
         else if (r === Request.PUT) this.colony!.put(this, s);
       }
