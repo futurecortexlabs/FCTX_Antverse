@@ -117,6 +117,9 @@ export const AGENT_SCHEMA = {
   hunger: field('f64'),
   /** Nestmate in contact (slot), −1 for none. */
   partner: field('i32'),
+  // --- Phase 7: environment ---
+  /** Brood item carried (BroodStore index), −1 for none. Written only in World.completeStep. */
+  load: field('i32'),
 };
 
 /** Changes to shared state an agent asks for; World.completeStep applies them in slot order. */
@@ -128,6 +131,10 @@ export const Request = {
   FEED: 4,
   /** Fill the crop at the feeder it reached this tick. */
   FILL: 5,
+  /** Pick up a brood item near the voxel requestCell (Phase 7). */
+  PICK: 6,
+  /** Put the carried brood item down where the ant stands. */
+  PUT: 7,
 } as const;
 
 /** Tasks of the division of labour (Phase 6). IDLE workers walk, rest and dig in the nest. */
@@ -158,7 +165,7 @@ export const AgentState = {
   EXIT: 10,
 } as const;
 
-export const CarryKind = { NONE: 0, FOOD: 1, SOIL: 2 } as const;
+export const CarryKind = { NONE: 0, FOOD: 1, SOIL: 2, BROOD: 3 } as const;
 
 export type AgentSoA = SoA<typeof AGENT_SCHEMA>;
 
@@ -239,6 +246,7 @@ export class AgentStore {
     a.thetaN[slot] = 0;
     a.hunger[slot] = 0;
     a.partner[slot] = -1;
+    a.load[slot] = -1;
     this.alive++;
     return slot;
   }

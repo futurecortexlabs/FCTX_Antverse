@@ -24,6 +24,8 @@ export class BroodStore {
   eaten = new Float64Array(INITIAL);
   gut = new Float64Array(INITIAL);
   hungry = new Float64Array(INITIAL);
+  /** Agent slot carrying the item, −1 when it lies in the nest (Phase 7). */
+  carrier = new Int32Array(INITIAL);
   highWater = 0;
   count = 0;
   private free: number[] = [];
@@ -41,6 +43,7 @@ export class BroodStore {
     this.eaten[i] = 0;
     this.gut[i] = 0;
     this.hungry[i] = 0;
+    this.carrier[i] = -1;
     this.count++;
     return i;
   }
@@ -63,7 +66,7 @@ export class BroodStore {
     const n = this.highWater;
     return [
       this.stage.subarray(0, n), this.cell.subarray(0, n), this.timer.subarray(0, n),
-      this.eaten.subarray(0, n), this.gut.subarray(0, n), this.hungry.subarray(0, n), Int32Array.from(this.free),
+      this.eaten.subarray(0, n), this.gut.subarray(0, n), this.hungry.subarray(0, n), this.carrier.subarray(0, n), Int32Array.from(this.free),
     ];
   }
 
@@ -75,6 +78,6 @@ export class BroodStore {
       return b;
     };
     this.stage = g(this.stage); this.cell = g(this.cell); this.timer = g(this.timer);
-    this.eaten = g(this.eaten); this.gut = g(this.gut); this.hungry = g(this.hungry);
+    this.eaten = g(this.eaten); this.gut = g(this.gut); this.hungry = g(this.hungry); this.carrier = g(this.carrier);
   }
 }

@@ -21,7 +21,7 @@ import { S_PER_DAY } from '../../core/units.ts';
 import { dcos, dsin, PI } from '../../core/dmath.ts';
 import type { StateHasher } from '../../core/statehash.ts';
 import { rand, randNormal, Stream } from '../../core/rng.ts';
-import { AgentFlag, AgentState, Caste, Task } from '../agents/store.ts';
+import { AgentFlag, AgentState, CarryKind, Caste, Task } from '../agents/store.ts';
 import { nearWall, wallNormal } from '../rules/burrow.ts';
 import type { Site, World } from '../world.ts';
 import { BroodStage, BroodStore } from './brood.ts';
@@ -136,7 +136,7 @@ export class Colony {
       for (let y = Math.max(0, cd - 1); y <= Math.min(density.cd - 1, cd + 1); y++) {
         for (let x = Math.max(0, cx - 1); x <= Math.min(density.cx - 1, cx + 1); x++) {
           for (let i = this.broodHead[(z * density.cd + y) * density.cx + x]!; i >= 0; i = this.broodNext[i]!) {
-            if (b.stage[i] !== BroodStage.LARVA || b.eaten[i]! >= cc.larvalFood) continue;
+            if (b.stage[i] !== BroodStage.LARVA || b.eaten[i]! >= cc.larvalFood || b.carrier[i]! >= 0) continue;
             const need = cc.larvalGut - b.gut[i]!;
             if (need > bestNeed || (need === bestNeed && need > 0 && i < best)) { best = i; bestNeed = need; }
           }
@@ -175,13 +175,71 @@ export class Colony {
       if (take > 0) { a.crop[s] = a.crop[s]! - take; reserve += take; }
       a.reserve[s] = reserve;
       if (reserve <= 0 || (!queen && now - a.born[s]! >= a.lifespan[s]!)) {
+        if (a.load[s]! >= 0) this.put(world, s); // what it carried stays where it fell
         ag.kill(s);
         if (queen) this.queen = -1; else this.died++;
       }
     }
     this.lay(world);
     this.develop(world);
+    // Carried brood moves with its carrier.
+    const b = this.brood;
+    for (let i = 0; i < b.highWater; i++) if (b.stage[i] !== BroodStage.NONE && b.carrier[i]! >= 0) b.cell[i] = a.cell[b.carrier[i]!]!;
     this.indexBrood(world);
+  }
+
+  /**
+   * Grant a PICK request (Phase 7): the nurse takes up a brood item lying near voxel `cell` — the
+   * one whose temperature is furthest from colony.broodTemp, if that is more than broodTolerance off.
+   */
+  pick(world: World, s: number, cell: number): void {
+    const a = world.agents.a, cc = world.config.colony, soil = world.soil!, density = world.density!, b = this.brood;
+    if (a.load[s]! >= 0 || cell < 0 || (a.flags[s]! & AgentFlag.UNDERGROUND) === 0) return;
+    soil.unindex(cell, v);
+    const c = density.cell;
+    const cx = Math.floor(v[0]! / c), cd = Math.floor(v[1]! / c), cz = Math.floor(v[2]! / c);
+    let best = -1, worst = cc.broodTolerance;
+    for (let z = Math.max(0, cz - 1); z <= Math.min(density.cz - 1, cz + 1); z++) {
+      for (let y = Math.max(0, cd - 1); y <= Math.min(density.cd - 1, cd + 1); y++) {
+        for (let x = Math.max(0, cx - 1); x <= Math.min(density.cx - 1, cx + 1); x++) {
+          for (let i = this.broodHead[(z * density.cd + y) * density.cx + x]!; i >= 0; i = this.broodNext[i]!) {
+            if (b.stage[i] === BroodStage.NONE || b.carrier[i]! >= 0) continue;
+            soil.unindex(b.cell[i]!, v);
+            const off = Math.abs(world.climate.tempAt(soil.centreY(v[1]!)) - cc.broodTemp);
+            if (off > worst || (off === worst && best >= 0 && i < best)) { best = i; worst = off; }
+          }
+        }
+      }
+    }
+    if (best < 0) return;
+    b.carrier[best] = s;
+    b.cell[best] = a.cell[s]!;
+    a.load[s] = best;
+    a.carryKind[s] = CarryKind.BROOD;
+    a.searchTime[s] = 0; // times the carrying
+  }
+
+  /** Grant a PUT request: the carried item is laid down where the carrier stands. */
+  put(world: World, s: number): void {
+    const a = world.agents.a, i = a.load[s]!;
+    if (i < 0) return;
+    if (this.brood.stage[i] !== BroodStage.NONE && this.brood.carrier[i] === s) {
+      this.brood.carrier[i] = -1;
+      if (a.cell[s]! >= 0) this.brood.cell[i] = a.cell[s]!;
+    }
+    a.load[s] = -1;
+    if (a.carryKind[s] === CarryKind.BROOD) a.carryKind[s] = CarryKind.NONE;
+  }
+
+  /** Remove a brood item (hatched into a worker, or dead), freeing its carrier's mandibles. */
+  private removeBrood(world: World, i: number): void {
+    const c = this.brood.carrier[i]!;
+    if (c >= 0) {
+      const a = world.agents.a;
+      a.load[c] = -1;
+      if (a.carryKind[c] === CarryKind.BROOD) a.carryKind[c] = CarryKind.NONE;
+    }
+    this.brood.remove(i);
   }
 
   hashInto(h: StateHasher): void {
@@ -224,7 +282,7 @@ export class Colony {
         b.gut[i] = b.gut[i]! - take;
         b.eaten[i] = b.eaten[i]! + take;
         b.hungry[i] = b.gut[i]! > 0 || b.eaten[i]! >= cc.larvalFood ? 0 : b.hungry[i]! + dt;
-        if (b.hungry[i]! > starve) b.remove(i);
+        if (b.hungry[i]! > starve) this.removeBrood(world, i);
         else if (b.eaten[i]! >= cc.larvalFood && b.timer[i]! <= 0) {
           b.stage[i] = BroodStage.PUPA;
           b.timer[i] = this.draw(world, cc.pupaDays as readonly number[], i, world.tick);
@@ -232,7 +290,7 @@ export class Colony {
       } else if (b.timer[i]! <= 0) {
         // Eclosion: a new (callow) worker where the pupa lay.
         const cell = b.cell[i]!;
-        b.remove(i);
+        this.removeBrood(world, i);
         if (world.agents.highWater < world.agents.capacity || world.agents.freeSlots().length > 0) {
           const s = world.agents.spawn(Caste.WORKER);
           this.initWorker(world, s, cell, false);
@@ -242,7 +300,7 @@ export class Colony {
     }
   }
 
-  /** Per-cell larva lists (for FEED) and the brood-demand grid (for nurses). */
+  /** Per-cell brood lists (FEED takes larvae from them, PICK any item) and the brood-demand grid (for nurses). */
   private indexBrood(world: World): void {
     const b = this.brood, cc = world.config.colony, soil = world.soil!, density = world.density!;
     for (const k of this.headTouched) this.broodHead[k] = -1;
@@ -254,13 +312,11 @@ export class Colony {
       if (stage === BroodStage.NONE) continue;
       soil.unindex(b.cell[i]!, v);
       let units = 1;
-      if (stage === BroodStage.LARVA) {
-        const k = density.key(v[0]!, v[1]!, v[2]!);
-        if (this.broodHead[k] === -1) this.headTouched.push(k);
-        this.broodNext[i] = this.broodHead[k]!;
-        this.broodHead[k] = i;
-        if (b.eaten[i]! < cc.larvalFood) units += 1 - b.gut[i]! / cc.larvalGut;
-      }
+      const k = density.key(v[0]!, v[1]!, v[2]!);
+      if (this.broodHead[k] === -1) this.headTouched.push(k);
+      this.broodNext[i] = this.broodHead[k]!;
+      this.broodHead[k] = i;
+      if (stage === BroodStage.LARVA && b.eaten[i]! < cc.larvalFood) units += 1 - b.gut[i]! / cc.larvalGut;
       density.addDemand(v[0]!, v[1]!, v[2]!, units);
     }
   }

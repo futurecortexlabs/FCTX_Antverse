@@ -13,6 +13,7 @@ import { MS_PER_S } from '../core/units.ts';
 import { createRenderer } from '../render/renderer.ts';
 import { AntRenderer } from '../render/ants/ant-renderer.ts';
 import { Environment } from '../render/environment.ts';
+import { Environment as Climate } from '../env/environment.ts';
 import { GroundRenderer } from '../render/terrain/ground.ts';
 import { GrainField, buildGrass, buildLeaves, buildPebbles } from '../render/terrain/surface-objects.ts';
 import { applyCameraGuard } from '../render/terrain/camera-guard.ts';
@@ -232,6 +233,12 @@ async function main(): Promise<void> {
     : cfg.scenario.digging
     ? `workers: walking in the nest ${f.states[4] ?? 0} | resting in the nest ${f.states[7] ?? 0} | carrying soil out ${f.states[5] ?? 0} | going back in ${f.states[6] ?? 0}`
     : `foraging: out ${f.states[0]} | heading home ${f.states[1]} (with food ${f.carrying}) | searching for the nest ${f.states[3]} | in nest ${f.states[2]}`;
+  // Environment (Phase 7): solar time, light, temperatures at the surface and 50 mm down.
+  const climate = new Climate(cfg);
+  const climateLine = (t: number): string => {
+    const h = climate.hour(t), hh = Math.floor(h), mm = Math.floor((h - hh) * 60);
+    return `environment: day ${climate.day(t)} ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')} solar time | light ${climate.light(t).toFixed(2)} | surface ${climate.surfaceTemp(t).toFixed(1)} °C | 50 mm down ${climate.soilTemp(50, t).toFixed(1)} °C`;
+  };
   const colonyLine = (c: NonNullable<SimStats['colony']>): string =>
     `colony: tasks idle ${c.tasks[0]} / forage ${c.tasks[1]} / nurse ${c.tasks[2]} | brood eggs ${c.brood[0]} larvae ${c.brood[1]} pupae ${c.brood[2]} | food in ${c.intake.toFixed(1)} mg | crops ${(c.cropFill * 100).toFixed(0)} % full | eclosed ${c.eclosed} died ${c.died}${c.queen ? '' : ' | queen dead'}`;
   // Nest of a digging world: the cast of the dug space, the spoil mound, and the mound as a
@@ -291,6 +298,7 @@ async function main(): Promise<void> {
     ants.update(host.interp, camera.position, focal, probe);
     ground.update(camera.position, focal);
     grains.update(camera, viewportPx, cfg.terrainRender.genBudget);
+    env.setTime(host.interp.renderTime);
     env.update(camera, controls.target);
     syncPheromone(now);
     syncNest(now);
@@ -334,6 +342,7 @@ async function main(): Promise<void> {
         `camera ${(camera.position.y - terrain.supportHeight(camera.position.x, camera.position.z)).toFixed(2)} mm above surface`,
         ...(bridge ? [bridgeLine()] : []),
         ...(host.stats?.foraging ? [foragingLine(host.stats.foraging)] : []),
+        ...(climate.enabled ? [climateLine(host.interp.renderTime)] : []),
         ...(host.stats?.colony ? [colonyLine(host.stats.colony)] : []),
         ...(host.stats?.digging ? [`nest: dug ${host.stats.digging.dug.toFixed(0)} mm³ | pellets on the mound ${host.stats.digging.pellets} | workers in the soil ${host.stats.digging.underground}${nest ? ` | cast chunks pending ${nest.pending}` : ''}`] : []),
         `quality ${tier} | pixel ratio ${renderer.getPixelRatio().toFixed(2)} | LOD error ≤ ${ground.params.maxScreenError.toFixed(1)} px${governor ? (governor.degraded() ? ' (auto: reduced)' : ' (auto)') : ''}`,
