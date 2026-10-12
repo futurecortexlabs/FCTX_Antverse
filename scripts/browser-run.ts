@@ -453,12 +453,15 @@ async function colonyViews(cdp: Cdp, hoursArg: string | undefined, query: string
   for (const [name, p, t] of [
     ['02-nest-side', [120, y0 - 40, 0], [0, y0 - 45, 0]],
     // The camera stays above the ground surface: look down the shaft to its floor.
-    ['03-nest-floor', [14, y0 + 6, 14], [0, y0 - 62, 0]],
+    ['03-nest-floor', [10, y0 + 4, 6], [0, y0 - 60, 0]],
   ] as [string, number[], number[]][]) {
+    // Looking down the shaft, the mound's sheet (draped over the whole area round the entrance) is in the way.
+    if (name === '03-nest-floor') await cdp.eval("window.antverse.nest().group.getObjectByName('mound').visible = false");
     await cdp.eval(cam(p, t));
     await sleep(1500);
     await shot(name);
   }
+  await cdp.eval("window.antverse.nest().group.getObjectByName('mound').visible = true");
   await cdp.eval('window.antverse.setCutaway(false)');
   writeFileSync(`${dir}/views.txt`, log.join('\n') + '\n');
   console.log(log.join('\n'));
