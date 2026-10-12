@@ -777,6 +777,8 @@ export const DEFAULT_PARAMS = {
     middayHours: p([12, 16], 'count', 'ENG-EXP-005'),
     hotMiddayShare: p(0.3, 'x', 'ENG-EXP-005', { min: 0, max: 1 }),
     coolDelay: p(0.5, 'count', 'ENG-EXP-005', { min: 0 }),
+    /** The temperature runs start before dawn (solar time). */
+    tempStartHour: p(4, 'count', 'ENG-EXP-005', { min: 0, max: 24 }),
     tempDuration: p(43200, 's', 'ENG-EXP-005', { min: 600 }),
     /** Rain: the shower [start h after 06:00, duration h, mm/h]; foragers out counted from rainResponse after it starts; recovery time after it; shares to reach. */
     rainShower: p([6, 1, 10], 'x', 'ENG-EXP-005'),

@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { buildConfig, type Overlay } from '../../config/load.ts';
 import { S_PER_DAY, S_PER_H } from '../../core/units.ts';
 import { AgentFlag, AgentState, Caste, CarryKind, Request, Task } from '../agents/store.ts';
-import { nearWall } from '../rules/burrow.ts';
+import { nearWall, surface } from '../rules/burrow.ts';
 import { ageFactors, response, tend } from '../rules/tend.ts';
 import { World } from '../world.ts';
 import { BroodStage } from './brood.ts';
@@ -366,5 +366,17 @@ describe('brood thermoregulation', () => {
     expect(w.agents.isAlive(s!)).toBe(false);
     expect(b.carrier[i]).toBe(-1);
     expect(b.cell[i]).toBe(a.cell[s!]);
+  });
+});
+
+describe('timers', () => {
+  it('coming out of the nest starts afresh: no search left over from unloading or carrying', () => {
+    const w = make({}, 5), a = w.agents.a, [s] = workers(w);
+    a.searchTime[s!] = 180; // e.g. the unloading timer of a forager back without food
+    a.flags[s!] = a.flags[s!]! | AgentFlag.LOOP_BACK;
+    surface(w, s!, 2, 1);
+    expect(a.searchTime[s!]).toBe(0);
+    expect(a.flags[s!]! & AgentFlag.LOOP_BACK).toBe(0);
+    expect(a.piX[s!]).toBeCloseTo(2 - w.nest!.x, 9);
   });
 });

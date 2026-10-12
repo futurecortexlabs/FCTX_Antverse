@@ -83,7 +83,9 @@ export function explore(world: World, from: number, to: number): void {
     let slide = false;
     const nx = x0 + probe * dcos(h), nz = z0 - probe * dsin(h);
     const bridge = world.bridge;
-    const stride = a.speed[s]! * dt;
+    // This tick's step: the walking speed follows the temperature (env, BIO-ENV-001).
+    const v = a.speed[s]! * world.climate.surfaceRate;
+    const stride = v * dt;
     if (bridge && (!bridge.walkable(nx, nz) || !bridge.walkable(x0 + stride * dcos(h), z0 - stride * dsin(h)))) {
       // Apparatus edge (ahead, or right in front, e.g. at the inside of a
       // corner): turn towards the side whose probe stays on the walkway
@@ -123,9 +125,7 @@ export function explore(world: World, from: number, to: number): void {
     a.avoidTurn[s] = slide ? 0 : turn;
     // Turning on the spot is walked too: the feet travel the arc at the stance radius.
     const turnArc = blocked ? ex.avoidTurnRate * dt * turnRadius : 0;
-    // Walking speed follows the temperature (env, BIO-ENV-001).
-    const v = a.speed[s]! * world.climate.surfaceRate;
-    const step = blocked ? 0 : v * dt;
+    const step = blocked ? 0 : stride;
     let x = x0 + step * dcos(h);
     let z = z0 - step * dsin(h);
     // Never step off the apparatus.

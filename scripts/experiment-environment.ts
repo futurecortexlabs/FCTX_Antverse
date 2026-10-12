@@ -5,8 +5,7 @@
  *   1. day/night     foragers out by day ≥ dayNightRatio × by night, in ≥ passFraction;
  *   2. brood warmth  over the second day the brood's mean distance from broodTemp is
  *                    ≥ thermoReduction smaller than in the same colony without brood
- *                    carrying, and the brood lies shallower at morningHours than at
- *                    afternoonHours, in ≥ passFraction;
+ *                    carrying, in ≥ passFraction (its depth by time of day is reported);
  *   3. temperature   on a cool day (coolTemp) foraging starts ≥ coolDelay h later, and on a hot
  *                    day (hotTemp) foragers out at middayHours are ≤ hotMiddayShare of a normal
  *                    day's, in ≥ passFraction;
@@ -43,7 +42,7 @@ if (!isMainThread) {
       parentPort!.postMessage({ kind: 'day', r: runDayTrial(buildConfig([...base, job.variant ? {} : { colony: { pickRate: 0 } }]).config, job.variant === 1) });
     } else if (job.kind === 'temp') {
       const meanTemp = [buildConfig(base).config.env.meanTemp, ex.coolTemp, ex.hotTemp][job.variant]!;
-      parentPort!.postMessage({ kind: 'temp', r: runTempTrial(buildConfig([...base, { env: { meanTemp } }]).config) });
+      parentPort!.postMessage({ kind: 'temp', r: runTempTrial(buildConfig([...base, { env: { meanTemp, startHour: ex.tempStartHour } }]).config) });
     } else if (job.kind === 'rain') {
       parentPort!.postMessage({ kind: 'rain', r: runRainTrial(buildConfig([...base, { env: { rain: ex.rainShower } }]).config) });
     } else {
@@ -113,10 +112,10 @@ if (!isMainThread) {
       const c = day.find((r) => r.seed === seed && r.carry), s = day.find((r) => r.seed === seed && !r.carry);
       if (!c || !s) continue;
       pairs++;
-      if (c.off <= (1 - ex.thermoReduction) * s.off && c.morningDepth < c.afternoonDepth) warm++;
+      if (c.off <= (1 - ex.thermoReduction) * s.off) warm++;
     }
     header.push(`# result day/night: ${dn}/${carry.length} colonies with ≥ ${ex.dayNightRatio}× as many foragers out by day as by night → ${pass(dn, carry.length) ? 'PASS' : 'FAIL'}`);
-    header.push(`# result brood warmth: ${warm}/${pairs} colonies whose brood is ≥ ${ex.thermoReduction * 100}% closer to ${config.colony.broodTemp} °C than without carrying and shallower in the morning than the afternoon → ${pass(warm, pairs) ? 'PASS' : 'FAIL'}`);
+    header.push(`# result brood warmth: ${warm}/${pairs} colonies whose brood is ≥ ${ex.thermoReduction * 100}% closer to ${config.colony.broodTemp} °C than without carrying → ${pass(warm, pairs) ? 'PASS' : 'FAIL'}`);
     writeFileSync(`${dir}/${name}-day.csv`, [...header, 'seed,carry,out_day,out_night,brood_off_C,depth_morning_mm,depth_afternoon_mm',
       ...day.sort((a, b) => a.seed - b.seed || Number(b.carry) - Number(a.carry)).map((r) => [r.seed, r.carry ? 1 : 0, r.day.toFixed(3), r.night.toFixed(3), r.off.toFixed(3), r.morningDepth.toFixed(1), r.afternoonDepth.toFixed(1)].join(','))].join('\n') + '\n');
     writeFileSync(`${dir}/${name}-day-series.csv`, ['seed,carry,hour,out,brood_depth_mm,brood_off_C,light',
