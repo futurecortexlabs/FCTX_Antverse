@@ -13,6 +13,10 @@
  * walks along the ceiling until a way up opens — and leaves the soil through
  * the first opening to the surface it reaches. A worker without a load may
  * drift downwards (dig.walkDown).
+ *
+ * Colony (Phase 6): a worker going out to forage (EXIT) climbs out like a
+ * carrier; a nurse is drawn up the gradient of brood demand (unfed larval
+ * food per density cell, colony.nursePull, ASM-COL-010); the queen stays put.
  */
 
 import { datan2, dexp } from '../../core/dmath.ts';
@@ -20,7 +24,7 @@ import { quatFromBasis } from '../../core/quat.ts';
 import { rand, Stream } from '../../core/rng.ts';
 import { strideLength } from '../../locomotion/morphology.ts';
 import type { Soil } from '../../soil/soil.ts';
-import { AgentFlag, AgentState } from '../agents/store.ts';
+import { AgentFlag, AgentState, Caste } from '../agents/store.ts';
 import type { World } from '../world.ts';
 
 /** Sub-keys of Stream.DIG: whether to dig, which face, how far out to dump. */
@@ -36,19 +40,31 @@ for (let dz = -1; dz <= 1; dz++) for (let dd = -1; dd <= 1; dd++) for (let dx = 
 }
 const FACES = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const;
 
-/** Is the voxel dug space below the ground surface with soil on at least one face? */
+/** Memo bits (Soil.memoGet): standable known (1) / true (2); nearWall known (4) / true (8). */
+const M_STAND = 1, M_STAND_T = 1 << 1, M_NEAR = 1 << 2, M_NEAR_T = 1 << 3;
+
+/** Is the voxel dug space below the ground surface with soil on at least one face? (depends on the soil within 1 voxel) */
 export function standable(soil: Soil, ix: number, d: number, iz: number): boolean {
-  if (!soil.inBounds(ix, d, iz) || d < soil.airTop[ix + iz * soil.nx]! || !soil.isDug(ix, d, iz)) return false;
-  for (const [fx, fd, fz] of FACES) if (!soil.isOpen(ix + fx, d + fd, iz + fz)) return true;
-  return false;
+  const m = soil.memoGet(ix, d, iz);
+  if ((m & M_STAND) !== 0) return (m & M_STAND_T) !== 0;
+  let r = false;
+  if (soil.inBounds(ix, d, iz) && d >= soil.airTop[ix + iz * soil.nx]! && soil.isDug(ix, d, iz)) {
+    for (const [fx, fd, fz] of FACES) if (!soil.isOpen(ix + fx, d + fd, iz + fz)) { r = true; break; }
+  }
+  soil.memoSet(ix, d, iz, m | M_STAND | (r ? M_STAND_T : 0));
+  return r;
 }
 
-/** A dug voxel on a wall, or next to one (face-adjacent to a standable voxel). */
+/** A dug voxel on a wall, or next to one (face-adjacent to a standable voxel). (depends on the soil within 2 voxels) */
 export function nearWall(soil: Soil, ix: number, d: number, iz: number): boolean {
-  if (standable(soil, ix, d, iz)) return true;
-  if (!soil.inBounds(ix, d, iz) || d < soil.airTop[ix + iz * soil.nx]! || !soil.isDug(ix, d, iz)) return false;
-  for (const [fx, fd, fz] of FACES) if (standable(soil, ix + fx, d + fd, iz + fz)) return true;
-  return false;
+  const m = soil.memoGet(ix, d, iz);
+  if ((m & M_NEAR) !== 0) return (m & M_NEAR_T) !== 0;
+  let r = standable(soil, ix, d, iz);
+  if (!r && soil.inBounds(ix, d, iz) && d >= soil.airTop[ix + iz * soil.nx]! && soil.isDug(ix, d, iz)) {
+    for (const [fx, fd, fz] of FACES) if (standable(soil, ix + fx, d + fd, iz + fz)) { r = true; break; }
+  }
+  soil.memoSet(ix, d, iz, soil.memoGet(ix, d, iz) | M_NEAR | (r ? M_NEAR_T : 0));
+  return r;
 }
 
 /** Air above the ground surface (an opening of the nest to the outside). */
@@ -91,7 +107,7 @@ export function burrow(world: World, from: number, to: number): void {
 
   for (let s = from; s < to; s++) {
     if ((a.flags[s]! & AgentFlag.ALIVE) === 0 || (a.flags[s]! & AgentFlag.UNDERGROUND) === 0) continue;
-    if (a.state[s] === AgentState.NEST_REST) { a.lastStep[s] = 0; a.stepX[s] = 0; a.stepZ[s] = 0; continue; }
+    if (a.state[s] === AgentState.NEST_REST || a.caste[s] === Caste.QUEEN) { a.lastStep[s] = 0; a.stepX[s] = 0; a.stepZ[s] = 0; continue; }
     soil.unindex(a.cell[s]!, v);
     let ix = v[0]!, d = v[1]!, iz = v[2]!;
     const x0 = a.posX[s]!, y0 = a.posY[s]!, z0 = a.posZ[s]!;
@@ -106,10 +122,12 @@ export function burrow(world: World, from: number, to: number): void {
       x = tx; y = ty; z = tz;
       // Arrived: choose the next voxel.
       const state = a.state[s]!;
-      const haul = state === AgentState.HAUL;
+      const haul = state === AgentState.HAUL || state === AgentState.EXIT;
       let gx = 0, gy = 0, gz = 0, pull = 0;
       if (haul) {
         gy = 1; pull = dc.goalPull;
+      } else if (state === AgentState.NURSE && demandGradient(world, ix, d, iz, n3)) {
+        gx = n3[0]!; gy = n3[1]!; gz = n3[2]!; pull = config.colony.nursePull;
       } else {
         gy = -1; pull = dc.walkDown;
       }
@@ -171,6 +189,25 @@ export function burrow(world: World, from: number, to: number): void {
   }
 }
 
+/**
+ * Direction of rising brood demand at voxel (ix, d, iz), from the density cells either side
+ * (world axes: y up). False where there is no demand around.
+ */
+function demandGradient(world: World, ix: number, d: number, iz: number, out: Float64Array): boolean {
+  const density = world.density!;
+  if (!density.contacts) return false;
+  const c = density.cell;
+  const at = (x: number, dd: number, z: number): number =>
+    x < 0 || dd < 0 || z < 0 || x >= density.cx * c || dd >= density.cd * c || z >= density.cz * c ? 0 : density.demandAt(x, dd, z);
+  const gx = at(ix + c, d, iz) - at(ix - c, d, iz);
+  const gy = at(ix, d - c, iz) - at(ix, d + c, iz);
+  const gz = at(ix, d, iz + c) - at(ix, d, iz - c);
+  const len = Math.sqrt(gx * gx + gy * gy + gz * gz);
+  if (len === 0) return false;
+  out[0] = gx / len; out[1] = gy / len; out[2] = gz / len;
+  return true;
+}
+
 /** Come out of the soil at (x, z): back to walking on the surface. */
 export function surface(world: World, s: number, x: number, z: number): void {
   const a = world.agents.a;
@@ -181,6 +218,9 @@ export function surface(world: World, s: number, x: number, z: number): void {
   a.lastStep[s] = Math.sqrt(a.stepX[s]! * a.stepX[s]! + a.stepZ[s]! * a.stepZ[s]!);
   a.posX[s] = x; a.posZ[s] = z;
   a.posY[s] = world.terrain.supportHeight(x, z) + cfg.locomotion.rideHeight;
+  // Out of the nest: the home vector starts afresh here.
+  const nest = world.nest!;
+  a.piX[s] = x - nest.x; a.piZ[s] = z - nest.z;
   a.heading[s] = datan2(-a.dirZ[s]!, a.dirX[s]!);
   a.turnRate[s] = 0;
   a.avoidTurn[s] = 0;

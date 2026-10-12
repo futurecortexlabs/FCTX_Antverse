@@ -91,3 +91,17 @@ describe('seed reproducibility with soil (nest excavation)', () => {
     expect(checkDeterminism(digging, 1800).hashA).toMatchSnapshot();
   });
 });
+
+describe('seed reproducibility of a colony (queen, brood, contacts, tasks)', () => {
+  const colony = buildConfig([JSON.parse(readFileSync('config/presets/colony.json', 'utf8')) as Overlay, { population: { count: 120 } }]).config;
+
+  it('same seed → same state; different seed → different state', { timeout: 300000 }, () => {
+    const r = checkDeterminism(colony, 3600);
+    expect(r.identical).toBe(true);
+    expect(r.seedSensitive).toBe(true);
+  });
+
+  it('golden hash for the colony preset is stable', { timeout: 300000 }, () => {
+    expect(checkDeterminism(colony, 1800).hashA).toMatchSnapshot();
+  });
+});

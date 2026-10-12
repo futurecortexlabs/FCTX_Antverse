@@ -13,6 +13,7 @@
  *   node scripts/browser-run.ts tiers            # quality tiers + automatic reduction on a throttled CPU
  *   node scripts/browser-run.ts terrain          # Phase 1 terrain views + metrics -> docs/reports/phase-1/
  *   node scripts/browser-run.ts bench [webgl]    # ?bench=1 sweep -> docs/reports/bench/
+ *   node scripts/browser-run.ts colony [hours] [query]  # Phase 6 colony: foraging ground + nest -> docs/reports/phase-6/
  *   node scripts/browser-run.ts mobile [webgl|-] [url]  # phone emulation -> docs/reports/mobile/
  *
  * Requires `npm run dev` on http://localhost:5173.
@@ -423,6 +424,46 @@ async function nestViews(cdp: Cdp, hoursArg: string | undefined, query: string |
   console.log(log.join('\n'));
 }
 
+/**
+ * Phase 6 colony: fast-forward, then the foraging ground (trail heatmap on)
+ * and the nest with the ground cut away (queen, brood, workers).
+ * Output: docs/reports/phase-6/.
+ */
+async function colonyViews(cdp: Cdp, hoursArg: string | undefined, query: string | undefined): Promise<void> {
+  const dir = 'docs/reports/phase-6';
+  mkdirSync(dir, { recursive: true });
+  const hours = Number(hoursArg ?? 1);
+  await cdp.goto(BASE + `?preset=colony${query ?? ''}`);
+  const simTime = (): Promise<number> => cdp.eval<number>('window.antverse.host.stats ? window.antverse.host.stats.simTime : 0');
+  await cdp.eval('window.antverse.host.setSpeed(100000)'); // MAX
+  while (await simTime() < hours * 3600) await sleep(1000);
+  await cdp.eval('window.antverse.host.setSpeed(1)');
+  await sleep(3000);
+  const log: string[] = [];
+  const shot = async (name: string): Promise<void> => {
+    await cdp.screenshot(`${dir}/${name}.png`);
+    log.push(`${name}: sim ${(await simTime()).toFixed(0)} s | ${(await cdp.eval<string>(HUD)).split('\n').filter((l) => l.startsWith('workers') || l.startsWith('colony') || l.startsWith('nest')).join(' | ')}`);
+  };
+  const y0 = await cdp.eval<number>('window.antverse.terrain.supportHeight(0, 0)');
+  await cdp.eval('window.antverse.togglePheromone(true)');
+  await cdp.eval(cam([30, y0 + 260, 200], [30, y0, 40]));
+  await sleep(1500);
+  await shot('01-foraging-ground');
+  await cdp.eval('window.antverse.setCutaway(true)');
+  for (const [name, p, t] of [
+    ['02-nest-side', [120, y0 - 40, 0], [0, y0 - 45, 0]],
+    // The camera stays above the ground surface: look down the shaft to its floor.
+    ['03-nest-floor', [14, y0 + 6, 14], [0, y0 - 62, 0]],
+  ] as [string, number[], number[]][]) {
+    await cdp.eval(cam(p, t));
+    await sleep(1500);
+    await shot(name);
+  }
+  await cdp.eval('window.antverse.setCutaway(false)');
+  writeFileSync(`${dir}/views.txt`, log.join('\n') + '\n');
+  console.log(log.join('\n'));
+}
+
 /** Phone emulation (390x844 CSS px, DPR 3, touch). `base` lets you target a static/LAN/artifact URL. */
 async function mobile(cdp: Cdp, base: string, backend: string | undefined): Promise<void> {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true, screenWidth: 390, screenHeight: 844 });
@@ -475,6 +516,7 @@ async function main(): Promise<void> {
     else if (cmd === 'bridge') await bridgeViews(cdp, arg);
     else if (cmd === 'homing') await homingViews(cdp, arg);
     else if (cmd === 'nest') await nestViews(cdp, arg, process.argv[4]);
+    else if (cmd === 'colony') await colonyViews(cdp, arg, process.argv[4]);
     else if (cmd === 'eval') { await cdp.goto(BASE + (process.argv[4] ?? '')); console.log(JSON.stringify(await cdp.eval(arg ?? 'null'), null, 1)); }
     else if (cmd === 'bench') await bench(cdp, arg);
     else if (cmd === 'mobile') await mobile(cdp, process.argv[4] ?? BASE, arg && arg !== '-' ? arg : undefined);

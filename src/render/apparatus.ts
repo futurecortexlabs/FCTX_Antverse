@@ -31,6 +31,16 @@ function drapedDisc(terrain: Terrain, c: Site, lift: number, color: THREE.Color)
 
 /** Walkway (capsules), nest and feeder discs. Returns null when the scenario has no apparatus. */
 export function buildApparatus(cfg: Config, terrain: Terrain): THREE.Group | null {
+  if (cfg.scenario.colony) {
+    // The colony's feeders (the entrance itself is drawn by the nest).
+    const group = new THREE.Group();
+    group.name = 'colony-sites';
+    const f = cfg.scenario.feeders as readonly number[];
+    for (let i = 0; i + 1 < f.length; i += 2) {
+      group.add(drapedDisc(terrain, { x: f[i]!, z: f[i + 1]!, r: cfg.scenario.feederRadius }, cfg.render.siteLift, rgb(cfg.render.feederColor)));
+    }
+    return group;
+  }
   if (cfg.scenario.homing && !cfg.scenario.doubleBridge) {
     const { nest, feeder } = homingSites(cfg);
     const group = new THREE.Group();
@@ -91,6 +101,30 @@ export function apparatusFrame(cfg: Config): { x: number; z: number; size: numbe
 }
 
 /**
+ * The heatmap's rectangle as a grid draped over the ground (vertices every
+ * render.pheromoneDrape mm, on the support surface + siteLift). Texture rows
+ * are written flipped (see update()): v = 1 − (z − zmin) / depth.
+ */
+function drapedGrid(info: FieldInfo, cfg: Config, terrain: Terrain): THREE.BufferGeometry {
+  const w = info.nx * info.cell, d = info.nz * info.cell;
+  const xmin = info.x0 - info.cell / 2, zmin = info.z0 - info.cell / 2;
+  const nu = Math.max(1, Math.ceil(w / cfg.render.pheromoneDrape)), nv = Math.max(1, Math.ceil(d / cfg.render.pheromoneDrape));
+  const pos = new Float32Array((nu + 1) * (nv + 1) * 3), uv = new Float32Array((nu + 1) * (nv + 1) * 2);
+  const index: number[] = [];
+  for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) {
+    const k = j * (nu + 1) + i, x = xmin + (w * i) / nu, z = zmin + (d * j) / nv;
+    pos[3 * k] = x; pos[3 * k + 1] = terrain.supportHeight(x, z) + cfg.render.siteLift; pos[3 * k + 2] = z;
+    uv[2 * k] = i / nu; uv[2 * k + 1] = 1 - j / nv;
+    if (i < nu && j < nv) index.push(k, k + nu + 1, k + 1, k + 1, k + nu + 1, k + nu + 2);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.setIndex(index);
+  return geo;
+}
+
+/**
  * Pheromone heatmap: one texel per grid node, on a plane just above the
  * apparatus. Opacity follows log(concentration) between pheromoneRange[0]
  * (invisible) and pheromoneRange[1] (pheromoneOpacity).
@@ -103,7 +137,8 @@ export class PheromoneOverlay {
   private readonly cfg: Config;
   private last = -Infinity;
 
-  constructor(info: FieldInfo, cfg: Config, groundY: number) {
+  /** terrain: drape the heatmap over open ground (colony) instead of a flat plane over the apparatus. */
+  constructor(info: FieldInfo, cfg: Config, groundY: number, terrain?: Terrain) {
     this.info = info;
     this.cfg = cfg;
     this.pixels = new Uint8Array(info.nx * info.nz * 4);
@@ -112,8 +147,15 @@ export class PheromoneOverlay {
     this.texture.minFilter = THREE.LinearFilter;
     this.texture.colorSpace = THREE.SRGBColorSpace;
     // Texel centres on the grid nodes: the plane covers nx × nz cells centred on the node rectangle.
-    const geo = new THREE.PlaneGeometry(info.nx * info.cell, info.nz * info.cell);
     const mat = new THREE.MeshBasicNodeMaterial({ map: this.texture, transparent: true, depthWrite: false });
+    if (terrain) {
+      this.mesh = new THREE.Mesh(drapedGrid(info, cfg, terrain), mat);
+      this.mesh.name = 'pheromone';
+      this.mesh.renderOrder = 1;
+      this.mesh.visible = cfg.render.showPheromone;
+      return;
+    }
+    const geo = new THREE.PlaneGeometry(info.nx * info.cell, info.nz * info.cell);
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.name = 'pheromone';
     // Rotating the XY plane by −90° about X sends +y to −z: texture row 0 (v = 0) lies at the largest z,

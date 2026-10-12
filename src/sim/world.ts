@@ -22,7 +22,9 @@ import { forage } from './rules/forage.ts';
 import { navigate, pathIntegrate } from './rules/navigate.ts';
 import { burrow } from './rules/burrow.ts';
 import { excavate } from './rules/excavate.ts';
-import { DensityGrid } from './nest/density.ts';
+import { DensityGrid, type ContactBuffers } from './nest/density.ts';
+import { Colony } from './colony/colony.ts';
+import { tend } from './rules/tend.ts';
 import { DigLog } from './nest/dig-log.ts';
 import { Soil } from '../soil/soil.ts';
 import { Mound } from '../soil/mound.ts';
@@ -43,7 +45,7 @@ export type Rule = (world: World, from: number, to: number) => void;
  * underground, pathIntegrate measures the move. excavate decides to dig or
  * drop soil (requests applied in completeStep).
  */
-export const RULES: readonly Rule[] = [forage, excavate, trail, navigate, explore, burrow, pathIntegrate, layTrail, bodyPose];
+export const RULES: readonly Rule[] = [forage, excavate, tend, trail, navigate, explore, burrow, pathIntegrate, layTrail, bodyPose];
 
 export type { Site };
 
@@ -61,6 +63,8 @@ export interface WorldOptions {
   /** Thread helpers of a digging world: the coordinator's density counts and dig log (see sharedNest()). */
   densityBuffer?: SharedArrayBuffer;
   digLogBuffer?: SharedArrayBuffer;
+  /** Thread helpers of a colony: the coordinator's contact index. */
+  contactBuffers?: ContactBuffers;
 }
 
 /** Shared memory a helper thread needs to step a slice of a digging world. */
@@ -68,6 +72,7 @@ export interface SharedNest {
   mound: SharedArrayBuffer;
   density: SharedArrayBuffer;
   digLog: SharedArrayBuffer;
+  contacts: ContactBuffers | null;
 }
 
 export class World {
@@ -101,6 +106,8 @@ export class World {
    * replay it (readsDigLog) before each slice. Null when stepping alone.
    */
   readonly digLog: DigLog | null;
+  /** Colony life (Phase 6): queen, brood, physiology. Only the coordinator's copy changes. */
+  readonly colony: Colony | null;
   private readonly readsDigLog: boolean;
   private readonly terrainDigest: number;
 
@@ -116,7 +123,7 @@ export class World {
       this.feeder = this.bridge.feeder;
     } else if (config.scenario.homing) {
       ({ nest: this.nest, feeder: this.feeder } = homingSites(config));
-    } else if (config.scenario.digging) {
+    } else if (config.scenario.digging || config.scenario.colony) {
       this.nest = { x: 0, z: 0, r: config.scenario.nestRadius };
       this.feeder = null;
     } else {
@@ -124,7 +131,7 @@ export class World {
       this.feeder = null;
     }
     this.pheromone = this.makeField(opts);
-    if (config.scenario.digging) {
+    if (config.scenario.digging || config.scenario.colony) {
       this.soil = new Soil(config, this.terrain);
       const mc = config.mound;
       this.mound = new Mound({ cx: 0, cz: 0, radius: mc.radius, cell: mc.cell, repose: mc.repose, open: config.scenario.nestRadius },
@@ -132,6 +139,7 @@ export class World {
       this.terrain.overlay = this.mound;
       const shared = opts.sharedAgents === true;
       this.density = new DensityGrid(this.soil, config.soil.densityCell, shared, opts.densityBuffer);
+      if (config.scenario.colony) this.density.withContacts(config.sim.capacity, shared, opts.contactBuffers);
       this.pitVoxels = this.digPit();
       this.readsDigLog = opts.digLogBuffer !== undefined;
       this.digLog = opts.digLogBuffer ? new DigLog(0, opts.digLogBuffer) : shared ? new DigLog(config.soil.digLog) : null;
@@ -143,11 +151,15 @@ export class World {
       this.digLog = null;
       this.readsDigLog = false;
     }
+    this.colony = config.scenario.colony ? new Colony(this) : null;
     if (opts.agents) {
       this.agents = opts.agents;
     } else {
       this.agents = new AgentStore(config.sim.capacity, { shared: opts.sharedAgents === true });
-      spawnWorkers(this, config.population.count);
+      if (this.colony) {
+        this.colony.found(this, config.population.count);
+        this.rebuildDensity();
+      } else spawnWorkers(this, config.population.count);
     }
   }
 
@@ -170,6 +182,15 @@ export class World {
   private makeField(opts: WorldOptions): PheromoneField | null {
     const pc = this.config.pheromone;
     const b = this.bridge;
+    if (!b && this.config.scenario.colony) {
+      // The colony's foraging ground: a square around the entrance, on cell multiples.
+      const c = pc.cell, half = Math.ceil(this.config.scenario.fieldSize / 2 / c) * c;
+      return new PheromoneField(
+        { x0: -half, z0: -half, width: 2 * half, depth: 2 * half, cell: c, lifetime: pc.lifetime, diffusion: pc.diffusion, dt: pc.period * this.config.sim.dt, epsilon: pc.epsilon },
+        opts.sharedAgents === true || opts.sharedField === true,
+        opts.pheromoneBuffer,
+      );
+    }
     if (!b) return null;
     const margin = this.config.scenario.bridgeWidth;
     // Grid nodes on multiples of the cell, so the axis z = 0 is a row of nodes and
@@ -188,6 +209,7 @@ export class World {
   /** Run every rule on slots [from, to) for the current tick (does not advance the tick). */
   stepRange(from: number, to: number): void {
     if (this.readsDigLog) this.replayDigs();
+    this.agents.a.request.fill(Request.NONE, from, to);
     for (const rule of RULES) rule(this, from, to);
   }
 
@@ -205,7 +227,7 @@ export class World {
     if (!this.digLog || this.readsDigLog) return null;
     const m = this.mound!.buffer, d = this.density!.buffer;
     if (!(m instanceof SharedArrayBuffer) || !(d instanceof SharedArrayBuffer)) return null;
-    return { mound: m, density: d, digLog: this.digLog.buffer };
+    return { mound: m, density: d, digLog: this.digLog.buffer, contacts: this.density!.contactBuffers() };
   }
 
   /**
@@ -244,16 +266,33 @@ export class World {
           mound.drop(a.posX[s]!, a.posZ[s]!, pellet);
           a.carryKind[s] = CarryKind.NONE;
           a.state[s] = AgentState.REENTER;
-        }
+        } else if (r === Request.GIVE) this.colony!.give(this, s, a.requestCell[s]!);
+        else if (r === Request.FEED) this.colony!.feed(this, s, a.requestCell[s]!);
+        else if (r === Request.FILL) this.colony!.fill(this, s);
       }
-      density.clear();
-      for (let s = 0; s < this.agents.highWater; s++) {
-        if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) !== (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) continue;
-        soil.unindex(a.cell[s]!, this.cell3);
-        density.add(this.cell3[0]!, this.cell3[1]!, this.cell3[2]!);
-      }
+      this.colony?.live(this);
+      this.rebuildDensity();
     }
     this.tick++;
+  }
+
+  /** Count the underground agents per density cell (and, in a colony, index them for contacts). */
+  private rebuildDensity(): void {
+    const soil = this.soil!, density = this.density!, a = this.agents.a;
+    const both = AgentFlag.ALIVE | AgentFlag.UNDERGROUND;
+    density.clear();
+    for (let s = 0; s < this.agents.highWater; s++) {
+      if ((a.flags[s]! & both) !== both) continue;
+      soil.unindex(a.cell[s]!, this.cell3);
+      density.add(this.cell3[0]!, this.cell3[1]!, this.cell3[2]!);
+    }
+    if (!density.contacts) return;
+    density.layout();
+    for (let s = 0; s < this.agents.highWater; s++) {
+      if ((a.flags[s]! & both) !== both) continue;
+      soil.unindex(a.cell[s]!, this.cell3);
+      density.place(this.cell3[0]!, this.cell3[1]!, this.cell3[2]!, s, a.posX[s]!, a.posY[s]!, a.posZ[s]!);
+    }
   }
 
   private readonly cell3 = new Int32Array(3);
@@ -274,6 +313,7 @@ export class World {
     for (const v of this.agents.views()) h.view(v);
     if (this.pheromone) h.view(this.pheromone.data);
     if (this.soil) { this.soil.hashInto(h); h.word(this.mound!.pellets).view(this.mound!.heights); }
+    this.colony?.hashInto(h);
     return h.digest();
   }
 }

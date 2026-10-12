@@ -32,7 +32,7 @@
 
 import { dexp, dpow } from '../../core/dmath.ts';
 import { rand, Stream } from '../../core/rng.ts';
-import { AgentFlag, AgentState, Request } from '../agents/store.ts';
+import { AgentFlag, AgentState, Caste, Request } from '../agents/store.ts';
 import type { World } from '../world.ts';
 import { DigKey, enterSoil } from './burrow.ts';
 
@@ -59,8 +59,7 @@ export function excavate(world: World, from: number, to: number): void {
   const nr2 = nest.r * nest.r;
 
   for (let s = from; s < to; s++) {
-    a.request[s] = Request.NONE;
-    if ((a.flags[s]! & AgentFlag.ALIVE) === 0) continue;
+    if ((a.flags[s]! & AgentFlag.ALIVE) === 0 || a.caste[s] !== Caste.WORKER) continue;
     const state = a.state[s]!;
     if ((a.flags[s]! & AgentFlag.UNDERGROUND) !== 0) {
       if (state !== AgentState.DIG && state !== AgentState.NEST_REST) continue;

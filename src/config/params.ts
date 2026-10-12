@@ -95,6 +95,15 @@ export const DEFAULT_PARAMS = {
     nestRadius: p(4, 'mm', 'ASM-NAV-005', { min: 0.5 }),
     /** Nest excavation (Phase 5): workers dig a nest below the entrance at the origin. */
     digging: p(false, 'bool', 'ENG-SCN-004'),
+    /**
+     * A colony (Phase 6): queen, brood and workers in a nest below the entrance at the
+     * origin (dug as in `digging`), foraging on open ground at the feeders below.
+     */
+    colony: p(false, 'bool', 'ENG-SCN-005'),
+    /** Food sources of the colony scenario as [x0, z0, x1, z1, …] (radius feederRadius); empty = no food. */
+    feeders: p([150, 0, -90, 120], 'mm', 'ENG-SCN-005'),
+    /** Side of the square around the entrance over which the colony's trail pheromone is kept. */
+    fieldSize: p(400, 'mm', 'ENG-SCN-005', { min: 1 }),
   },
   /** Soil below the nest as voxels (Phase 5). */
   soil: {
@@ -156,6 +165,86 @@ export const DEFAULT_PARAMS = {
     cell: p(1, 'mm', 'ENG-SOL-003', { min: 0.1 }),
     /** Steepest stable slope of the loose pile (tan of the angle of repose). */
     repose: p(0.7, 'x', 'PHY-SOIL-002', { min: 0.01 }),
+  },
+  /**
+   * Life in the colony (Phase 6). Food is counted in mg of sugar (dry), the
+   * currency of the crop, the body reserve and brood growth.
+   */
+  colony: {
+    /** Worker energy use: ≈ 7 µW for a ~6 mg worker = 0.6 J/d ÷ 16.7 J/mg sugar. */
+    metabolism: p(0.036, 'mg/d', 'ASM-COL-001', { min: 0 }),
+    /** Body reserve (fat body) of a worker: lasts reserve / metabolism ≈ 2 weeks without food. */
+    reserve: p(0.5, 'mg', 'ASM-COL-001', { min: 0.001 }),
+    /** Energy use while walking, as a multiple of metabolism (the resting rate). */
+    activeFactor: p(3, 'x', 'ASM-COL-001', { min: 1 }),
+    /** Crop (social stomach) capacity: ≈ 2 µL of honeydew-like solution at 15 % sugar. */
+    crop: p(0.3, 'mg', 'ASM-COL-002', { min: 0.001 }),
+    /** Flow from the crop into the worker's own gut and reserve (the proventriculus passes food slowly). */
+    absorb: p(0.2, 'mg/d', 'ASM-COL-002', { min: 0 }),
+    /** Starting fill of reserve and crop (fractions of capacity). */
+    initialFill: p([0.8, 0.8], 'x', 'ASM-COL-002'),
+    /** Worker lifespan: normal [mean, sd]; workers of the starting colony are uniformly up to initialAge old. */
+    lifespan: p([300, 60], 'd', 'ASM-COL-003'),
+    initialAge: p(200, 'd', 'ASM-COL-003', { min: 0 }),
+    /** Queen: reserve, energy use, eggs per day when her reserve is full, and the reserve one egg costs. */
+    queenReserve: p(5, 'mg', 'ASM-COL-004', { min: 0.001 }),
+    queenMetabolism: p(0.1, 'mg/d', 'ASM-COL-004', { min: 0 }),
+    layRate: p(20, '1/d', 'ASM-COL-004', { min: 0 }),
+    eggCost: p(0.02, 'mg', 'ASM-COL-004', { min: 0 }),
+    /** Development at 25 °C (Lasius niger keepers' records; no Formica data found): egg, minimum larval period, pupa — uniform ranges. */
+    eggDays: p([9, 16], 'd', 'ASM-COL-011'),
+    larvaDays: p([9, 13], 'd', 'ASM-COL-011'),
+    pupaDays: p([9, 12], 'd', 'ASM-COL-011'),
+    /** Food a larva needs in all to pupate; it takes it from its gut at most food / larvaDays[0] per day. */
+    larvalFood: p(0.6, 'mg', 'ASM-COL-005', { min: 0.001 }),
+    /** Food a larva's gut holds (what a nurse can give it at once). */
+    larvalGut: p(0.03, 'mg', 'ASM-COL-005', { min: 0.0001 }),
+    /** A larva left with an empty gut this long dies (eaten by the workers). */
+    larvalStarve: p(5, 'd', 'ASM-COL-005', { min: 0 }),
+    /** Starting brood per worker: eggs, larvae, pupae (each at a uniformly drawn point of its stage). */
+    initialBrood: p([0.2, 0.3, 0.2], 'x', 'ASM-COL-006'),
+    /** Brood lies within this distance of the queen. */
+    broodRadius: p(6, 'mm', 'ASM-COL-006', { min: 0 }),
+    /** Antennal contact: two nestmates closer than this (centre to centre) touch. */
+    contactRadius: p(6, 'mm', 'ASM-COL-007', { min: 0 }),
+    /** Each worker looks for a contact this often (s); between looks it keeps its partner. */
+    contactInterval: p(0.5, 's', 'ENG-COL-001', { min: 0.01 }),
+    /** Trophallaxis: crop-to-crop flow, and the difference in crop fill (fraction of capacity) above which food flows. */
+    flowRate: p(0.02, 'mg/s', 'ASM-COL-007', { min: 0 }),
+    flowMargin: p(0.1, 'x', 'ASM-COL-007', { min: 0, max: 1 }),
+    /** A nurse feeds a larva at this rate (mg/s), from its crop. */
+    feedRate: p(0.002, 'mg/s', 'ASM-COL-007', { min: 0 }),
+    /** ...but only from what its crop holds above this fill: when food runs short, workers keep it (ASM-COL-012). */
+    feedFill: p(0.5, 'x', 'ASM-COL-012', { min: 0, max: 1 }),
+    /**
+     * Response thresholds (Bonabeau et al. 1996; reinforcement: Theraulaz et al. 1998):
+     * an idle worker takes up task j at engageRate × s² / (s² + θ²) per second. θ falls by
+     * learn per hour while doing j and rises by forget per hour otherwise, within thetaRange.
+     */
+    engageRate: p(0.002, '1/s', 'ASM-COL-008', { min: 0 }),
+    thetaInit: p([0.5, 0.5], 'x', 'ASM-COL-008'),
+    thetaRange: p([0.05, 1], 'x', 'ASM-COL-008'),
+    learn: p(0.05, '1/h', 'ASM-COL-008', { min: 0 }),
+    forget: p(0.005, '1/h', 'ASM-COL-008', { min: 0 }),
+    /** Age polyethism: θ_forage × (1 + ageGain e^(−age/ageScale)), θ_nurse × (1 + ageGain (1 − e^(−age/ageScale))). */
+    ageGain: p(3, 'x', 'ASM-COL-009', { min: 0 }),
+    ageScale: p(60, 'd', 'ASM-COL-009', { min: 0.001 }),
+    /** Hunger a worker perceives: own and its contacts' crop emptiness, averaged over this time. */
+    hungerMemory: p(300, 's', 'ASM-COL-010', { min: 0.01 }),
+    /**
+     * Brood stimulus: brood around a worker counted as 1 per item plus, for a larva, its gut
+     * emptiness (0–1) — b brood units give s = b / (b + broodHalf).
+     */
+    broodHalf: p(10, 'count', 'ASM-COL-010', { min: 0.0001 }),
+    /** A nurse gives up nursing at this rate; nurses are drawn up the brood-demand gradient with this log-weight. */
+    nurseQuit: p(0.0003, '1/s', 'ASM-COL-008', { min: 0 }),
+    nursePull: p(2, 'x', 'ASM-COL-010', { min: 0 }),
+    /**
+     * A forager back with food unloads in the nest until its crop is below unloadedFill (or
+     * unloadTime has passed), then decides whether to go out again; one back empty decides at once.
+     */
+    unloadedFill: p(0.1, 'x', 'ASM-COL-007', { min: 0, max: 1 }),
+    unloadTime: p(180, 's', 'ASM-COL-007', { min: 0 }),
   },
   /** Trail pheromone field (Phase 3). Amounts are in arbitrary units u (per mm² cell). */
   pheromone: {
@@ -477,10 +566,19 @@ export const DEFAULT_PARAMS = {
     pheromoneRange: p([5, 1500], 'u', 'ENG-REN-015'),
     pheromoneInterval: p(200, 'ms', 'ENG-REN-015', { min: 16 }),
     showPheromone: p(true, 'bool', 'ENG-REN-015'),
+    /** On open ground (colony) the heatmap is draped over the ground with vertices this far apart. */
+    pheromoneDrape: p(4, 'mm', 'ENG-REN-015', { min: 0.5 }),
     /** Nest (Phase 5): colour of the cast of the dug space and of the spoil mound; soil chunks remeshed per refresh. */
     castColor: p([0.86, 0.82, 0.74], 'rgb', 'ENG-REN-016'),
     moundColor: p([0.48, 0.38, 0.28], 'rgb', 'ENG-REN-016'),
     castBudget: p(8, 'count', 'ENG-REN-016', { min: 1, integer: true }),
+    /** Colony (Phase 6): the queen drawn this much larger than a worker; brood as ellipsoids [length, width] per stage (egg, fully grown larva, cocoon). */
+    queenScale: p(1.7, 'x', 'ENG-REN-017', { min: 0.1 }),
+    /** Opacity of the nest cast in a colony, so the queen, brood and workers inside show through. */
+    castOpacity: p(0.35, 'x', 'ENG-REN-017', { min: 0, max: 1 }),
+    broodSize: p([0.5, 0.35, 3.5, 1.6, 4.5, 2], 'mm', 'ENG-REN-017'),
+    broodColor: p([0.95, 0.93, 0.86], 'rgb', 'ENG-REN-017'),
+    cocoonColor: p([0.78, 0.66, 0.48], 'rgb', 'ENG-REN-017'),
   },
   ui: {
     hudCollapsed: p(false, 'bool', 'ENG-UI-001'),
@@ -546,6 +644,23 @@ export const DEFAULT_PARAMS = {
     slowFraction: p(0.2, 'x', 'ENG-EXP-003', { min: 0, max: 1 }),
     /** Proportionality: R² of final volume on group size at least this. */
     minR2: p(0.9, 'x', 'ENG-EXP-003', { min: 0, max: 1 }),
+    /** Phase 6 colony protocol (scripts/experiment-colony.ts): seeds (held out from development), from colonyFirstSeed. */
+    colonySeeds: p(10, 'count', 'ENG-EXP-004', { min: 1, integer: true }),
+    colonyFirstSeed: p(6001, 'count', 'ENG-EXP-004', { min: 0, max: 0xffffffff, integer: true }),
+    /** Removal: warm-up, the window the forager count is averaged over, the time allowed to recover; recovered at this share of the count before. */
+    removalWarmup: p(21600, 's', 'ENG-EXP-004', { min: 1 }),
+    removalWindow: p(7200, 's', 'ENG-EXP-004', { min: 60 }),
+    removalRecovery: p(21600, 's', 'ENG-EXP-004', { min: 60 }),
+    recoveredShare: p(0.8, 'x', 'ENG-EXP-004', { min: 0, max: 1 }),
+    /** Food economy: length of the run with and without food at the feeders. */
+    economyDuration: p(172800, 's', 'ENG-EXP-004', { min: 3600 }),
+    /** Recruitment: a hungry colony (crops this full at the start), the time its intake is counted, the ratio trails must reach. */
+    recruitFill: p(0.1, 'x', 'ENG-EXP-004', { min: 0, max: 1 }),
+    recruitDuration: p(10800, 's', 'ENG-EXP-004', { min: 600 }),
+    recruitRatio: p(1.5, 'x', 'ENG-EXP-004', { min: 0 }),
+    /** Recruits: naive workers sent out at the end of the recruitment run, and the time they are given to reach food. */
+    recruits: p(50, 'count', 'ENG-EXP-004', { min: 1, integer: true }),
+    recruitTime: p(180, 's', 'ENG-EXP-004', { min: 1 }),
   },
   bench: {
     counts: p([1000, 2000, 5000, 10000, 20000, 50000, 100000], 'count', 'ENG-BEN-001'),

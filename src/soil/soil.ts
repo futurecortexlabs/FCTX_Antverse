@@ -20,6 +20,8 @@ import type { Terrain } from '../terrain/terrain.ts';
 
 export const CHUNK = 32;
 const CHUNK3 = CHUNK * CHUNK * CHUNK;
+/** How far (voxels, per axis) a dug voxel can change a memoised property (Soil.memoGet). */
+export const MEMO_REACH = 2;
 
 export class Soil {
   readonly nx: number;
@@ -110,6 +112,37 @@ export class Soil {
   private readonly crust: number;
   private readonly entrance: number;
 
+  /**
+   * Memo of derived per-voxel properties that depend only on the soil within
+   * MEMO_REACH voxels (burrow.ts: standable, nearWall), as 8 bits per voxel
+   * (0 = not yet computed). Cleared around every dug voxel, so it is a pure
+   * cache: results never depend on what was asked before.
+   */
+  private readonly memo = new Map<number, Uint8Array>();
+
+  memoGet(ix: number, d: number, iz: number): number {
+    if (!this.inBounds(ix, d, iz)) return 0;
+    const m = this.memo.get(this.chunkKey(ix, d, iz));
+    return m === undefined ? 0 : m[this.local(ix, d, iz)]!;
+  }
+
+  memoSet(ix: number, d: number, iz: number, value: number): void {
+    if (!this.inBounds(ix, d, iz)) return;
+    const key = this.chunkKey(ix, d, iz);
+    let m = this.memo.get(key);
+    if (!m) { m = new Uint8Array(CHUNK3); this.memo.set(key, m); }
+    m[this.local(ix, d, iz)] = value;
+  }
+
+  private forgetAround(ix: number, d: number, iz: number): void {
+    for (let dz = -MEMO_REACH; dz <= MEMO_REACH; dz++) for (let dd = -MEMO_REACH; dd <= MEMO_REACH; dd++) for (let dx = -MEMO_REACH; dx <= MEMO_REACH; dx++) {
+      const x = ix + dx, y = d + dd, z = iz + dz;
+      if (!this.inBounds(x, y, z)) continue;
+      const m = this.memo.get(this.chunkKey(x, y, z));
+      if (m) m[this.local(x, y, z)] = 0;
+    }
+  }
+
   /** Remove the soil of one voxel. Returns false if there was none to dig. */
   dig(ix: number, d: number, iz: number): boolean {
     if (!this.canDig(ix, d, iz)) return false;
@@ -117,6 +150,7 @@ export class Soil {
     let c = this.chunks.get(key);
     if (!c) { c = new Uint8Array(CHUNK3); this.chunks.set(key, c); }
     c[this.local(ix, d, iz)] = 1;
+    this.forgetAround(ix, d, iz);
     this.dirty.add(key);
     this.dug++;
     return true;

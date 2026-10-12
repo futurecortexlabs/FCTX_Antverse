@@ -97,10 +97,39 @@ export const AGENT_SCHEMA = {
   requestCell: field('i32'),
   /** Carrying soil out: drop it once this far from the entrance (mm). */
   dumpAt: field('f32'),
+  // --- Phase 6: colony life ---
+  /** Simulated time of eclosion (s; negative for workers older than the run), and the age at which it dies. */
+  born: field('f64'),
+  lifespan: field('f32'),
+  /**
+   * Body reserve and crop (social stomach) contents (mg sugar). Written only in World.completeStep.
+   * Physiology fields are f64: per-tick changes (≈1e-8 mg) are below f32 resolution.
+   */
+  reserve: field('f64'),
+  crop: field('f64'),
+  /** Task taken up (Task) and the response thresholds for foraging and nursing. */
+  task: field('u8'),
+  thetaF: field('f64'),
+  thetaN: field('f64'),
+  /** Perceived hunger (0–1): crop emptiness of self and contacts, averaged over colony.hungerMemory. */
+  hunger: field('f64'),
+  /** Nestmate in contact (slot), −1 for none. */
+  partner: field('i32'),
 };
 
 /** Changes to shared state an agent asks for; World.completeStep applies them in slot order. */
-export const Request = { NONE: 0, DIG: 1, DROP: 2 } as const;
+export const Request = {
+  NONE: 0, DIG: 1, DROP: 2,
+  /** Trophallaxis: pass crop contents to the partner (requestCell = its slot). */
+  GIVE: 3,
+  /** Feed the hungriest larva near the voxel requestCell. */
+  FEED: 4,
+  /** Fill the crop at the feeder it reached this tick. */
+  FILL: 5,
+} as const;
+
+/** Tasks of the division of labour (Phase 6). IDLE workers walk, rest and dig in the nest. */
+export const Task = { IDLE: 0, FORAGE: 1, NURSE: 2 } as const;
 
 export const AgentState = {
   /** Searching / walking out from the nest. */
@@ -119,6 +148,12 @@ export const AgentState = {
   REENTER: 6,
   /** Resting in the nest (stands still), in a cluster with nestmates. */
   NEST_REST: 7,
+  /** Nursing: walking towards hungry brood and feeding it (Phase 6). */
+  NURSE: 8,
+  /** Back from foraging: passing the crop's food to nestmates in the nest. */
+  UNLOAD: 9,
+  /** Climbing out of the nest to forage. */
+  EXIT: 10,
 } as const;
 
 export const CarryKind = { NONE: 0, FOOD: 1, SOIL: 2 } as const;
@@ -193,6 +228,15 @@ export class AgentStore {
     a.request[slot] = 0;
     a.requestCell[slot] = -1;
     a.dumpAt[slot] = 0;
+    a.born[slot] = 0;
+    a.lifespan[slot] = 0;
+    a.reserve[slot] = 0;
+    a.crop[slot] = 0;
+    a.task[slot] = 0;
+    a.thetaF[slot] = 0;
+    a.thetaN[slot] = 0;
+    a.hunger[slot] = 0;
+    a.partner[slot] = -1;
     this.alive++;
     return slot;
   }

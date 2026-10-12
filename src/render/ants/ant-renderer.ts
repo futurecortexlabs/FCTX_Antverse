@@ -13,7 +13,7 @@ import type { Config } from '../../config/params.ts';
 import { quatRotate, type Vec3 } from '../../core/quat.ts';
 import { JOINTS, LegRig, type BodyPose, type TerrainProbe } from '../../locomotion/legs.ts';
 import { buildMorphology, LEGS, type Morphology } from '../../locomotion/morphology.ts';
-import { META_BYTE, META_FLAG_SHIFT, META_GEN_SHIFT, SNAP_FLAG_ALIVE, SNAP_FLAG_UNDERGROUND, SNAP_FLOATS, SnapF } from '../../worker/protocol.ts';
+import { SNAP_CASTE_QUEEN, META_BYTE, META_FLAG_SHIFT, META_GEN_SHIFT, SNAP_FLAG_ALIVE, SNAP_FLAG_UNDERGROUND, SNAP_FLOATS, SnapF } from '../../worker/protocol.ts';
 import type { InterpolationState } from '../interpolation.ts';
 import { antennaPoints } from './antenna.ts';
 import { bodyGeometry, bodyWithLegsGeometry, unitLimbGeometry } from './ant-model.ts';
@@ -123,7 +123,9 @@ export class AntRenderer {
       this.dist[slot] = d;
       // Legs are solved on the ground surface only: ants in the soil are drawn with baked legs (LOD1).
       const underground = (((meta >>> META_FLAG_SHIFT) & META_BYTE) & SNAP_FLAG_UNDERGROUND) !== 0;
-      if (d < lod0Dist && !underground) { lodOf[slot] = 0; this.order.push(slot); } else lodOf[slot] = d < lod2Dist ? 1 : 2;
+      // The queen (drawn larger) also keeps baked legs: the rig is sized for a worker.
+      const queen = (meta & META_BYTE) === SNAP_CASTE_QUEEN;
+      if (d < lod0Dist && !underground && !queen) { lodOf[slot] = 0; this.order.push(slot); } else lodOf[slot] = d < lod2Dist ? 1 : 2;
     }
     // Only the nearest rigMaxAnts get rigs; the rest of the candidates fall back to LOD1.
     if (this.order.length > r.rigMaxAnts) {
@@ -138,7 +140,7 @@ export class AntRenderer {
     for (let slot = 0; slot < s.count; slot++) {
       const l = lodOf[slot]!;
       if (l === 255) continue;
-      writeMatrix(mats[l]!, counts[l]!++, out, slot * SNAP_FLOATS);
+      writeMatrix(mats[l]!, counts[l]!++, out, slot * SNAP_FLOATS, (s.currMeta[slot]! & META_BYTE) === SNAP_CASTE_QUEEN ? r.queenScale : 1);
     }
     this.lod.forEach((mesh, i) => {
       mesh.count = counts[i]!;
@@ -201,7 +203,7 @@ export class AntRenderer {
 }
 
 /** Instance matrix k from position + quaternion at src[o..o+6]. */
-function writeMatrix(m: Float32Array, k: number, src: Float32Array, o: number): void {
+function writeMatrix(m: Float32Array, k: number, src: Float32Array, o: number, scale = 1): void {
   const px = src[o]!, py = src[o + 1]!, pz = src[o + 2]!;
   const x = src[o + 3]!, y = src[o + 4]!, z = src[o + 5]!, w = src[o + 6]!;
   const x2 = x + x, y2 = y + y, z2 = z + z;
@@ -212,6 +214,7 @@ function writeMatrix(m: Float32Array, k: number, src: Float32Array, o: number): 
   m[b + 4] = xy - wz; m[b + 5] = 1 - (xx + zz); m[b + 6] = yz + wx; m[b + 7] = 0;
   m[b + 8] = xz + wy; m[b + 9] = yz - wx; m[b + 10] = 1 - (xx + yy); m[b + 11] = 0;
   m[b + 12] = px; m[b + 13] = py; m[b + 14] = pz; m[b + 15] = 1;
+  if (scale !== 1) for (let c = 0; c < 11; c++) if (c !== 3 && c !== 7) m[b + c] = m[b + c]! * scale;
 }
 
 /**

@@ -8,9 +8,10 @@ import { FixedStepClock } from '../core/clock.ts';
 import { isSharedBuffer } from '../core/soa.ts';
 import { MS_PER_S } from '../core/units.ts';
 import type { Config } from '../config/params.ts';
-import { AgentFlag, CarryKind } from '../sim/agents/store.ts';
+import { AgentFlag, AgentState, Caste, CarryKind } from '../sim/agents/store.ts';
+import { BroodStage } from '../sim/colony/brood.ts';
 import { World } from '../sim/world.ts';
-import type { FieldInfo, NestInfo, SimStats, SnapshotView, SoilChunk } from './protocol.ts';
+import { BROOD_FLOATS, type FieldInfo, type NestInfo, type SimStats, type SnapshotView, type SoilChunk } from './protocol.ts';
 import { writeSnapshot } from './snapshot-writer.ts';
 
 export interface SnapshotSink {
@@ -74,9 +75,26 @@ export class SimRunner {
     return { dug: (w.soil!.dug - w.pitVoxels) * w.config.soil.pellet, pellets: w.mound!.pellets, underground };
   }
 
+  private colonyCounts(): NonNullable<SimStats['colony']> {
+    const w = this.world, a = w.agents.a, c = w.colony!;
+    const tasks = [0, 0, 0];
+    let crop = 0;
+    for (let s = 0; s < w.agents.highWater; s++) {
+      if ((a.flags[s]! & AgentFlag.ALIVE) === 0 || a.caste[s] !== Caste.WORKER) continue;
+      tasks[a.task[s]!] = (tasks[a.task[s]!] ?? 0) + 1;
+      crop += a.crop[s]!;
+    }
+    const workers = tasks.reduce((p, x) => p + x, 0);
+    const b = c.brood;
+    return {
+      tasks, brood: [b.countStage(BroodStage.EGG), b.countStage(BroodStage.LARVA), b.countStage(BroodStage.PUPA)],
+      intake: c.intake, cropFill: workers > 0 ? crop / workers / w.config.colony.crop : 0, eclosed: c.eclosed, died: c.died, queen: c.queen >= 0,
+    };
+  }
+
   private foragingCounts(): { states: number[]; carrying: number } {
     const a = this.world.agents.a;
-    const states = [0, 0, 0, 0, 0, 0, 0, 0];
+    const states = new Array<number>(Object.keys(AgentState).length).fill(0);
     let carrying = 0;
     for (let s = 0; s < this.world.agents.highWater; s++) {
       if ((a.flags[s]! & AgentFlag.ALIVE) === 0) continue;
@@ -105,6 +123,25 @@ export class SimRunner {
   /** Soil chunks dug into since the last call (empty without soil). */
   takeSoilChunks(): SoilChunk[] {
     return this.world.soil ? this.world.soil.takeDirty() : [];
+  }
+
+  /** Positions of the colony's brood for display: [x, y, z, stage, growth] per item (null without a colony). */
+  broodCopy(): Float32Array | null {
+    const c = this.world.colony;
+    if (!c) return null;
+    const b = c.brood, soil = this.world.soil!, cc = this.world.config.colony;
+    const out = new Float32Array(b.count * BROOD_FLOATS);
+    const v = new Int32Array(3);
+    let k = 0;
+    for (let i = 0; i < b.highWater; i++) {
+      if (b.stage[i] === BroodStage.NONE) continue;
+      soil.unindex(b.cell[i]!, v);
+      out[k] = soil.centreX(v[0]!); out[k + 1] = soil.centreY(v[1]!); out[k + 2] = soil.centreZ(v[2]!);
+      out[k + 3] = b.stage[i]!;
+      out[k + 4] = b.stage[i] === BroodStage.LARVA ? b.eaten[i]! / cc.larvalFood : 1;
+      k += BROOD_FLOATS;
+    }
+    return out;
   }
 
   /** A copy of the mound when the renderer cannot read it directly, if it changed since the last copy. */
@@ -208,6 +245,7 @@ export class SimRunner {
       threads: this.stepper?.lastThreads ?? 1,
       foraging: this.world.nest ? this.foragingCounts() : null,
       digging: this.world.soil ? this.diggingCounts() : null,
+      colony: this.world.colony ? this.colonyCounts() : null,
     };
     this.statStart = now;
     this.statSteps = 0;

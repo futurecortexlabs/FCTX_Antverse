@@ -34,6 +34,9 @@ export class SimHost {
   /** Bumped when the mound copy changes (shared memory changes without notice: the renderer polls it). */
   moundVersion = 0;
   soilChunks: SoilChunk[] = [];
+  /** Colony brood ([x, y, z, stage, growth] per item) and a counter bumped on each update. */
+  brood: Float32Array | null = null;
+  broodVersion = 0;
   timeScale: number;
   paused = false;
   private reader: TripleBufferReader | null = null;
@@ -111,6 +114,10 @@ export class SimHost {
         break;
       case 'soilChunks':
         this.soilChunks.push(...msg.chunks);
+        break;
+      case 'brood':
+        this.brood = msg.data;
+        this.broodVersion++;
         break;
       case 'moundData':
         if (this.moundData && this.moundData.length === msg.data.length) { this.moundData.set(msg.data); this.moundVersion++; }

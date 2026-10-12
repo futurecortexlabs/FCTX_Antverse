@@ -40,6 +40,7 @@ self.onmessage = (e: MessageEvent<HelperIn>) => {
       agents,
       ...(m.pheromone ? { pheromoneBuffer: m.pheromone } : {}),
       ...(m.nest ? { moundBuffer: m.nest.mound, densityBuffer: m.nest.density, digLogBuffer: m.nest.digLog } : {}),
+      ...(m.nest?.contacts ? { contactBuffers: m.nest.contacts } : {}),
     });
     const ctl = new Int32Array(m.control);
     post({ type: 'attached', attachId: m.attachId, index: m.index });

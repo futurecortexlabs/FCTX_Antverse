@@ -76,7 +76,7 @@ three.js を import してよいのは `render/` と `app/` だけ。
 
 ## 4. データ設計
 
-### 4.1 エージェント（SoA）[Phase 0〜4 で一部実装]
+### 4.1 エージェント（SoA）[Phase 0〜6 で一部実装]
 容量固定の TypedArray プールを使う。参照は `ref = (gen << 20) | slot` で、死んだ個体への古い参照を検出できる。
 フィールドは**必要になったフェーズで末尾に追加する**（順序を変えると状態ハッシュの定義が変わるため）。
 
@@ -100,10 +100,14 @@ three.js を import してよいのは `render/` と `app/` だけ。
 | compassError, odometer | f32 | コンパスの誤差・外出ごとの距離計の倍率 | 4 ✓ |
 | tripTime, giveUp, searchTime | f32 | 外出の経過時間・あきらめ時間・探索の経過時間 | 4 ✓ |
 | avoidTurn | f32 | 障害物を避けて回る向き（回り始めたら同じ向きを保つ） | 4 ✓ |
-| task, threshold[T] | u8, f32×T | 分業（反応閾値モデル） | 6 |
-| ageDays | f32 | 齢による分業 | 6 |
-| crop, reserve | f32 | 社会胃・体内エネルギー | 6 |
-| carryMass, carryRef, targetRef | f32, u32, u32 | 運搬・追従 | 5〜6 |
+| cell, dirX/Y/Z, upX/Y/Z | i32, f32 | 地下：今いるボクセル・進む向き・体の上（壁の法線） | 5 ✓ |
+| request, requestCell, dumpAt | u8, i32, f32 | ティックの終わりの要求（掘る・落とす・渡す・与える・満たす）とその対象、土を落とす距離 | 5〜6 ✓ |
+| born, lifespan | f64, f32 | 羽化した時刻（齢 = 今 − born）・寿命 | 6 ✓ |
+| reserve, crop | f64 | 体の蓄え・そ嚢（糖 mg。1 ティックの変化が f32 の分解能より小さいので f64） | 6 ✓ |
+| task, thetaF, thetaN | u8, f64 | 分業：今のタスク・採餌と世話の反応閾値 | 6 ✓ |
+| hunger, partner | f64, i32 | 感じている空腹・接触している仲間 | 6 ✓ |
+| colony | u16 | 所属コロニー（複数コロニーは Phase 7 以降） | — |
+| carryMass, carryRef, targetRef | f32, u32, u32 | 運搬・追従（育房の運搬は未実装） | — |
 
 - 脚の関節角は状態として持たず、描画側で gaitPhase と地形への問い合わせから IK で求める（LOD0 のみ。§4.6）。
 - 近傍探索には一様グリッドを使い、毎 tick カウンティングソートで作り直す（走査順も決定的）。
@@ -131,6 +135,13 @@ three.js を import してよいのは `render/` と `app/` だけ。
 - 掘削（`src/sim/rules/excavate.ts`）: 掘る・土を落とすは要求として出し、`World.completeStep` がスロット順に許可する（同じボクセルを同時に狙ったら若い番号が取る）。混み具合（`src/sim/nest/density.ts`: 8 mm 区画ごとの仲間の数と掘った体積）はティックの終わりに数え直す。どちらも分割の仕方によらず同じ結果になる（`parallel-equivalence.test.ts`）。
 - 再メッシュ化: 計画では Worker 上の Surface Nets だったが、今は描画スレッドで、変わったチャンクとその隣だけを 0.2 s ごとに最大 8 個作り直す（`src/render/nest.ts`）。Worker は変わったチャンクの「掘った」フラグを送り、描画側は同じ設定と地形から作った土の写しに当てる。
 - 掘った土を Item として持ち運ぶ計画は、今は `carryKind = SOIL` の 1 粒で表す（Item プールは Phase 6）。
+- 並列（Phase 6）: 調整役が掘ったボクセルを共有メモリの掘削ログに追記し、補助スレッドは各スライスの前に自分の土の写しへ反映する。混み具合の人数・土の山は共有メモリを直接読む（ENG-SOL-004）。壁際かどうかの判定は土のボクセルごとにメモ化し、掘るたびに周り 2 ボクセルを消す（`Soil.memoGet`）。
+
+### 4.8 コロニー [Phase 6 実装済]
+- 女王・育房・生理（`src/sim/colony/colony.ts`、`brood.ts`）: 食物は「糖 mg」。そ嚢・体の蓄え・代謝・寿命、女王の産卵、卵 → 幼虫 → 蛹 → 働きアリ。育房は調整役の World だけが持ち、`completeStep` でだけ変わる。補助スレッドには育房の量の格子（`ContactIndex.demand`）だけが見える。
+- 接触（`src/sim/nest/density.ts` の `ContactIndex`）: ティックの終わりに地下の個体を 8 mm 区画ごとに並べ、位置の写しと一緒に共有メモリに置く。各個体は 0.5 s ごとにこの索引から触れている仲間を 1 匹選ぶ（他スレッドが書いている位置を読まない）。
+- 分業（`src/sim/rules/tend.ts`）: 反応閾値（採餌・世話）、強化、齢による補正。栄養交換（GIVE）・給餌（FEED）・そ嚢を満たす（FILL）は要求として出し、`completeStep` がスロット順に許可する。そ嚢と蓄えは `completeStep` でしか書かれないので、他の個体のそ嚢を規則の中で読んでもよい。
+- 地表の採餌（`forage.ts`）: コロニーでは複数の餌場、巣口から地下へ入って荷下ろし（UNLOAD）、外へ出る（EXIT）。道しるべフェロモンは巣口を中心とする 400 mm 四方。
 
 ### 4.5 地表 [Phase 1 実装済]
 `src/terrain/` は (config, seed) だけで決まる純粋な関数の集まりです。シミュレーション Worker と描画側は、それぞれ同じ `Terrain` を作ります（生成は約 80 ms）。
@@ -184,7 +195,7 @@ src/config/            スキーマ・既定値・読み込み
 src/terrain/           ノイズ、地表（土・粒・小石・落葉・草）、空間索引、実験装置（apparatus: 二重橋、ホーミングの巣と餌場）
 src/locomotion/        形態（体の寸法）、脚のリグ（三脚歩容・足場・IK）
 src/soil/              土のボクセル（soil）、土の山（mound）
-src/sim/               World, headless, population, agents/, pheromone/（場）, nest/（混み具合）, rules/（forage, excavate, trail, navigate, explore, burrow, body-pose）, experiments/（二重橋、ホーミング、掘削）
+src/sim/               World, headless, population, agents/, pheromone/（場）, nest/（混み具合・接触・掘削ログ）, colony/（女王・育房・生理）, rules/（forage, excavate, tend, trail, navigate, explore, burrow, body-pose）, experiments/（二重橋、ホーミング、掘削、コロニー）
 src/worker/            protocol, sim-runner, snapshot-writer, sim.worker, parallel + sim-helper.worker（並列化）
 src/render/            renderer, environment（空・霧・影）, interpolation, ants/, terrain/（LOD・チャンク・材質・地表の物体・カメラのガード）, apparatus（装置とフェロモンのヒートマップ）, nest（巣の鋳型と土の山）, debug/
 src/app/               main, sim-host, hud/, report

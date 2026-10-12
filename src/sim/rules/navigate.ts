@@ -93,7 +93,11 @@ export function navigate(world: World, from: number, to: number): void {
   }
 }
 
-/** Add this tick's measured step to the estimate (after explore has moved the ant). */
+/**
+ * Add this tick's measured step to the estimate (after explore has moved the ant).
+ * Not in the soil: the compass needs the sky (the estimate restarts at the
+ * entrance on coming out, burrow.ts surface()).
+ */
 export function pathIntegrate(world: World, from: number, to: number): void {
   if (!world.nest) return;
   const { config } = world;
@@ -103,7 +107,7 @@ export function pathIntegrate(world: World, from: number, to: number): void {
   const decay = dexp(-config.sim.dt / fc.compassTau);
   const kick = fc.compassSd * Math.sqrt(1 - decay * decay);
   for (let s = from; s < to; s++) {
-    if ((a.flags[s]! & AgentFlag.ALIVE) === 0 || a.state[s] === AgentState.REST) continue;
+    if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) !== AgentFlag.ALIVE || a.state[s] === AgentState.REST) continue;
     const e = a.compassError[s]! * decay + kick * randNormal(world.seed, Stream.PATH_INTEGRATION, s, world.tick, PiKey.COMPASS);
     a.compassError[s] = e;
     // The measured step is the true one rotated by the compass error and scaled by the odometer.
