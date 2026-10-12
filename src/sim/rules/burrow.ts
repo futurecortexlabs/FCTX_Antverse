@@ -228,9 +228,11 @@ export function surface(world: World, s: number, x: number, z: number): void {
   a.lastStep[s] = Math.sqrt(a.stepX[s]! * a.stepX[s]! + a.stepZ[s]! * a.stepZ[s]!);
   a.posX[s] = x; a.posZ[s] = z;
   a.posY[s] = world.terrain.supportHeight(x, z) + cfg.locomotion.rideHeight;
-  // Out of the nest: the home vector starts afresh here.
+  // Out of the nest: the home vector starts afresh here, and no search is under way.
   const nest = world.nest!;
   a.piX[s] = x - nest.x; a.piZ[s] = z - nest.z;
+  a.searchTime[s] = 0;
+  a.flags[s] = a.flags[s]! & ~AgentFlag.LOOP_BACK;
   a.heading[s] = datan2(-a.dirZ[s]!, a.dirX[s]!);
   a.turnRate[s] = 0;
   a.avoidTurn[s] = 0;

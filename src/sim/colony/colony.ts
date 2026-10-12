@@ -251,6 +251,7 @@ export class Colony {
       if (a.cell[s]! >= 0) this.brood.cell[i] = a.cell[s]!;
     }
     a.load[s] = -1;
+    a.searchTime[s] = 0; // it timed the carrying
     if (a.carryKind[s] === CarryKind.BROOD) a.carryKind[s] = CarryKind.NONE;
   }
 

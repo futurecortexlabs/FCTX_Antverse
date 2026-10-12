@@ -164,6 +164,7 @@ export function tend(world: World, from: number, to: number): void {
     } else if (state === AgentState.NURSE) {
       if (rand(world.seed, Stream.TASK, s, world.tick, TaskKey.QUIT) < cc.nurseQuit * dt) { a.task[s] = Task.IDLE; a.state[s] = AgentState.DIG; }
     } else if (state === AgentState.UNLOAD && (a.crop[s]! <= cc.unloadedFill * cc.crop || (a.searchTime[s] = a.searchTime[s]! + dt) >= cc.unloadTime)) {
+      a.searchTime[s] = 0; // it timed the unloading
       if (world.climate.foraging && rand(world.seed, Stream.TASK, s, world.tick, TaskKey.CONTINUE) < response(a.hunger[s]!, a.thetaF[s]! * fF)) a.state[s] = AgentState.EXIT;
       else { a.task[s] = Task.IDLE; a.state[s] = AgentState.DIG; }
     }
