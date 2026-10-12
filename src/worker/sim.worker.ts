@@ -52,6 +52,8 @@ function loop(): void {
     if (mound) post({ type: 'moundData', data: mound }, [mound.buffer]);
     const brood = runner.broodCopy();
     if (brood) post({ type: 'brood', data: brood }, [brood.buffer]);
+    const drops = runner.dropsCopy();
+    if (drops) post({ type: 'drops', data: drops }, [drops.buffer]);
   }
   schedule(owed);
 }

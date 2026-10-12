@@ -36,7 +36,7 @@ function atFeeder(x: number, z: number, feeders: readonly Site[]): boolean {
 export function forage(world: World, from: number, to: number): void {
   const nest = world.nest;
   if (!nest) return;
-  const feeders = world.colony ? world.colony.feeders : world.feeder ? [world.feeder] : [];
+  const feeders = world.feeder ? [world.feeder] : [];
   const colony = world.colony !== null;
   const soil = world.soil;
   const a = world.agents.a;
@@ -79,8 +79,8 @@ export function forage(world: World, from: number, to: number): void {
       a.heading[s] = a.heading[s]! + PI;
       a.turnRate[s] = 0;
       startTrip(world, s);
-    } else if (state === AgentState.SEARCH && atFeeder(x, z, feeders)) {
-      if (colony) a.request[s] = Request.FILL;
+    } else if (state === AgentState.SEARCH && (colony ? world.colony!.feederAt(x, z, world.simTime()) >= 0 : atFeeder(x, z, feeders))) {
+      if (colony) { a.request[s] = Request.FILL; a.requestCell[s] = world.colony!.feederAt(x, z, world.simTime()); }
       a.state[s] = AgentState.RETURN;
       a.carryKind[s] = CarryKind.FOOD;
       a.flags[s] = a.flags[s]! | AgentFlag.KNOWS_FOOD;

@@ -37,6 +37,9 @@ export class SimHost {
   /** Colony brood ([x, y, z, stage, growth] per item) and a counter bumped on each update. */
   brood: Float32Array | null = null;
   broodVersion = 0;
+  /** Water drops ([x, y, z, r] per drop) and a counter bumped on each update. */
+  drops: Float32Array | null = null;
+  dropsVersion = 0;
   timeScale: number;
   paused = false;
   private reader: TripleBufferReader | null = null;
@@ -114,6 +117,10 @@ export class SimHost {
         break;
       case 'soilChunks':
         this.soilChunks.push(...msg.chunks);
+        break;
+      case 'drops':
+        this.drops = msg.data;
+        this.dropsVersion++;
         break;
       case 'brood':
         this.brood = msg.data;

@@ -206,6 +206,8 @@ export type FromWorker =
   | { type: 'moundData'; data: Float32Array }
   /** Colony brood for display: [x, y, z, stage, growth (0–1)] per item. */
   | { type: 'brood'; data: Float32Array }
+  /** Water drops for display: [x, y (surface under it), z, radius] per drop. */
+  | { type: 'drops'; data: Float32Array }
   | { type: 'field'; info: FieldInfo | null }
   | { type: 'fieldData'; data: Float32Array }
   | { type: 'snapshot'; buffer: ArrayBuffer }

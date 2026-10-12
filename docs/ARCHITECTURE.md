@@ -137,6 +137,12 @@ three.js を import してよいのは `render/` と `app/` だけ。
 - 掘った土を Item として持ち運ぶ計画は、今は `carryKind = SOIL` の 1 粒で表す（Item プールは Phase 6）。
 - 並列（Phase 6）: 調整役が掘ったボクセルを共有メモリの掘削ログに追記し、補助スレッドは各スライスの前に自分の土の写しへ反映する。混み具合の人数・土の山は共有メモリを直接読む（ENG-SOL-004）。壁際かどうかの判定は土のボクセルごとにメモ化し、掘るたびに周り 2 ボクセルを消す（`Soil.memoGet`）。
 
+### 4.9 環境 [Phase 7 実装済]
+- 新しい層 `src/env/`（core・config だけに依存）: 太陽の位置・明るさ・地表と土の中の温度・雨・湿度を、設定と時刻だけから計算する純粋な関数。シミュレーションと描画が同じものを使う。
+- シミュレーション側（`src/sim/env/`）: `Climate` は 60 s ごとに（ティックの属する区間の始まりの時刻で）明るさ・温度・深さごとの速度係数を計算し、各スレッドが同じ値を持つ。`Drops` は葉や小石の上の水滴（共有メモリ・格子）。`weather()` は `completeStep` で雨粒の命中・水滴の生成と蒸発・道しるべの洗い流しを行う。
+- 地表の衝突回避（`src/sim/space/surface-grid.ts`、`rules/avoid.ts`）: 地表の個体の索引を共有メモリに置く。シナリオごとに切り替え。
+- 育房の運搬: `Request.PICK/PUT`、`BroodStore.carrier`、エージェントの `load`。
+
 ### 4.8 コロニー [Phase 6 実装済]
 - 女王・育房・生理（`src/sim/colony/colony.ts`、`brood.ts`）: 食物は「糖 mg」。そ嚢・体の蓄え・代謝・寿命、女王の産卵、卵 → 幼虫 → 蛹 → 働きアリ。育房は調整役の World だけが持ち、`completeStep` でだけ変わる。補助スレッドには育房の量の格子（`ContactIndex.demand`）だけが見える。
 - 接触（`src/sim/nest/density.ts` の `ContactIndex`）: ティックの終わりに地下の個体を 8 mm 区画ごとに並べ、位置の写しと一緒に共有メモリに置く。各個体は 0.5 s ごとにこの索引から触れている仲間を 1 匹選ぶ（他スレッドが書いている位置を読まない）。
@@ -195,7 +201,8 @@ src/config/            スキーマ・既定値・読み込み
 src/terrain/           ノイズ、地表（土・粒・小石・落葉・草）、空間索引、実験装置（apparatus: 二重橋、ホーミングの巣と餌場）
 src/locomotion/        形態（体の寸法）、脚のリグ（三脚歩容・足場・IK）
 src/soil/              土のボクセル（soil）、土の山（mound）
-src/sim/               World, headless, population, agents/, pheromone/（場）, nest/（混み具合・接触・掘削ログ）, colony/（女王・育房・生理）, rules/（forage, excavate, tend, trail, navigate, explore, burrow, body-pose）, experiments/（二重橋、ホーミング、掘削、コロニー）
+src/env/               太陽・明るさ・温度・雨（シミュレーションと描画が共有する純粋な関数）
+src/sim/               World, headless, population, agents/, pheromone/（場）, nest/（混み具合・接触・掘削ログ）, colony/（女王・育房・生理）, env/（Climate・水滴・天気）, space/（地表の索引）, rules/（forage, excavate, tend, trail, navigate, avoid, explore, burrow, body-pose）, experiments/（二重橋、ホーミング、掘削、コロニー、環境）
 src/worker/            protocol, sim-runner, snapshot-writer, sim.worker, parallel + sim-helper.worker（並列化）
 src/render/            renderer, environment（空・霧・影）, interpolation, ants/, terrain/（LOD・チャンク・材質・地表の物体・カメラのガード）, apparatus（装置とフェロモンのヒートマップ）, nest（巣の鋳型と土の山）, debug/
 src/app/               main, sim-host, hud/, report
