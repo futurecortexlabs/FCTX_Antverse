@@ -20,6 +20,12 @@
  * crop to nestmates and then goes out again with the same response
  * probability to its current hunger, or returns to idling; a nurse gives up
  * at a constant rate (ASM-COL-008).
+ *
+ * Brood thermoregulation (Phase 7, BIO-COL-005, ASM-COL-013): a nurse at
+ * brood where the soil is more than broodTolerance from broodTemp, and a
+ * better temperature lies thermoProbe above or below, picks an item up; while
+ * carrying it walks up or down the gradient (burrow.ts) and puts it down once
+ * the temperature is within the tolerance (or after maxCarry).
  */
 
 import { dexp } from '../../core/dmath.ts';
@@ -29,7 +35,7 @@ import { AgentFlag, AgentState, Caste, Request, Task } from '../agents/store.ts'
 import type { World } from '../world.ts';
 
 /** Sub-keys of Stream.TASK. */
-export const TaskKey = { ENGAGE: 0, QUIT: 1, CONTINUE: 2 } as const;
+export const TaskKey = { ENGAGE: 0, QUIT: 1, CONTINUE: 2, PICK: 3 } as const;
 
 const v = new Int32Array(3);
 
@@ -37,6 +43,19 @@ const v = new Int32Array(3);
 export function response(s: number, theta: number): number {
   const s2 = s * s;
   return s2 + theta * theta > 0 ? s2 / (s2 + theta * theta) : 0;
+}
+
+/**
+ * Is the soil temperature at height y off broodTemp by more than the tolerance, with a closer
+ * temperature thermoProbe above (still in the soil) or below?
+ */
+export function betterTemperatureNear(world: World, y: number): boolean {
+  const cc = world.config.colony, c = world.climate;
+  const off = Math.abs(c.tempAt(y) - cc.broodTemp);
+  if (off <= cc.broodTolerance) return false;
+  const up = y + cc.thermoProbe < 0 ? Math.abs(c.tempAt(y + cc.thermoProbe) - cc.broodTemp) : Infinity;
+  const down = Math.abs(c.tempAt(y - cc.thermoProbe) - cc.broodTemp);
+  return Math.min(up, down) < off;
 }
 
 /** Age factors of the foraging and nursing thresholds (ASM-COL-009). */
@@ -103,7 +122,20 @@ export function tend(world: World, from: number, to: number): void {
     }
 
     const state = a.state[s]!;
-    // Requests (digging, granted first, takes precedence).
+    // Brood carrying (thermoregulation).
+    const load = a.load[s]!;
+    if (load >= 0) {
+      a.searchTime[s] = a.searchTime[s]! + dt;
+      const off = Math.abs(world.climate.tempAt(a.posY[s]!) - cc.broodTemp);
+      if (state !== AgentState.NURSE || off <= cc.broodTolerance || a.searchTime[s]! > cc.maxCarry) {
+        a.request[s] = Request.PUT;
+      }
+    } else if (state === AgentState.NURSE && betterTemperatureNear(world, a.posY[s]!) && density.demandAt(ix, d, iz) >= 1
+      && rand(world.seed, Stream.TASK, s, world.tick, TaskKey.PICK) < cc.pickRate * dt) {
+      a.request[s] = Request.PICK;
+      a.requestCell[s] = a.cell[s]!;
+    }
+    // Requests (digging and brood carrying take precedence).
     if (a.request[s] === Request.NONE) {
       const p = a.partner[s]!;
       if (state === AgentState.NURSE && a.crop[s]! > cc.feedFill * cc.crop && density.demandAround(ix, d, iz) > 0) {

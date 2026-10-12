@@ -1,0 +1,7 @@
+{
+  "scenario": { "colony": true, "feederRadius": 20 },
+  "population": { "count": 300 },
+  "soil": { "pit": [8, 60] },
+  "explore": { "collide": true },
+  "env": { "enabled": true }
+}

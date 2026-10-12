@@ -307,3 +307,64 @@ describe('conservation', () => {
     expect(food(w)).toBeCloseTo(f0, 9);
   });
 });
+
+describe('brood thermoregulation', () => {
+  /** A colony whose soil gets warmer with depth: broodTemp is reached 20 mm down. */
+  const graded = (env: boolean): World => {
+    const w = make({ env: { enabled: env, updateInterval: 1e9 }, colony: { engageRate: 0, nurseQuit: 0 }, dig: { rate: 0 } }, 60);
+    w.climate.update(w);
+    const cc = w.config.colony;
+    if (env) for (let z = 0; z < w.climate.temps.length; z++) w.climate.temps[z] = cc.broodTemp + 0.2 * (z - 20);
+    const a = w.agents.a;
+    for (const s of workers(w).slice(0, 40)) { a.task[s] = Task.NURSE; a.state[s] = AgentState.NURSE; }
+    return w;
+  };
+  const stats = (w: World): { depth: number; off: number } => {
+    const b = w.colony!.brood, soil = w.soil!;
+    let depth = 0, off = 0, n = 0;
+    for (let i = 0; i < b.highWater; i++) {
+      if (b.stage[i] === BroodStage.NONE) continue;
+      soil.unindex(b.cell[i]!, v);
+      const y = soil.centreY(v[1]!);
+      depth += -y; off += Math.abs(w.climate.tempAt(y) - w.config.colony.broodTemp); n++;
+    }
+    return { depth: depth / n, off: off / n };
+  };
+
+  it('nurses carry brood up the gradient towards broodTemp; none is lost', { timeout: 300000 }, () => {
+    const w = graded(true), b = w.colony!.brood;
+    const before = stats(w), count = b.count;
+    for (let t = 0; t < 60 * 900; t++) w.step();
+    const after = stats(w);
+    expect(b.count).toBe(count);
+    expect(after.depth).toBeLessThan(before.depth - 10);
+    expect(after.off).toBeLessThan(before.off * 0.6);
+    // Every carried item is held by a living nurse that knows it carries it.
+    for (let i = 0; i < b.highWater; i++) {
+      const c = b.carrier[i]!;
+      if (c >= 0) { expect(w.agents.isAlive(c)).toBe(true); expect(w.agents.a.load[c]).toBe(i); }
+    }
+  });
+
+  it('with the same temperature everywhere nothing is carried', () => {
+    const w = graded(false);
+    const before = stats(w);
+    for (let t = 0; t < 60 * 120; t++) w.step();
+    expect(stats(w).depth).toBe(before.depth);
+  });
+
+  it('a carrier that dies leaves its load where it fell', () => {
+    const w = graded(true), a = w.agents.a, b = w.colony!.brood;
+    const [s] = workers(w);
+    a.cell[s!] = a.cell[w.colony!.queen]!;
+    w.colony!.pick(w, s!, a.cell[s!]!);
+    const i = a.load[s!]!;
+    expect(i).toBeGreaterThanOrEqual(0);
+    expect(b.carrier[i]).toBe(s);
+    a.reserve[s!] = 1e-12; a.crop[s!] = 0;
+    w.colony!.live(w);
+    expect(w.agents.isAlive(s!)).toBe(false);
+    expect(b.carrier[i]).toBe(-1);
+    expect(b.cell[i]).toBe(a.cell[s!]);
+  });
+});

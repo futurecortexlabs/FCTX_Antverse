@@ -16,7 +16,9 @@
  *
  * Colony (Phase 6): a worker going out to forage (EXIT) climbs out like a
  * carrier; a nurse is drawn up the gradient of brood demand (unfed larval
- * food per density cell, colony.nursePull, ASM-COL-010); the queen stays put.
+ * food per density cell, colony.nursePull, ASM-COL-010); one carrying brood
+ * goes up or down towards the brood's preferred temperature (Phase 7,
+ * ASM-COL-013); the queen stays put.
  */
 
 import { datan2, dexp } from '../../core/dmath.ts';
@@ -128,6 +130,12 @@ export function burrow(world: World, from: number, to: number): void {
       let gx = 0, gy = 0, gz = 0, pull = 0;
       if (haul) {
         gy = 1; pull = dc.goalPull;
+      } else if (state === AgentState.NURSE && a.load[s]! >= 0) {
+        // Carrying brood: up or down, towards the brood's preferred temperature.
+        const cc = config.colony, y = soil.centreY(d);
+        const up = y + cc.thermoProbe < 0 ? Math.abs(world.climate.tempAt(y + cc.thermoProbe) - cc.broodTemp) : Infinity;
+        const down = Math.abs(world.climate.tempAt(y - cc.thermoProbe) - cc.broodTemp);
+        gy = up < down ? 1 : -1; pull = cc.thermoPull;
       } else if (state === AgentState.NURSE && demandGradient(world, ix, d, iz, n3)) {
         gx = n3[0]!; gy = n3[1]!; gz = n3[2]!; pull = config.colony.nursePull;
       } else {

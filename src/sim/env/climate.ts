@@ -14,8 +14,9 @@ export class Climate {
   light = 1;
   surfaceTemp: number;
   surfaceRate = 1;
-  /** Rate factor per mm of depth below the surface (index = depth in mm). */
+  /** Rate factor and temperature (°C) per mm of depth below the surface (index = depth in mm). */
   readonly rates: Float64Array;
+  readonly temps: Float64Array;
   /** Whether foragers go out now (light and surface temperature). */
   foraging = true;
   private slot = -1;
@@ -25,6 +26,7 @@ export class Climate {
     this.surfaceTemp = world.config.env.referenceTemp;
     const depth = (world.config.soil.size as readonly number[])[1]!;
     this.rates = new Float64Array(depth + 1).fill(1);
+    this.temps = new Float64Array(depth + 1).fill(world.config.env.referenceTemp);
   }
 
   /** Bring the values up to the interval of the world's current tick. */
@@ -38,7 +40,10 @@ export class Climate {
     this.light = this.env.light(t);
     this.surfaceTemp = this.env.surfaceTemp(t);
     this.surfaceRate = this.env.rate(this.surfaceTemp);
-    for (let z = 0; z < this.rates.length; z++) this.rates[z] = this.env.rate(this.env.soilTemp(z, t));
+    for (let z = 0; z < this.rates.length; z++) {
+      this.temps[z] = this.env.soilTemp(z, t);
+      this.rates[z] = this.env.rate(this.temps[z]!);
+    }
     const [lo, hi] = e.foragingTemp as readonly [number, number];
     this.foraging = this.light >= e.foragingLight && this.surfaceTemp >= lo && this.surfaceTemp <= hi;
   }
@@ -49,9 +54,9 @@ export class Climate {
     return this.rates[Math.min(this.rates.length - 1, Math.floor(-y))]!;
   }
 
-  /** Soil temperature at height y (°C), at the current interval. */
-  tempAt(world: World, y: number): number {
-    const t = this.slot * world.config.env.updateInterval;
-    return y >= 0 ? this.surfaceTemp : this.env.soilTemp(-y, t);
+  /** Temperature at height y (°C; the surface's at y ≥ 0), at the current interval. */
+  tempAt(y: number): number {
+    if (y >= 0) return this.surfaceTemp;
+    return this.temps[Math.min(this.temps.length - 1, Math.floor(-y))]!;
   }
 }

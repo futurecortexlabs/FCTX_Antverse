@@ -253,6 +253,19 @@ export const DEFAULT_PARAMS = {
     nurseQuit: p(0.0003, '1/s', 'ASM-COL-008', { min: 0 }),
     nursePull: p(2, 'x', 'ASM-COL-010', { min: 0 }),
     /**
+     * Brood thermoregulation (Phase 7): nurses carry brood towards broodTemp. A nurse where the
+     * soil is more than broodTolerance from it, with a better temperature thermoProbe above or
+     * below, picks an item up (at pickRate per second), carries it up or down the gradient
+     * (log-weight thermoPull) and puts it down where the temperature is within broodTolerance,
+     * or after maxCarry.
+     */
+    broodTemp: p(28, 'degC', 'BIO-COL-005'),
+    broodTolerance: p(2, 'degC', 'ASM-COL-013', { min: 0 }),
+    thermoProbe: p(5, 'mm', 'ASM-COL-013', { min: 1 }),
+    pickRate: p(0.05, '1/s', 'ASM-COL-013', { min: 0 }),
+    thermoPull: p(3, 'x', 'ASM-COL-013', { min: 0 }),
+    maxCarry: p(300, 's', 'ASM-COL-013', { min: 1 }),
+    /**
      * A forager back with food unloads in the nest until its crop is below unloadedFill (or
      * unloadTime has passed), then decides whether to go out again; one back empty decides at once.
      */
@@ -589,6 +602,10 @@ export const DEFAULT_PARAMS = {
     hemiIntensity: p(1.2, 'x', 'ENG-REN-012', { min: 0 }),
     sunIntensity: p(2.2, 'x', 'ENG-REN-012', { min: 0 }),
     sunDirection: p([1, 2, 1.5], 'x', 'ENG-REN-012'),
+    /** With the environment on: night sky colour, the fill light kept at night (moon, sky glow), the light level at which the sky is fully day-coloured. */
+    nightSkyColor: p([0.03, 0.04, 0.08], 'rgb', 'ENG-REN-018'),
+    nightLight: p(0.04, 'x', 'ENG-REN-018', { min: 0, max: 1 }),
+    dayLight: p(0.3, 'x', 'ENG-REN-018', { min: 0.001, max: 1 }),
     interpolationLagTicks: p(1, 'tick', 'ENG-REN-009', { min: 0 }),
     interpolationSmoothing: p(0.2, 'x', 'ENG-REN-009', { min: 0.01, max: 1 }),
     minCameraDistance: p(0.3, 'mm', 'ENG-REN-007', { min: 0.01 }),
