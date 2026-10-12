@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" font-family="system-ui, sans-serif" font-size="12">
+<rect width="760" height="360" fill="#fbfaf7"/>
+<text x="56" y="20" font-size="14" font-weight="600" fill="#222">Foragers out (hourly mean of colonies) on a 16 °C (blue), 26 °C (green), 32 °C (red) day; hour 0 = 04:00</text>
+<line x1="56" x2="744" y1="320" y2="320" stroke="#e4e1d8"/>
+<text x="48" y="324" text-anchor="end" fill="#555">0</text>
+<line x1="56" x2="744" y1="178" y2="178" stroke="#e4e1d8"/>
+<text x="48" y="182" text-anchor="end" fill="#555">3</text>
+<line x1="56" x2="744" y1="36" y2="36" stroke="#e4e1d8"/>
+<text x="48" y="40" text-anchor="end" fill="#555">6</text>
+<text x="56" y="334" text-anchor="middle" fill="#555">0</text>
+<text x="170.66666666666666" y="334" text-anchor="middle" fill="#555">2</text>
+<text x="285.3333333333333" y="334" text-anchor="middle" fill="#555">4</text>
+<text x="400" y="334" text-anchor="middle" fill="#555">6</text>
+<text x="514.6666666666666" y="334" text-anchor="middle" fill="#555">8</text>
+<text x="629.3333333333334" y="334" text-anchor="middle" fill="#555">10</text>
+<text x="744" y="334" text-anchor="middle" fill="#555">12</text>
+<text x="380" y="354" text-anchor="middle" fill="#333">hours from 04:00</text>
+<text x="12" y="180" fill="#333" transform="rotate(-90 12 180)" text-anchor="middle">foragers out</text>
+<polyline points="84.7,320.0 142.0,320.0 199.3,125.0 256.7,56.4 314.0,137.8 371.3,217.1 428.7,250.8 486.0,272.7 543.3,276.8 600.7,290.7 658.0,289.1 715.3,294.5" fill="none" stroke="#2463a6" stroke-width="1.6"/>
+<polyline points="84.7,320.0 142.0,163.8 199.3,185.1 256.7,244.2 314.0,273.9 371.3,290.5 428.7,301.1 486.0,308.0 543.3,309.0 600.7,308.3 658.0,303.2 715.3,305.1" fill="none" stroke="#4f7d2a" stroke-width="1.6"/>
+<polyline points="84.7,320.0 142.0,213.0 199.3,250.1 256.7,281.0 314.0,295.7 371.3,297.0 428.7,307.3 486.0,320.0 543.3,320.0 600.7,320.0 658.0,320.0 715.3,320.0" fill="none" stroke="#b5321d" stroke-width="1.6"/>
+</svg>
