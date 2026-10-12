@@ -114,7 +114,9 @@ export function burrow(world: World, from: number, to: number): void {
     let tx = soil.centreX(ix) + a.upX[s]! * lift, ty = soil.centreY(d) + a.upY[s]! * lift, tz = soil.centreZ(iz) + a.upZ[s]! * lift;
     let ex = tx - x0, ey = ty - y0, ez = tz - z0;
     let dist = Math.sqrt(ex * ex + ey * ey + ez * ez);
-    const step = a.speed[s]! * dt;
+    // Walking speed follows the soil temperature at this depth (env, BIO-ENV-001).
+    const speed = a.speed[s]! * world.climate.rateAt(y0);
+    const step = speed * dt;
     let x: number, y: number, z: number;
     if (dist > step) {
       x = x0 + (ex / dist) * step; y = y0 + (ey / dist) * step; z = z0 + (ez / dist) * step;
@@ -184,7 +186,7 @@ export function burrow(world: World, from: number, to: number): void {
     a.posX[s] = x; a.posY[s] = y; a.posZ[s] = z;
     a.stepX[s] = ex; a.stepZ[s] = ez;
     a.lastStep[s] = dist;
-    const phase = a.gaitPhase[s]! + dist / strideLength(config, a.speed[s]!);
+    const phase = a.gaitPhase[s]! + dist / strideLength(config, speed);
     a.gaitPhase[s] = phase - Math.floor(phase);
   }
 }

@@ -26,6 +26,7 @@ import { DensityGrid, type ContactBuffers } from './nest/density.ts';
 import { Colony } from './colony/colony.ts';
 import { tend } from './rules/tend.ts';
 import { avoid } from './rules/avoid.ts';
+import { Climate } from './env/climate.ts';
 import { SurfaceGrid, type SurfaceBuffers } from './space/surface-grid.ts';
 import { DigLog } from './nest/dig-log.ts';
 import { Soil } from '../soil/soil.ts';
@@ -110,6 +111,8 @@ export class World {
    * replay it (readsDigLog) before each slice. Null when stepping alone.
    */
   readonly digLog: DigLog | null;
+  /** Light and temperatures of the current interval (Phase 7; constant when env is off). */
+  readonly climate: Climate;
   /** Surface neighbours for collision avoidance (Phase 7; null unless explore.collide). */
   readonly surface: SurfaceGrid | null;
   /** Colony life (Phase 6): queen, brood, physiology. Only the coordinator's copy changes. */
@@ -157,6 +160,7 @@ export class World {
       this.digLog = null;
       this.readsDigLog = false;
     }
+    this.climate = new Climate(this);
     this.colony = config.scenario.colony ? new Colony(this) : null;
     this.surface = config.explore.collide
       ? new SurfaceGrid(config.world.arenaSize, config.explore.collideCell, config.sim.capacity, opts.sharedAgents === true, opts.surfaceBuffers)
@@ -219,6 +223,7 @@ export class World {
   /** Run every rule on slots [from, to) for the current tick (does not advance the tick). */
   stepRange(from: number, to: number): void {
     if (this.readsDigLog) this.replayDigs();
+    this.climate.update(this);
     this.agents.a.request.fill(Request.NONE, from, to);
     for (const rule of RULES) rule(this, from, to);
   }
@@ -246,6 +251,7 @@ export class World {
    * own period, advance the tick.
    */
   completeStep(): void {
+    this.climate.update(this);
     const field = this.pheromone;
     const a = this.agents.a;
     if (field) {
