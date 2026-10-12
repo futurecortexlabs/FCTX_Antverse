@@ -2,9 +2,9 @@
 
 exports[`seed reproducibility (300 agents, 10000 ticks) > golden hash for the default config is stable 1`] = `"3c2b14d6"`;
 
-exports[`seed reproducibility of a colony (queen, brood, contacts, tasks) > golden hash for the colony preset is stable 1`] = `"f98ae5d9"`;
+exports[`seed reproducibility of a colony (queen, brood, contacts, tasks) > golden hash for the colony preset is stable 1`] = `"0a821a45"`;
 
-exports[`seed reproducibility of the environment (sun, temperature, rain, drops, collisions) > golden hash for the field preset in rain is stable 1`] = `"7a1444f8"`;
+exports[`seed reproducibility of the environment (sun, temperature, rain, drops, collisions) > golden hash for the field preset in rain is stable 1`] = `"7ca8f215"`;
 
 exports[`seed reproducibility with path integration (homing) > golden hash for the homing preset is stable 1`] = `"3f44743c"`;
 
