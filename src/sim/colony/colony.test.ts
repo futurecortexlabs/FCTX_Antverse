@@ -13,6 +13,7 @@ import { S_PER_DAY, S_PER_H } from '../../core/units.ts';
 import { AgentFlag, AgentState, Caste, CarryKind, Request, Task } from '../agents/store.ts';
 import { nearWall, surface } from '../rules/burrow.ts';
 import { ageFactors, response, tend } from '../rules/tend.ts';
+import { layTrail, trail } from '../rules/trail.ts';
 import { World } from '../world.ts';
 import { BroodStage } from './brood.ts';
 
@@ -378,5 +379,53 @@ describe('timers', () => {
     expect(a.searchTime[s!]).toBe(0);
     expect(a.flags[s!]! & AgentFlag.LOOP_BACK).toBe(0);
     expect(a.piX[s!]).toBeCloseTo(2 - w.nest!.x, 9);
+  });
+});
+
+describe('recruitment (BIO-COL-006, ASM-COL-014)', () => {
+  it('a forager back from food that offers it to an idle nestmate recruits it', () => {
+    const w = make({ colony: { recruitChance: 1 } }, 4), a = w.agents.a;
+    const [f, n] = workers(w);
+    a.state[f!] = AgentState.UNLOAD; a.task[f!] = Task.FORAGE; a.crop[f!] = 0.3;
+    a.flags[f!] = a.flags[f!]! | AgentFlag.SUCCESS;
+    a.state[n!] = AgentState.DIG; a.task[n!] = Task.IDLE; a.crop[n!] = 0;
+    w.colony!.give(w, f!, n!);
+    expect(a.task[n!]).toBe(Task.FORAGE);
+    expect(a.state[n!]).toBe(AgentState.EXIT);
+    expect(a.flags[n!]! & AgentFlag.RECRUIT).not.toBe(0);
+    expect(w.colony!.recruited).toBe(1);
+  });
+
+  it('no recruitment without food from a successful trip, or to a nestmate busy with a task', () => {
+    const w = make({ colony: { recruitChance: 1 } }, 4), a = w.agents.a;
+    const [f, n, m] = workers(w);
+    a.state[f!] = AgentState.UNLOAD; a.crop[f!] = 0.3; // back empty-handed: no SUCCESS
+    a.crop[n!] = 0; a.state[n!] = AgentState.DIG;
+    w.colony!.give(w, f!, n!);
+    expect(a.flags[n!]! & AgentFlag.RECRUIT).toBe(0);
+    a.flags[f!] = a.flags[f!]! | AgentFlag.SUCCESS;
+    a.crop[m!] = 0; a.task[m!] = Task.NURSE; a.state[m!] = AgentState.NURSE;
+    w.colony!.give(w, f!, m!);
+    expect(a.task[m!]).toBe(Task.NURSE);
+  });
+
+  it('in a colony only foragers carrying food lay trail, and only recruits follow it', () => {
+    const w = make({ scenario: { feeders: [] } }, 6), a = w.agents.a, f = w.pheromone!;
+    const [s0, s1, s2] = workers(w);
+    for (const s of [s0!, s1!, s2!]) {
+      a.flags[s] = a.flags[s]! & ~AgentFlag.UNDERGROUND; a.cell[s] = -1;
+      a.posX[s] = 50; a.posZ[s] = 0; a.heading[s] = 0; a.state[s] = AgentState.SEARCH;
+    }
+    a.carryKind[s0!] = CarryKind.FOOD; a.state[s0!] = AgentState.RETURN;
+    a.lastStep[s0!] = 1; a.lastStep[s1!] = 1;
+    layTrail(w, 0, w.agents.highWater);
+    expect(a.deposit[s0!]).toBeGreaterThan(0);
+    expect(a.deposit[s1!]).toBe(0); // searching: no trail
+    // A trail off to the left of the ants' heading.
+    for (let x = 40; x < 70; x += 0.5) f.deposit(x, -1.5, 50);
+    a.flags[s2!] = a.flags[s2!]! | AgentFlag.RECRUIT;
+    trail(w, 0, w.agents.highWater);
+    expect(a.steer[s1!]).toBe(0);
+    expect(a.steer[s2!]).not.toBe(0);
   });
 });

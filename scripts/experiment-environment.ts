@@ -46,7 +46,7 @@ if (!isMainThread) {
     } else if (job.kind === 'rain') {
       parentPort!.postMessage({ kind: 'rain', r: runRainTrial(buildConfig([...base, { env: { rain: ex.rainShower } }]).config) });
     } else {
-      const extra: Overlay = { scenario: { lateFeeders: ex.newFood }, ...(job.variant ? {} : { pheromone: { depositReturn: 0, depositSearch: 0 } }) };
+      const extra: Overlay = { scenario: { lateFeeders: ex.newFood, ...(ex.newFoodAlone ? { feeders: [] } : {}) }, ...(job.variant ? {} : { pheromone: { depositReturn: 0, depositSearch: 0 }, colony: { recruitChance: 0 } }) };
       parentPort!.postMessage({ kind: 'food', r: runNewFoodTrial(buildConfig([...base, extra]).config) });
     }
   });

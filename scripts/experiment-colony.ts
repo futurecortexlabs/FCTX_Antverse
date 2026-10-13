@@ -41,7 +41,7 @@ if (!isMainThread) {
       parentPort!.postMessage({ kind: 'economy', r: runEconomyTrial(buildConfig([...base, extra]).config) });
     } else {
       const fill = buildConfig(base).config.experiment.recruitFill;
-      const extra: Overlay = { colony: { initialFill: [0.8, fill] }, ...(job.variant ? {} : { pheromone: { depositReturn: 0, depositSearch: 0 } }) };
+      const extra: Overlay = { colony: { initialFill: [0.8, fill], ...(job.variant ? {} : { recruitChance: 0 }) }, ...(job.variant ? {} : { pheromone: { depositReturn: 0, depositSearch: 0 } }) };
       parentPort!.postMessage({ kind: 'recruit', r: runRecruitTrial(buildConfig([...base, extra]).config) });
     }
   });

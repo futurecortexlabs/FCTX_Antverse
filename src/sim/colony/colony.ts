@@ -27,7 +27,7 @@ import type { Site, World } from '../world.ts';
 import { BroodStage, BroodStore } from './brood.ts';
 
 /** Sub-keys of Stream.COLONY (entity = agent slot or brood index). */
-const Key = { PLACE: 0, AGE: 1, LAY: 2, STAGE: 3, HEADING: 4, PHASE: 5, SPEED: 6, DURATION: 7, LIFESPAN_N: 8, BROOD_PLACE: 32 } as const;
+const Key = { PLACE: 0, AGE: 1, LAY: 2, STAGE: 3, HEADING: 4, PHASE: 5, SPEED: 6, DURATION: 7, LIFESPAN_N: 8, RECRUIT: 10, BROOD_PLACE: 32 } as const;
 /** Brood items draw with entity BROOD + index, apart from agent slots (< 2^20). */
 const BROOD = 1 << 24;
 /** Tries to find a dug voxel for a new egg near the queen (sub-keys BROOD_PLACE + 2k, +2k+1, …). */
@@ -52,6 +52,8 @@ export class Colony {
   /** Workers eclosed and died so far. */
   eclosed = 0;
   died = 0;
+  /** Nestmates recruited by displays so far. */
+  recruited = 0;
   private broodHead: Int32Array;
   private broodNext = new Int32Array(256);
   private headTouched: number[] = [];
@@ -131,6 +133,16 @@ export class Colony {
     if (amount <= 0) return;
     a.crop[s] = cs - amount;
     a.crop[p] = cp + amount;
+    // Recruitment display (BIO-COL-006): food offered head-on by a forager back from food
+    // alerts an idle nestmate, which goes out and follows the trail.
+    if ((a.flags[s]! & AgentFlag.SUCCESS) !== 0 && a.state[s] === AgentState.UNLOAD && a.caste[p] === Caste.WORKER
+      && a.task[p] === Task.IDLE && (a.state[p] === AgentState.DIG || a.state[p] === AgentState.NEST_REST)
+      && rand(world.seed, Stream.COLONY, s, world.tick, Key.RECRUIT) < cc.recruitChance) {
+      a.task[p] = Task.FORAGE;
+      a.state[p] = AgentState.EXIT;
+      a.flags[p] = a.flags[p]! | AgentFlag.RECRUIT;
+      this.recruited++;
+    }
   }
 
   /** Grant a FEED request: the nurse gives the hungriest larva in reach of voxel `cell` food from its crop, above colony.feedFill (ASM-COL-012). */
@@ -167,6 +179,8 @@ export class Colony {
       this.fills[feeder]!++;
       if (this.firstFill[feeder]! < 0) this.firstFill[feeder] = world.simTime();
     }
+    // Found food: no longer a recruit; back with food this trip.
+    a.flags[s] = (a.flags[s]! | AgentFlag.SUCCESS) & ~AgentFlag.RECRUIT;
     const amount = cc.crop - a.crop[s]!;
     if (amount <= 0) return;
     a.crop[s] = cc.crop;
@@ -267,7 +281,7 @@ export class Colony {
   }
 
   hashInto(h: StateHasher): void {
-    h.word(this.queen).f64(this.intake).f64(this.fed).word(this.eclosed).word(this.died);
+    h.word(this.queen).f64(this.intake).f64(this.fed).word(this.eclosed).word(this.died).word(this.recruited);
     for (const n of this.fills) h.word(n);
     for (const view of this.brood.views()) h.view(view);
   }

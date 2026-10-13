@@ -24,6 +24,10 @@ export const AgentFlag = {
   UNDERGROUND: 1 << 3,
   /** A nestmate right in front (avoid.ts): turn on the spot this tick instead of stepping (cleared by explore). */
   BLOCKED: 1 << 4,
+  /** Back from a feeder with food this trip (colony; set when the crop is filled, cleared after unloading). */
+  SUCCESS: 1 << 5,
+  /** Recruited by a nestmate's display: out to forage, following the trail to food (colony). */
+  RECRUIT: 1 << 6,
 } as const;
 
 export const Caste = {

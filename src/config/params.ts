@@ -255,6 +255,14 @@ export const DEFAULT_PARAMS = {
     nurseQuit: p(0.0003, '1/s', 'ASM-COL-008', { min: 0 }),
     nursePull: p(2, 'x', 'ASM-COL-010', { min: 0 }),
     /**
+     * Recruitment (Phase 8, BIO-COL-006): a forager back with food that offers it to an idle
+     * nestmate recruits it with chance recruitChance per tick of food flowing; recruits go out
+     * and follow the trail. In a colony the trail is laid only on the way back from food, and
+     * only recruits follow it (trailForRecruits).
+     */
+    recruitChance: p(0.02, 'x', 'ASM-COL-014', { min: 0, max: 1 }),
+    trailForRecruits: p(true, 'bool', 'BIO-COL-006'),
+    /**
      * Brood thermoregulation (Phase 7): nurses carry brood towards broodTemp. A nurse where the
      * soil is more than broodTolerance from it, with a better temperature thermoProbe above or
      * below, picks an item up (at pickRate per second), carries it up or down the gradient
@@ -790,6 +798,8 @@ export const DEFAULT_PARAMS = {
     newFood: p([-170, -90, 2], 'x', 'ENG-EXP-005'),
     newFoodWindow: p(7200, 's', 'ENG-EXP-005', { min: 60 }),
     newFoodLimit: p(36000, 's', 'ENG-EXP-005', { min: 600 }),
+    /** The new feeder is the only food (no feeders from the start): recruitment to a first discovery. */
+    newFoodAlone: p(true, 'bool', 'ENG-EXP-005'),
   },
   bench: {
     counts: p([1000, 2000, 5000, 10000, 20000, 50000, 100000], 'count', 'ENG-BEN-001'),
