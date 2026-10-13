@@ -8,7 +8,7 @@ import type { Overlay } from '../config/load.ts';
 import { InterpolationState } from '../render/interpolation.ts';
 import type { Config } from '../config/params.ts';
 import { MS_PER_S } from '../core/units.ts';
-import {
+import { type AntInfo,
   SNAP_FLOATS, SnapH, SnapshotView, TripleBufferReader, initTripleBufferControl, snapshotByteLength,
   type DeterminismReport, type FieldInfo, type FromWorker, type NestInfo, type SimStats, type SoilChunk, type ToWorker, type Transport,
 } from '../worker/protocol.ts';
@@ -96,6 +96,8 @@ export class SimHost {
         break;
       case 'hash':
       case 'determinismCheck':
+      case 'inspect':
+      case 'states':
         this.waiters.get(msg.id)?.(msg);
         this.waiters.delete(msg.id);
         break;
@@ -193,6 +195,16 @@ export class SimHost {
 
   reset(overlays: Overlay[]): void {
     this.send({ type: 'reset', overlays });
+  }
+
+  /** One ant's details (Phase 8 observation). */
+  inspect(slot: number): Promise<AntInfo | null> {
+    return this.request<{ info: AntInfo | null }>((id) => ({ type: 'inspect', id, slot })).then((m) => m.info);
+  }
+
+  /** [state, task] per slot. */
+  states(): Promise<Uint8Array> {
+    return this.request<{ data: Uint8Array }>((id) => ({ type: 'states', id })).then((m) => m.data);
   }
 
   private request<T>(make: (id: number) => ToWorker): Promise<T> {

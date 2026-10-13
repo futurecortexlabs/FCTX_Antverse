@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { AgentFlag, AgentStore, Caste } from './store.ts';
-import { SNAP_CASTE_QUEEN, SNAP_FLAG_ALIVE, SNAP_FLAG_UNDERGROUND } from '../../worker/protocol.ts';
+import { AgentFlag, AgentState, AgentStore, Caste, Task } from './store.ts';
+import { SNAP_CASTE_QUEEN, SNAP_FLAG_ALIVE, SNAP_FLAG_UNDERGROUND, STATE_NAMES, TASK_NAMES } from '../../worker/protocol.ts';
 
 describe('AgentStore', () => {
   it('spawns into consecutive slots and tracks counts', () => {
@@ -37,5 +37,12 @@ describe('AgentStore', () => {
     expect(SNAP_FLAG_ALIVE).toBe(AgentFlag.ALIVE);
     expect(SNAP_FLAG_UNDERGROUND).toBe(AgentFlag.UNDERGROUND);
     expect(SNAP_CASTE_QUEEN).toBe(Caste.QUEEN);
+    // The observer's names follow the enums' values in order.
+    expect(STATE_NAMES.length).toBe(Object.keys(AgentState).length);
+    for (const v of Object.values(AgentState)) expect(STATE_NAMES[v]).toBeDefined();
+    expect(STATE_NAMES[AgentState.NURSE]).toBe('nurse');
+    expect(STATE_NAMES[AgentState.EXIT]).toBe('exit');
+    expect(TASK_NAMES.length).toBe(Object.keys(Task).length);
+    expect(TASK_NAMES[Task.FORAGE]).toBe('forage');
   });
 });

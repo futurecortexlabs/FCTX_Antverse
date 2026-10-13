@@ -28,6 +28,7 @@ import { Terrain } from '../terrain/terrain.ts';
 import { SimHost } from './sim-host.ts';
 import { SNAP_FLOATS, type SimStats } from '../worker/protocol.ts';
 import { Hud } from './hud/hud.ts';
+import { Observer } from './observer.ts';
 import { RollingStats } from '../core/rolling-stats.ts';
 import { BenchSweep, benchCsv } from '../bench/sweep.ts';
 import { saveReportFile } from './report.ts';
@@ -280,9 +281,17 @@ async function main(): Promise<void> {
     if (host.brood && host.broodVersion !== broodShown) { broodShown = host.broodVersion; nest.setBrood(host.brood); }
   };
   const setCutaway = (on: boolean): void => { cutaway = on; nest?.setCutaway(on, surfaceObjects()); };
-  const togglePheromone = (on?: boolean): void => { if (pheromone) pheromone.mesh.visible = on ?? !pheromone.mesh.visible; };
+  const togglePheromone = (on?: boolean): boolean | null => {
+    if (!pheromone) return null;
+    pheromone.mesh.visible = on ?? !pheromone.mesh.visible;
+    return pheromone.mesh.visible;
+  };
+  // Observation modes, the observed ant and the debug views (Phase 8).
+  const observer = new Observer({
+    cfg, host, ants, camera, controls, canvas: renderer.domElement, hud, scene, setCutaway: (on) => setCutaway(on), togglePheromone: () => togglePheromone(),
+  });
 
-  (window as unknown as { antverse: unknown }).antverse = { host, cfg, info, renderer, camera, controls, hud, terrain, ground, grains, terrainBuildMs, tier, governor, ants, followAnt, togglePheromone, setCutaway, nest: () => nest };
+  (window as unknown as { antverse: unknown }).antverse = { host, cfg, info, renderer, camera, controls, hud, terrain, ground, grains, terrainBuildMs, tier, governor, ants, followAnt, togglePheromone, setCutaway, observer, nest: () => nest };
 
   renderer.setAnimationLoop(() => {
     const now = performance.now();
@@ -297,10 +306,12 @@ async function main(): Promise<void> {
       camera.position.set(c[o]! + follow.offset[0], c[o + 1]! + follow.offset[1], c[o + 2]! + follow.offset[2]);
     }
     controls.update();
-    if (applyCameraGuard(terrain, cfg, camera.position, controls.target)) camera.lookAt(controls.target);
+    // The section and ant views may take the camera below the ground surface.
+    if (!observer.freeCamera && applyCameraGuard(terrain, cfg, camera.position, controls.target)) camera.lookAt(controls.target);
     const viewportPx = renderer.domElement.height / renderer.getPixelRatio();
     const focal = focalPx(camera.fov * DEG, viewportPx);
     ants.update(host.interp, camera.position, focal, probe);
+    observer.update(now);
     ground.update(camera.position, focal);
     grains.update(camera, viewportPx, cfg.terrainRender.genBudget);
     env.setTime(host.interp.renderTime);

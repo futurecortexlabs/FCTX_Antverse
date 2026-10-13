@@ -84,6 +84,25 @@ export class AntRenderer {
     return this.stats.lod0 + this.stats.lod1 + this.stats.lod2;
   }
 
+  /**
+   * Debug colouring (Phase 8): an RGB triple per slot (multiplied with the ant's own colours),
+   * or null for the natural colours.
+   */
+  colors: Float32Array | null = null;
+  private tinted = false;
+  /** A slot not to draw (the ant whose eyes the camera is in), −1 for none. */
+  hidden = -1;
+
+  /** Interpolated pose of `slot` from the last update: x, y, z, qx, qy, qz, qw (null if not drawn). */
+  poseOf(slot: number, out: Float32Array): boolean {
+    if (slot < 0 || slot >= this.lastCount || this.lastLod[slot] === 255) return false;
+    for (let k = 0; k < 7; k++) out[k] = this.pose[slot * SNAP_FLOATS + k]!;
+    return true;
+  }
+
+  private lastCount = 0;
+  private lastLod = new Uint8Array(0);
+
   update(s: InterpolationState, camera: THREE.Vector3, focal: number, probe: TerrainProbe): void {
     this.frame++;
     const r = this.cfg.render;
@@ -134,14 +153,28 @@ export class AntRenderer {
       this.order.length = r.rigMaxAnts;
     }
 
-    // 2. Instance matrices per LOD.
+    this.lastCount = s.count;
+    this.lastLod = lodOf;
+    // 2. Instance matrices (and debug colours) per LOD.
     const counts = [0, 0, 0];
     const mats = this.lod.map((mesh) => mesh.instanceMatrix.array as Float32Array);
+    const cols = this.colors;
+    const tint = cols !== null || this.tinted;
+    const colArrays = tint ? this.lod.map((mesh) => {
+      if (!mesh.instanceColor) mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(mesh.instanceMatrix.count * 3).fill(1), 3);
+      return mesh.instanceColor.array as Float32Array;
+    }) : null;
     for (let slot = 0; slot < s.count; slot++) {
       const l = lodOf[slot]!;
-      if (l === 255) continue;
+      if (l === 255 || slot === this.hidden) continue;
+      if (colArrays) {
+        const c = colArrays[l]!, k = counts[l]! * 3;
+        c[k] = cols ? cols[slot * 3]! : 1; c[k + 1] = cols ? cols[slot * 3 + 1]! : 1; c[k + 2] = cols ? cols[slot * 3 + 2]! : 1;
+      }
       writeMatrix(mats[l]!, counts[l]!++, out, slot * SNAP_FLOATS, (s.currMeta[slot]! & META_BYTE) === SNAP_CASTE_QUEEN ? r.queenScale : 1);
     }
+    if (colArrays) for (const mesh of this.lod) mesh.instanceColor!.needsUpdate = true;
+    this.tinted = cols !== null;
     this.lod.forEach((mesh, i) => {
       mesh.count = counts[i]!;
       mesh.instanceMatrix.clearUpdateRanges();
