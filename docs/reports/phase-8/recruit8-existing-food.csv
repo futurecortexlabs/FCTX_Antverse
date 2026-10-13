@@ -1,0 +1,25 @@
+# date: 2026-10-13T21:12:48.458Z | node v24.19.0 | cpu Intel(R) Core(TM) Ultra 7 265K | 19 threads | 14 min
+# overlays: [{"scenario":{"colony":true,"feederRadius":20},"population":{"count":300},"soil":{"pit":[8,60]},"explore":{"collide":true},"env":{"enabled":true}},{"experiment":{"envFirstSeed":8001}},{"experiment":{"newFoodAlone":false}}]
+# protocol: 10 seeds from 8001; day 48 h (control: no brood carrying); temp 12 h at 16 °C vs default; rain [6,1,10]; new food [-170,-90,2], window 2 h
+# result recruitment: fills at the new feeder in 2 h after its discovery 16.1 with trails vs 23.2 without (× 0.69; found in 20/20 runs) → FAIL
+seed,trails,found_h,fills,recruits
+8001,1,2.042,10,8
+8001,0,2.003,14,12
+8002,1,2.068,14,11
+8002,0,2.010,21,16
+8003,1,2.085,8,7
+8003,0,2.051,27,19
+8004,1,2.196,23,16
+8004,0,2.005,25,17
+8005,1,2.006,16,11
+8005,0,2.001,21,17
+8006,1,2.082,21,14
+8006,0,2.008,28,21
+8007,1,2.253,13,11
+8007,0,2.102,24,16
+8008,1,2.148,14,12
+8008,0,2.023,23,16
+8009,1,2.012,28,22
+8009,0,2.001,27,21
+8010,1,2.288,14,12
+8010,0,2.110,22,14

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" font-family="system-ui, sans-serif" font-size="12">
+<rect width="760" height="360" fill="#fbfaf7"/>
+<text x="56" y="20" font-size="14" font-weight="600" fill="#222">Foragers out (hourly mean of colonies) on a 16 °C (blue), 26 °C (green), 32 °C (red) day; hour 0 = 04:00</text>
+<line x1="56" x2="744" y1="320" y2="320" stroke="#e4e1d8"/>
+<text x="48" y="324" text-anchor="end" fill="#555">0</text>
+<line x1="56" x2="744" y1="178" y2="178" stroke="#e4e1d8"/>
+<text x="48" y="182" text-anchor="end" fill="#555">10</text>
+<line x1="56" x2="744" y1="36" y2="36" stroke="#e4e1d8"/>
+<text x="48" y="40" text-anchor="end" fill="#555">20</text>
+<text x="56" y="334" text-anchor="middle" fill="#555">0</text>
+<text x="170.66666666666666" y="334" text-anchor="middle" fill="#555">2</text>
+<text x="285.3333333333333" y="334" text-anchor="middle" fill="#555">4</text>
+<text x="400" y="334" text-anchor="middle" fill="#555">6</text>
+<text x="514.6666666666666" y="334" text-anchor="middle" fill="#555">8</text>
+<text x="629.3333333333334" y="334" text-anchor="middle" fill="#555">10</text>
+<text x="744" y="334" text-anchor="middle" fill="#555">12</text>
+<text x="380" y="354" text-anchor="middle" fill="#333">hours from 04:00</text>
+<text x="12" y="180" fill="#333" transform="rotate(-90 12 180)" text-anchor="middle">foragers out</text>
+<polyline points="84.7,320.0 142.0,320.0 199.3,181.4 256.7,128.0 314.0,240.4 371.3,264.6 428.7,286.2 486.0,304.6 543.3,304.1 600.7,310.3 658.0,310.1 715.3,309.4" fill="none" stroke="#2463a6" stroke-width="1.6"/>
+<polyline points="84.7,320.0 142.0,151.7 199.3,271.0 256.7,303.9 314.0,310.3 371.3,311.4 428.7,313.7 486.0,315.0 543.3,316.3 600.7,315.6 658.0,315.7 715.3,314.4" fill="none" stroke="#4f7d2a" stroke-width="1.6"/>
+<polyline points="84.7,320.0 142.0,205.7 199.3,303.8 256.7,309.2 314.0,312.3 371.3,313.8 428.7,317.6 486.0,320.0 543.3,320.0 600.7,320.0 658.0,320.0 715.3,320.0" fill="none" stroke="#b5321d" stroke-width="1.6"/>
+</svg>
