@@ -30,11 +30,14 @@ export function trail(world: World, from: number, to: number): void {
   }
   const tc = world.config.trail;
   const L = world.config.ant.workerBodyLength;
+  const recruitsOnly = world.colony !== null && world.config.colony.trailForRecruits;
   const ahead = tc.sensorAhead * L, side = tc.sensorSide * L;
 
   for (let s = from; s < to; s++) {
     a.steer[s] = 0;
     if ((a.flags[s]! & (AgentFlag.ALIVE | AgentFlag.UNDERGROUND)) !== AgentFlag.ALIVE) continue; // dead, or in the nest
+    // Formica: the trail orients only nestmates alerted by a recruiter's display (BIO-COL-006).
+    if (recruitsOnly && (a.flags[s]! & AgentFlag.RECRUIT) === 0) continue;
     const x = a.posX[s]!, z = a.posZ[s]!, h = a.heading[s]!;
     const fx = dcos(h), fz = -dsin(h), rx = dsin(h), rz = dcos(h);
     const cl = field.sample(x + fx * ahead - rx * side, z + fz * ahead - rz * side);
@@ -56,6 +59,7 @@ export function layTrail(world: World, from: number, to: number): void {
   const a = world.agents.a;
   const pc = world.config.pheromone;
   const bridge = world.bridge;
+  const recruitsOnly = world.colony !== null && world.config.colony.trailForRecruits;
   for (let s = from; s < to; s++) {
     const st = a.state[s]!;
     // Only foraging trips lay trail (not diggers carrying soil, nor anyone in the nest).
@@ -63,7 +67,8 @@ export function layTrail(world: World, from: number, to: number): void {
       || (st !== AgentState.SEARCH && st !== AgentState.RETURN && st !== AgentState.NEST_SEARCH)) { a.deposit[s] = 0; continue; }
     const x = a.posX[s]!, z = a.posZ[s]!;
     if (bridge && (bridge.inNest(x, z) || bridge.inFeeder(x, z))) { a.deposit[s] = 0; continue; }
-    const rate = a.carryKind[s] === CarryKind.FOOD ? pc.depositReturn : pc.depositSearch;
+    // Formica lays its (hindgut) trail on the way back from food only (BIO-COL-006).
+    const rate = a.carryKind[s] === CarryKind.FOOD ? pc.depositReturn : recruitsOnly ? 0 : pc.depositSearch;
     a.deposit[s] = rate * a.lastStep[s]!;
   }
 }
