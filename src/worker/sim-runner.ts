@@ -6,12 +6,12 @@
 
 import { FixedStepClock } from '../core/clock.ts';
 import { isSharedBuffer } from '../core/soa.ts';
-import { MS_PER_S } from '../core/units.ts';
+import { MS_PER_S, S_PER_DAY } from '../core/units.ts';
 import type { Config } from '../config/params.ts';
 import { AgentFlag, AgentState, Caste, CarryKind } from '../sim/agents/store.ts';
 import { BroodStage } from '../sim/colony/brood.ts';
 import { World } from '../sim/world.ts';
-import { BROOD_FLOATS, type FieldInfo, type NestInfo, type SimStats, type SnapshotView, type SoilChunk } from './protocol.ts';
+import { BROOD_FLOATS, STATE_NONE, type AntInfo, type FieldInfo, type NestInfo, type SimStats, type SnapshotView, type SoilChunk } from './protocol.ts';
 import { writeSnapshot } from './snapshot-writer.ts';
 
 export interface SnapshotSink {
@@ -141,6 +141,36 @@ export class SimRunner {
       out[k + 4] = b.stage[i] === BroodStage.LARVA ? b.eaten[i]! / cc.larvalFood : 1;
       k += BROOD_FLOATS;
     }
+    return out;
+  }
+
+  /** Details of the ant in `slot` for the observer (null for a dead or free slot). */
+  inspect(slot: number): AntInfo | null {
+    const w = this.world, a = w.agents.a;
+    if (slot < 0 || slot >= w.agents.highWater || (a.flags[slot]! & AgentFlag.ALIVE) === 0) return null;
+    const nest = w.nest, f = a.flags[slot]!;
+    const knows = (f & AgentFlag.KNOWS_FOOD) !== 0;
+    return {
+      slot, caste: a.caste[slot]!, state: a.state[slot]!, task: a.task[slot]!,
+      underground: (f & AgentFlag.UNDERGROUND) !== 0, knowsFood: knows, recruit: (f & AgentFlag.RECRUIT) !== 0, carry: a.carryKind[slot]!,
+      x: a.posX[slot]!, y: a.posY[slot]!, z: a.posZ[slot]!,
+      // The estimate is of the ant relative to the nest: the nest is where it thinks it is, minus that.
+      homeX: a.posX[slot]! - a.piX[slot]!, homeZ: a.posZ[slot]! - a.piZ[slot]!,
+      nestX: nest ? nest.x : null, nestZ: nest ? nest.z : null,
+      // The food memory is in the same nest-centred estimate.
+      foodX: knows ? a.posX[slot]! - a.piX[slot]! + a.foodX[slot]! : null,
+      foodZ: knows ? a.posZ[slot]! - a.piZ[slot]! + a.foodZ[slot]! : null,
+      speed: a.speed[slot]!,
+      crop: a.crop[slot]!, reserve: a.reserve[slot]!, ageDays: (w.simTime() - a.born[slot]!) / S_PER_DAY, hunger: a.hunger[slot]!,
+      thetaF: a.thetaF[slot]!, thetaN: a.thetaN[slot]!, carryingBrood: a.load[slot]! >= 0, stun: a.stun[slot]!,
+    };
+  }
+
+  /** [state, task] per slot up to highWater, STATE_NONE for dead slots. */
+  states(): Uint8Array {
+    const w = this.world, a = w.agents.a, n = w.agents.highWater;
+    const out = new Uint8Array(n * 2).fill(STATE_NONE);
+    for (let s = 0; s < n; s++) if ((a.flags[s]! & AgentFlag.ALIVE) !== 0) { out[2 * s] = a.state[s]!; out[2 * s + 1] = a.task[s]!; }
     return out;
   }
 

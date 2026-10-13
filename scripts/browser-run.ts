@@ -14,6 +14,7 @@
  *   node scripts/browser-run.ts terrain          # Phase 1 terrain views + metrics -> docs/reports/phase-1/
  *   node scripts/browser-run.ts bench [webgl]    # ?bench=1 sweep -> docs/reports/bench/
  *   node scripts/browser-run.ts colony [hours] [query]  # Phase 6 colony: foraging ground + nest -> docs/reports/phase-6/
+ *   node scripts/browser-run.ts observe [query]         # Phase 8 views and debug toggles -> docs/reports/phase-8/
  *   node scripts/browser-run.ts mobile [webgl|-] [url]  # phone emulation -> docs/reports/mobile/
  *
  * Requires `npm run dev` on http://localhost:5173.
@@ -517,6 +518,82 @@ async function weatherViews(cdp: Cdp): Promise<void> {
   console.log(log.join('\n'));
 }
 
+/**
+ * Phase 8 observation: every view and debug toggle, checked and photographed.
+ * Output: docs/reports/phase-8/ and a JSON of the checks.
+ */
+async function observeViews(cdp: Cdp, query: string | undefined): Promise<void> {
+  const dir = 'docs/reports/phase-8';
+  mkdirSync(dir, { recursive: true });
+  await cdp.goto(BASE + (query ?? '?preset=field&set=env.startHour=10'));
+  const simTime = (): Promise<number> => cdp.eval<number>('window.antverse.host.stats ? window.antverse.host.stats.simTime : 0');
+  await cdp.eval('window.antverse.host.setSpeed(100000)');
+  while (await simTime() < 900) await sleep(500);
+  await cdp.eval('window.antverse.host.setSpeed(1)');
+  await sleep(2000);
+  const checks: Record<string, unknown> = {};
+  // An ant on the surface (searching, returning, carrying soil out, going back in, leaving) and a nurse in the soil.
+  const pickBy = async (states: number[]): Promise<number> => cdp.eval<number>(`window.antverse.host.states().then((st) => {
+    const want = ${JSON.stringify(states)};
+    for (let s = 0; s < st.length / 2; s++) if (want.includes(st[2 * s])) return s;
+    return -1;
+  })`);
+  // Foragers are few: let the colony run on until one is out searching or carrying food home.
+  let forager = await pickBy([0, 1]);
+  for (let k = 0; k < 40 && forager < 0; k++) { await cdp.eval('window.antverse.host.setSpeed(8)'); await sleep(1000); forager = await pickBy([0, 1]); }
+  await cdp.eval('window.antverse.host.setSpeed(1)');
+  const nurse = await pickBy([8]);
+  checks.forager = forager; checks.nurse = nurse;
+  const o = 'window.antverse.observer';
+  const shot = async (name: string): Promise<void> => { await sleep(1500); await cdp.screenshot(`${dir}/${name}.png`); };
+  // 0. First, while it is still out: the forager's own view of the ground.
+  await cdp.eval(`${o}.select(${forager}); ${o}.setMode('ant')`);
+  await sleep(600);
+  checks.surfaceView = await cdp.eval<string>("document.querySelector('.hud-panel').textContent.split(String.fromCharCode(10))[0]");
+  await cdp.screenshot(`${dir}/00-ant-view-ground.png`);
+  await cdp.eval(`${o}.setMode('overview')`);
+  // 1. Overview with the forager observed, its vectors and the state colours.
+  await cdp.eval(`${o}.select(${forager}); ${o}.setMode('overview'); if (!${o}.stateColors) document.dispatchEvent(new KeyboardEvent('keydown', { key: 'c' })); window.dispatchEvent(new KeyboardEvent('keydown', { key: 'c' }))`);
+  await sleep(1200);
+  const pose = `(() => { const p = new Float32Array(7); window.antverse.ants.poseOf(${forager}, p); return Array.from(p); })()`;
+  const p0 = await cdp.eval<number[]>(pose);
+  await cdp.eval(cam([p0[0]! + 40, p0[1]! + 35, p0[2]! + 40], [p0[0]!, p0[1]!, p0[2]!]));
+  await shot('01-overview-states-vectors');
+  checks.panel = await cdp.eval<string>("document.querySelector('.hud-panel').textContent");
+  checks.stateColors = await cdp.eval<boolean>(`${o}.stateColors`);
+  checks.tinted = await cdp.eval<number>("(() => { let n = 0; for (const m of window.antverse.ants.group.children) { if (!m.instanceColor) continue; const a = m.instanceColor.array; for (let i = 0; i < m.count * 3; i += 3) if (a[i] !== 1 || a[i + 1] !== 1 || a[i + 2] !== 1) n++; } return n; })()");
+  // 2. Section: the nest from the side, below the ground.
+  await cdp.eval(`${o}.setMode('section')`);
+  const yN = await cdp.eval<number>('window.antverse.terrain.supportHeight(0, 0)');
+  await cdp.eval(cam([90, yN - 40, 30], [0, yN - 45, 0]));
+  await sleep(500);
+  checks.sectionCameraBelowGround = await cdp.eval<boolean>(`window.antverse.camera.position.y < window.antverse.terrain.supportHeight(window.antverse.camera.position.x, window.antverse.camera.position.z)`);
+  await shot('02-section');
+  // 3. Ant view of the forager: the camera rides on its head.
+  await cdp.eval(`${o}.select(${forager}); ${o}.setMode('ant')`);
+  const dists: number[] = [];
+  for (let k = 0; k < 10; k++) {
+    await sleep(300);
+    dists.push(await cdp.eval<number>(`(() => { const p = new Float32Array(7); window.antverse.ants.poseOf(${forager}, p); const c = window.antverse.camera.position; return Math.hypot(c.x - p[0], c.y - p[1], c.z - p[2]); })()`));
+  }
+  checks.antViewEyeDistance = [Math.min(...dists), Math.max(...dists)];
+  await shot('03-ant-view-follow');
+  // 4. Ant view of a nurse in the soil.
+  if (nurse >= 0) {
+    await cdp.eval(`${o}.select(${nurse}); ${o}.setMode('ant')`);
+    await sleep(800);
+    checks.nurseView = await cdp.eval<string>("document.querySelector('.hud-panel').textContent.split('\\n')[0]");
+    await shot('04-ant-view-nest');
+  }
+  // 5. Back to the overview with the pheromone heatmap.
+  await cdp.eval(`${o}.setMode('overview')`);
+  await cdp.eval(cam([30, yN + 200, 170], [30, yN, 30]));
+  checks.heatmap = await cdp.eval<boolean | null>('window.antverse.togglePheromone(true)');
+  await shot('05-overview-heatmap');
+  writeFileSync(`${dir}/views.json`, JSON.stringify(checks, null, 1) + '\n');
+  console.log(JSON.stringify(checks, null, 1));
+}
+
 /** Phone emulation (390x844 CSS px, DPR 3, touch). `base` lets you target a static/LAN/artifact URL. */
 async function mobile(cdp: Cdp, base: string, backend: string | undefined): Promise<void> {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true, screenWidth: 390, screenHeight: 844 });
@@ -571,6 +648,7 @@ async function main(): Promise<void> {
     else if (cmd === 'nest') await nestViews(cdp, arg, process.argv[4]);
     else if (cmd === 'colony') await colonyViews(cdp, arg, process.argv[4]);
     else if (cmd === 'weather') await weatherViews(cdp);
+    else if (cmd === 'observe') await observeViews(cdp, arg);
     else if (cmd === 'eval') { await cdp.goto(BASE + (process.argv[4] ?? '')); console.log(JSON.stringify(await cdp.eval(arg ?? 'null'), null, 1)); }
     else if (cmd === 'bench') await bench(cdp, arg);
     else if (cmd === 'mobile') await mobile(cdp, process.argv[4] ?? BASE, arg && arg !== '-' ? arg : undefined);

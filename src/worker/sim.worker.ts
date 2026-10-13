@@ -160,6 +160,14 @@ self.onmessage = (e: MessageEvent<ToWorker>) => {
         });
         break;
       }
+      case 'inspect':
+        post({ type: 'inspect', id: msg.id, info: runner ? runner.inspect(msg.slot) : null });
+        break;
+      case 'states': {
+        const data = runner ? runner.states() : new Uint8Array(0);
+        post({ type: 'states', id: msg.id, data }, [data.buffer]);
+        break;
+      }
       case 'returnBuffer':
         break; // handled by copySink
     }

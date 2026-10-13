@@ -641,6 +641,25 @@ export const DEFAULT_PARAMS = {
     sunDirection: p([1, 2, 1.5], 'x', 'ENG-REN-012'),
     /** With the environment on: night sky colour, the fill light kept at night (moon, sky glow), the light level at which the sky is fully day-coloured. */
     nightSkyColor: p([0.03, 0.04, 0.08], 'rgb', 'ENG-REN-018'),
+    /**
+     * Observation (Phase 8): the ant's-eye camera (field of view; eye position as fractions of body
+     * length ahead of and above the mesosoma centre; the point looked at, body lengths ahead),
+     * picking an ant on screen, the marks for the observed ant, and state colours (one rgb triple
+     * per AgentState: search, return, rest, nest search, dig, haul, re-enter, nest rest, nurse,
+     * unload, exit).
+     */
+    antViewFov: p(100, 'deg', 'ENG-UI-002', { min: 10, max: 150 }),
+    antViewEye: p([0.45, 0.18], 'x', 'ENG-UI-002'),
+    antViewLook: p(4, 'x', 'ENG-UI-002', { min: 0.1 }),
+    pickRadius: p(24, 'px', 'ENG-UI-002', { min: 1 }),
+    inspectInterval: p(250, 'ms', 'ENG-UI-002', { min: 16 }),
+    selectRing: p(1.2, 'x', 'ENG-UI-002', { min: 0.1 }),
+    arrowHead: p(4, 'mm', 'ENG-UI-002', { min: 0 }),
+    selectColor: p([1, 0.85, 0.2], 'rgb', 'ENG-UI-002'),
+    homeVectorColor: p([0.2, 0.9, 1], 'rgb', 'ENG-UI-002'),
+    trueNestColor: p([0.6, 0.6, 0.6], 'rgb', 'ENG-UI-002'),
+    foodMemoryColor: p([1, 0.5, 0.15], 'rgb', 'ENG-UI-002'),
+    stateColors: p([0.3, 0.55, 1, 1, 0.55, 0.1, 0.6, 0.6, 0.6, 0.75, 0.3, 1, 0.55, 0.38, 0.22, 0.85, 0.75, 0.35, 0.4, 0.8, 0.4, 0.45, 0.45, 0.5, 1, 0.45, 0.7, 1, 0.9, 0.2, 0.2, 0.9, 0.9], 'rgb', 'ENG-UI-002'),
     /** Water (Phase 7): colour, drop dome height / radius, falling raindrops (speed, streak opacity, most per frame, splash time). */
     waterColor: p([0.85, 0.92, 1], 'rgb', 'ENG-REN-019'),
     dropHeight: p(0.8, 'x', 'ENG-REN-019', { min: 0.01 }),

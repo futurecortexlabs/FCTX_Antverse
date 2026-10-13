@@ -13,6 +13,39 @@
 import type { Overlay } from '../config/load.ts';
 
 // ---------------------------------------------------------------------------
+// Observation (Phase 8)
+
+/** Names of AgentState values, in order (mirrors AgentState; checked by a test). */
+export const STATE_NAMES = ['search', 'return', 'rest', 'nest search', 'dig', 'haul', 're-enter', 'nest rest', 'nurse', 'unload', 'exit'] as const;
+/** Names of Task values, in order (mirrors Task). */
+export const TASK_NAMES = ['idle', 'forage', 'nurse'] as const;
+/** Slot value in a 'states' message for a dead or free slot. */
+export const STATE_NONE = 255;
+
+/** One ant as the observer sees it (a copy of its simulation state, in display units). */
+export interface AntInfo {
+  slot: number;
+  caste: number;
+  state: number;
+  task: number;
+  underground: boolean;
+  knowsFood: boolean;
+  recruit: boolean;
+  carry: number;
+  /** Position (mm), and the home vector estimate: where it thinks the nest is (mm). */
+  x: number; y: number; z: number;
+  homeX: number; homeZ: number;
+  /** The true nest entrance (mm), when there is one. */
+  nestX: number | null; nestZ: number | null;
+  /** Remembered food site (mm), when it knows one. */
+  foodX: number | null; foodZ: number | null;
+  speed: number;
+  /** Colony life: crop and reserve (mg), age (days), perceived hunger, thresholds, carried brood. */
+  crop: number; reserve: number; ageDays: number; hunger: number; thetaF: number; thetaN: number; carryingBrood: boolean;
+  stun: number;
+}
+
+// ---------------------------------------------------------------------------
 // Snapshot layout
 
 /** Per-agent float record: pos(3) rot(4) gaitPhase(1) speed(1). */
@@ -126,6 +159,9 @@ export type ToWorker =
   | { type: 'step' }
   | { type: 'hash'; id: number }
   | { type: 'determinismCheck'; id: number; ticks: number }
+  /** Observation (Phase 8): one ant's details, and every slot's state and task. */
+  | { type: 'inspect'; id: number; slot: number }
+  | { type: 'states'; id: number }
   | { type: 'returnBuffer'; buffer: ArrayBuffer };
 
 export interface SimStats {
@@ -214,4 +250,7 @@ export type FromWorker =
   | { type: 'stats'; stats: SimStats }
   | { type: 'hash'; id: number; tick: number; hash: string }
   | { type: 'determinismCheck'; id: number; report: DeterminismReport }
+  | { type: 'inspect'; id: number; info: AntInfo | null }
+  /** [state, task] per slot up to highWater (255 for a dead slot). */
+  | { type: 'states'; id: number; data: Uint8Array }
   | { type: 'error'; message: string };

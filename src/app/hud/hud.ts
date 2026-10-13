@@ -34,6 +34,8 @@ const fmt = (x: number, digits = 1): string => (Number.isFinite(x) ? x.toFixed(d
 export class Hud {
   readonly root: HTMLDivElement;
   private readonly statsEl: HTMLPreElement;
+  private readonly observeBar: HTMLDivElement;
+  private readonly panelEl: HTMLPreElement;
   private readonly noteEl: HTMLDivElement;
   private readonly speedButtons = new Map<number, HTMLButtonElement>();
   private readonly pauseBtn: HTMLButtonElement;
@@ -88,6 +90,14 @@ export class Hud {
     if (actions.screenshot) this.button(tools, '📷', 'Save screenshot to docs/reports (dev server only)', actions.screenshot);
     this.root.appendChild(tools);
 
+    // Observation controls (Phase 8): filled by the Observer.
+    this.observeBar = document.createElement('div');
+    this.observeBar.className = 'hud-controls hud-observe';
+    this.root.appendChild(this.observeBar);
+    this.panelEl = document.createElement('pre');
+    this.panelEl.className = 'hud-panel';
+    this.root.appendChild(this.panelEl);
+
     this.noteEl = document.createElement('div');
     this.noteEl.className = 'hud-note';
     this.root.appendChild(this.noteEl);
@@ -140,6 +150,17 @@ export class Hud {
     for (const [s, b] of this.speedButtons) b.classList.toggle('active', s === this.speed);
   }
 
+  /** Add an observation button (always shown, also when the HUD is collapsed). */
+  addObserveButton(label: string, title: string, onClick: () => void): HTMLButtonElement {
+    return this.button(this.observeBar, label, title, onClick);
+  }
+
+  /** Text panel about the observed ant (empty: hidden). */
+  setPanel(text: string): void {
+    this.panelEl.textContent = text;
+    this.panelEl.hidden = text === '';
+  }
+
   note(html: string): void {
     this.noteEl.innerHTML = html;
   }
@@ -157,7 +178,7 @@ export class Hud {
   render(perf: PerfSnapshot, sim: SimStats | null, info: RendererInfo, transport: Transport, extra: readonly string[] = []): void {
     const speedLabel = (s: number): string => (s >= this.cfg.time.maxSpeed ? 'MAX' : `×${s}`);
     const lines = [
-      `Antverse — Phase 7`,
+      `Antverse — Phase 8`,
       `${info.backend} | depth ${info.depth} | ${transport === 'shared' ? 'SharedArrayBuffer' : 'copy transfer'} | ${this.tier}`,
       `GPU ${info.adapter}`,
       `FPS ${fmt(perf.fps)} | frame p50 ${fmt(perf.frameP50, 2)} / p95 ${fmt(perf.frameP95, 2)} ms`,
