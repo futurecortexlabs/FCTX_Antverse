@@ -262,11 +262,14 @@ export class Observer {
       `ant #${i.slot}${i.caste === 1 ? ' (queen)' : ''} — ${st}${i.task ? ` / ${TASK_NAMES[i.task] ?? i.task}` : ''}${i.underground ? ' | in the soil' : ''}${i.recruit ? ' | recruited' : ''}${i.stun > 0 ? ` | dazed ${i.stun.toFixed(0)} s` : ''}`,
       `at (${i.x.toFixed(1)}, ${i.z.toFixed(1)}) mm, ${(-Math.min(0, i.y)).toFixed(0)} mm down | speed ${i.speed.toFixed(1)} mm/s`,
     ];
-    if (i.nestX !== null) {
+    const queen = i.caste === 1;
+    // The queen stays in the nest: no home vector, no worker age or thresholds.
+    if (i.nestX !== null && !queen) {
       const err = Math.hypot(i.homeX - i.nestX, i.homeZ - i.nestZ!);
       lines.push(`home vector → (${i.homeX.toFixed(1)}, ${i.homeZ.toFixed(1)}), ${err.toFixed(1)} mm off the entrance${i.foodX !== null ? ` | remembers food at (${i.foodX.toFixed(0)}, ${i.foodZ!.toFixed(0)})` : ''}`);
     }
-    if (i.ageDays > 0 || i.crop > 0) {
+    if (queen) lines.push(`crop ${i.crop.toFixed(3)} mg | reserve ${i.reserve.toFixed(3)} mg`);
+    else if (i.ageDays > 0 || i.crop > 0) {
       lines.push(`age ${i.ageDays.toFixed(0)} d | crop ${i.crop.toFixed(3)} mg | reserve ${i.reserve.toFixed(3)} mg | hunger ${i.hunger.toFixed(2)} | θ forage ${i.thetaF.toFixed(2)} nurse ${i.thetaN.toFixed(2)}${i.carryingBrood ? ' | carrying brood' : ''}`);
     }
     return lines.join('\n') + (this.stateColors ? '\n' + this.legend() : '');
