@@ -584,6 +584,8 @@ async function observeViews(cdp: Cdp, query: string | undefined): Promise<void> 
     await sleep(800);
     checks.nurseView = await cdp.eval<string>("document.querySelector('.hud-panel').textContent.split('\\n')[0]");
     await shot('04-ant-view-nest');
+    // In the soil the ant view follows from behind, with the ant itself drawn.
+    checks.nurseBehind = await cdp.eval<unknown>(`[document.querySelector('.hud-observe button[title^="Ant view from behind"]').classList.contains('active'), window.antverse.ants.hidden]`);
   }
   // 5. Back to the overview with the pheromone heatmap.
   await cdp.eval(`${o}.setMode('overview')`);

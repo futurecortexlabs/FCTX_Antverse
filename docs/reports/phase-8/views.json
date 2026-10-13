@@ -1,15 +1,19 @@
 {
  "forager": 41,
  "nurse": 13,
- "surfaceView": "ant #41 — search / forage",
- "panel": "ant #41 — return / forage\nat (30.3, -14.8) mm, 0 mm down | speed 28.1 mm/s\nhome vector → (1.0, -4.2), 4.3 mm off the entrance | remembers food at (124, 8)\nage 118 d | crop 0.300 mg | reserve 0.401 mg | hunger 0.11 | θ forage 0.50 nurse 0.50\ncolours: 0=search · 1=return · 2=rest · 3=nest search · 4=dig · 5=haul · 6=re-enter · 7=nest rest · 8=nurse · 9=unload · 10=exit",
+ "surfaceView": "ant #41 — return / forage",
+ "panel": "ant #41 — unload / forage | in the soil\nat (2.2, -1.5) mm, 2 mm down | speed 28.1 mm/s\nhome vector → (0.4, -0.7), 0.9 mm off the entrance | remembers food at (123, 11)\nage 118 d | crop 0.299 mg | reserve 0.401 mg | hunger 0.11 | θ forage 0.50 nurse 0.50\ncolours: 0=search · 1=return · 2=rest · 3=nest search · 4=dig · 5=haul · 6=re-enter · 7=nest rest · 8=nurse · 9=unload · 10=exit",
  "stateColors": true,
  "tinted": 301,
  "sectionCameraBelowGround": true,
  "antViewEyeDistance": [
-  2.4233239841505703,
-  2.423324504000777
+  18.027755333058117,
+  18.027757892780677
  ],
  "nurseView": "ant #13 — nurse / nurse | in the soil",
+ "nurseBehind": [
+  true,
+  -1
+ ],
  "heatmap": true
 }

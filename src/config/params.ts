@@ -646,11 +646,15 @@ export const DEFAULT_PARAMS = {
      * length ahead of and above the mesosoma centre; the point looked at, body lengths ahead),
      * picking an ant on screen, the marks for the observed ant, and state colours (one rgb triple
      * per AgentState: search, return, rest, nest search, dig, haul, re-enter, nest rest, nurse,
-     * unload, exit).
+     * unload, exit). In the soil the ant view follows from behind instead (nestmates and brood
+     * right in front fill a head camera): body lengths behind and above, looking antViewBehindLook
+     * body lengths ahead of the ant, with the orbit camera's field of view.
      */
     antViewFov: p(100, 'deg', 'ENG-UI-002', { min: 10, max: 150 }),
     antViewEye: p([0.45, 0.18], 'x', 'ENG-UI-002'),
     antViewLook: p(4, 'x', 'ENG-UI-002', { min: 0.1 }),
+    antViewBehind: p([3, 2], 'x', 'ENG-UI-002'),
+    antViewBehindLook: p(1, 'x', 'ENG-UI-002', { min: 0 }),
     pickRadius: p(24, 'px', 'ENG-UI-002', { min: 1 }),
     inspectInterval: p(250, 'ms', 'ENG-UI-002', { min: 16 }),
     selectRing: p(1.2, 'x', 'ENG-UI-002', { min: 0.1 }),
