@@ -7,6 +7,8 @@
  * writing. Entries of cell k are [start[k], start[k] + count[k]).
  */
 
+import { isSharedBuffer } from '../../core/soa.ts';
+
 const buf = (bytes: number, shared: boolean): ArrayBuffer | SharedArrayBuffer => (shared ? new SharedArrayBuffer(bytes) : new ArrayBuffer(bytes));
 
 /** Buffers of a SurfaceGrid in field order (count, start, slots, x, z, heading). */
@@ -43,7 +45,7 @@ export class SurfaceGrid {
 
   buffers(): SurfaceBuffers | null {
     const out = [this.count.buffer, this.start.buffer, this.slots.buffer, this.x.buffer, this.z.buffer, this.heading.buffer];
-    return out.every((b) => b instanceof SharedArrayBuffer) ? (out as SharedArrayBuffer[]) : null;
+    return out.every((b) => isSharedBuffer(b)) ? (out as SharedArrayBuffer[]) : null;
   }
 
   /** Cell column / row of a position (clamped to the grid). */

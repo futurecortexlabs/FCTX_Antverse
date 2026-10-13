@@ -12,6 +12,7 @@
  * completeStep(), equals step().
  */
 
+import { isSharedBuffer } from '../core/soa.ts';
 import { dexp } from '../core/dmath.ts';
 import { StateHasher } from '../core/statehash.ts';
 import type { Config } from '../config/params.ts';
@@ -250,7 +251,7 @@ export class World {
   sharedNest(): SharedNest | null {
     if (!this.digLog || this.readsDigLog) return null;
     const m = this.mound!.buffer, d = this.density!.buffer;
-    if (!(m instanceof SharedArrayBuffer) || !(d instanceof SharedArrayBuffer)) return null;
+    if (!isSharedBuffer(m) || !isSharedBuffer(d)) return null;
     return { mound: m, density: d, digLog: this.digLog.buffer, contacts: this.density!.contactBuffers() };
   }
 

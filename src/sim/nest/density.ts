@@ -8,6 +8,7 @@
  * agents move.
  */
 
+import { isSharedBuffer } from '../../core/soa.ts';
 import type { Soil } from '../../soil/soil.ts';
 
 /**
@@ -75,7 +76,7 @@ export class DensityGrid {
     const c = this.contacts;
     if (!c) return null;
     const out = [c.start.buffer, c.slots.buffer, c.x.buffer, c.y.buffer, c.z.buffer, c.demand.buffer];
-    if (!out.every((b) => b instanceof SharedArrayBuffer)) return null;
+    if (!out.every((b) => isSharedBuffer(b))) return null;
     return out as ContactBuffers;
   }
 
