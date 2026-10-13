@@ -95,6 +95,28 @@ describe('SimRunner without shared memory (pages that are not cross-origin isola
     }
   });
 
+  it('runs a colony in the environment (rain, drops, collisions, brood) when SharedArrayBuffer does not exist', () => {
+    const preset = JSON.parse(readFileSync('config/presets/field.json', 'utf8')) as Overlay;
+    const cfg = buildConfig([preset, { population: { count: 40 }, sim: { capacity: 128 }, soil: { size: [128, 256, 128] }, env: { rain: [0, 1, 60], startHour: 10 } }]).config;
+    const g = globalThis as { SharedArrayBuffer?: unknown };
+    const saved = g.SharedArrayBuffer;
+    delete g.SharedArrayBuffer;
+    try {
+      const clock = fakeTime();
+      const r = new SimRunner(cfg, null, clock.now);
+      r.iterate();
+      for (let i = 0; i < 30; i++) { clock.advance(100); r.iterate(); }
+      expect(r.world.tick).toBeGreaterThan(0);
+      expect(r.world.sharedNest()).toBeNull();
+      expect(r.world.sharedSurface()).toBeNull();
+      expect(r.world.sharedDrops()).toBeNull();
+      expect(r.broodCopy()!.length).toBeGreaterThan(0);
+      expect(r.fieldCopy()).not.toBeNull();
+    } finally {
+      g.SharedArrayBuffer = saved;
+    }
+  });
+
   it('with shared memory the grid is not copied', () => {
     const r = new SimRunner(buildConfig([{ population: { count: 1 } }]).config, null, () => 0);
     expect(r.fieldInfo()).toBeNull(); // open ground: no field

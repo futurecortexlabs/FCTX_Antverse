@@ -11,6 +11,7 @@
  * whether a point is under water.
  */
 
+import { isSharedBuffer } from '../../core/soa.ts';
 const buf = (bytes: number, shared: boolean): ArrayBuffer | SharedArrayBuffer => (shared ? new SharedArrayBuffer(bytes) : new ArrayBuffer(bytes));
 
 /** Shared buffers: [x, z, r, y, meta(count | grid count | grid start)]. */
@@ -43,7 +44,7 @@ export class Drops {
 
   buffers(): DropBuffers | null {
     const out = [this.x.buffer, this.z.buffer, this.r.buffer, this.y.buffer, this.meta.buffer];
-    return out.every((b) => b instanceof SharedArrayBuffer) ? (out as SharedArrayBuffer[]) : null;
+    return out.every((b) => isSharedBuffer(b)) ? (out as SharedArrayBuffer[]) : null;
   }
 
   get count(): number {
