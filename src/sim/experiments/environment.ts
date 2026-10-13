@@ -128,6 +128,8 @@ export function runTempTrial(config: Config): TempResult {
 
 export interface RainResult {
   seed: number;
+  /** False for the control: the same colony on the same day without the shower. */
+  rain: boolean;
   /** Mean foragers out over the hour before the rain, during it (after its first rainResponse), and the hour ending recovery after it. */
   before: number;
   during: number;
@@ -142,7 +144,8 @@ export interface RainResult {
 
 export function runRainTrial(config: Config): RainResult {
   const w = new World(config), a = w.agents.a, ex = config.experiment;
-  const r = config.env.rain as readonly number[];
+  // The shower's hours come from the experiment, so that the control (no rain) is counted over the same hours.
+  const r = ex.rainShower as readonly number[];
   const start = r[0]! * S_PER_H, stop = start + r[1]! * S_PER_H, end = stop + ex.rainRecovery;
   const series: number[] = [];
   let before = 0, nb = 0, during = 0, nd = 0, after = 0, na = 0, entered = 0, hits = 0, dropsAtEnd = 0;
@@ -174,7 +177,7 @@ export function runRainTrial(config: Config): RainResult {
     else if (t >= end - S_PER_H) { after += f; na++; }
   }
   return {
-    seed: config.sim.seed, before: before / Math.max(1, nb), during: during / Math.max(1, nd), after: after / Math.max(1, na),
+    seed: config.sim.seed, rain: (config.env.rain as readonly number[]).length > 0, before: before / Math.max(1, nb), during: during / Math.max(1, nd), after: after / Math.max(1, na),
     entered, hits, dropsAtEnd, dropsLeft: w.drops!.count, series,
   };
 }

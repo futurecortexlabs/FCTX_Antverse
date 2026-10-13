@@ -83,17 +83,23 @@ if (existsSync(`${dir}/${name}-temp-series.csv`)) {
 }
 
 if (existsSync(`${dir}/${name}-rain-series.csv`)) {
-  const d = rows(`${name}-rain-series.csv`); // seed,minute,out
-  const s = meanBy(d, () => true, 1, 2);
+  const d = rows(`${name}-rain-series.csv`); // seed,rain,minute,out (older runs: seed,minute,out, rain only)
+  const old = d[0]!.length === 3;
   // 10-minute means.
-  const m: [number, number][] = [];
-  for (let i = 0; i < s.length; i += 10) { const w = s.slice(i, i + 10); m.push([(i + 5) / 60, w.reduce((p, x) => p + x[1], 0) / w.length]); }
-  const hMax = s.length / 60, yMax = nice(Math.max(...m.map((p) => p[1])));
+  const tenMin = (rain: string): [number, number][] => {
+    const s = old ? (rain === '1' ? meanBy(d, () => true, 1, 2) : []) : meanBy(d, (r) => r[1] === rain, 2, 3);
+    const m: [number, number][] = [];
+    for (let i = 0; i < s.length; i += 10) { const w = s.slice(i, i + 10); m.push([(i + 5) / 60, w.reduce((p, x) => p + x[1], 0) / w.length]); }
+    return m;
+  };
+  const wet = tenMin('1'), dry = tenMin('0');
+  const hMax = wet.length / 6, yMax = nice(Math.max(...wet.map((p) => p[1]), ...dry.map((p) => p[1])));
   const X = (h: number): number => L + (h / hMax) * (W - L - R), Y = (v: number): number => T + (1 - v / yMax) * (H - T - B);
-  const o = frame(W, H, 'Foragers out (10-min mean of colonies) around a 10 mm/h shower at 12:00–13:00 (shaded); hour 0 = 06:00');
+  const o = frame(W, H, `Foragers out (10-min mean of colonies) around a 10 mm/h shower at 12:00–13:00 (shaded)${dry.length ? ', blue; same colonies without it, grey' : ''}; hour 0 = 06:00`);
   o.push(`<rect x="${X(6)}" y="${T}" width="${X(7) - X(6)}" height="${H - T - B}" fill="#d9e6f2"/>`);
   axes(o, X, Y, [0, 2, 4, 6, 8].filter((h) => h <= hMax), [0, yMax / 2, yMax], 'hours from 06:00', 'foragers out', W, H);
-  o.push(line(m, X, Y, BLUE), '</svg>');
+  if (dry.length) o.push(line(dry, X, Y, GREY));
+  o.push(line(wet, X, Y, BLUE), '</svg>');
   writeFileSync(`${dir}/${name}-rain.svg`, o.join('\n') + '\n');
 }
 console.log('plots written to', dir);

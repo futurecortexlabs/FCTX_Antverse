@@ -1,0 +1,27 @@
+# date: 2026-10-13T20:13:43.426Z | node v24.19.0 | cpu Intel(R) Core(TM) Ultra 7 265K | 19 threads | 219 min
+# overlays: [{"scenario":{"colony":true,"feederRadius":20},"population":{"count":300},"soil":{"pit":[8,60]}}]
+# protocol: 10 seeds from 6001; removal: warm-up 6 h, window 2 h, recovery 6 h; economy 48 h; recruitment 3 h from crop fill 0.1
+# result removal: 10/10 colonies with ≥ 80% of the control's foragers 6 h after the removal → PASS
+# result polyethism: 10/10 colonies with foragers older than nurses (median ages) → PASS
+# result economy: 10/10 seed pairs (food rises with food, falls without; larvae grow more with food) → PASS
+seed,food,start_mg,end_mg,larval_growth_mg,intake_mg,workers_end
+6001,1,196.240,230.064,11.351,101.25,310
+6001,0,196.240,137.481,5.082,0.00,310
+6002,1,196.240,225.361,11.286,98.81,306
+6002,0,196.240,135.917,5.048,0.00,306
+6003,1,196.240,234.410,10.944,104.47,309
+6003,0,196.240,137.930,4.860,0.00,309
+6004,1,196.240,232.075,11.505,99.57,314
+6004,0,196.240,140.743,5.088,0.00,314
+6005,1,196.240,231.119,10.756,100.17,308
+6005,0,196.240,137.590,4.806,0.00,308
+6006,1,196.240,234.739,11.403,100.74,314
+6006,0,196.240,141.196,4.875,0.00,314
+6007,1,196.240,232.923,11.234,102.64,308
+6007,0,196.240,137.980,4.976,0.00,308
+6008,1,196.240,234.367,10.535,105.58,304
+6008,0,196.240,135.309,4.804,0.00,304
+6009,1,196.240,234.128,11.581,104.03,308
+6009,0,196.240,137.557,5.076,0.00,308
+6010,1,196.240,235.468,11.195,102.38,312
+6010,0,196.240,139.856,4.916,0.00,312
