@@ -6,7 +6,9 @@
  *   section   the ground taken away, the camera free to go below the surface:
  *             the nest, its cast, the brood and the ants in the soil;
  *   ant       the eyes of one ant: the camera rides on its head, looking
- *             where it looks — on the ground or on a tunnel wall.
+ *             where it looks — on the ground or on a tunnel wall. In the soil
+ *             it follows from behind and above instead (nestmates and brood
+ *             right in front would fill the view); B switches by hand.
  * One ant is observed at a time: click (tap) one, or N / P for the next /
  * previous; Esc lets it go. Debug views (toggle keys): H the pheromone
  * heatmap, C ants coloured by state, V the observed ant's home vector and
@@ -47,6 +49,8 @@ export class Observer {
   info: AntInfo | null = null;
   stateColors = false;
   vectors = true;
+  /** Ant view from behind: null follows the ant (behind in the soil, its eyes on the ground). */
+  behind: boolean | null = null;
   private readonly d: ObserverDeps;
   private readonly marks: ObserverMarks;
   private readonly buttons = new Map<string, HTMLButtonElement>();
@@ -66,6 +70,7 @@ export class Observer {
     b('overview', 'Overview', 'Orbit over the ground (1)', () => this.setMode('overview'));
     b('section', 'Section', 'Ground taken away: the nest and the ants in the soil (2)', () => this.setMode('section'));
     b('ant', 'Ant view', "Through the observed ant's eyes (3)", () => this.setMode('ant'));
+    b('behind', 'Behind', 'Ant view from behind the ant / through its eyes (B)', () => this.toggleBehind());
     b('prev', '◀', 'Previous ant (P)', () => this.step(-1));
     b('next', '▶', 'Next ant (N)', () => this.step(1));
     b('heat', 'Pheromone', 'Pheromone heatmap (H)', () => this.toggleHeat());
@@ -86,6 +91,7 @@ export class Observer {
   /** Whether the ground is cut away now. */
   private cut = false;
   private heat: boolean;
+  private wasChasing = false;
 
   setMode(m: ViewMode): void {
     const d = this.d;
@@ -139,14 +145,17 @@ export class Observer {
       void Promise.all(jobs).finally(() => { this.pending = false; });
     }
     const have = this.selected !== null && d.ants.poseOf(this.selected, this.pose);
+    const chase = this.chasing();
+    if (chase !== this.wasChasing) { this.wasChasing = chase; this.refresh(); }
     if (have && this.mode === 'ant') {
-      this.ride();
+      this.ride(chase);
       // In the soil, see the tunnel walls (the cast) rather than the underside of the ground.
-      const under = this.info?.underground ?? this.pose[1]! < 0;
+      const under = this.underground();
       if (under !== this.cut) { this.cut = under; d.setCutaway(under); }
     }
-    d.ants.hidden = this.mode === 'ant' && this.selected !== null ? this.selected : -1;
-    if (have && this.mode !== 'ant') this.marks.update(this.pose[0]!, this.pose[1]!, this.pose[2]!, this.info, this.vectors);
+    d.ants.hidden = this.mode === 'ant' && this.selected !== null && !chase ? this.selected : -1;
+    // From behind, the ring (drawn over everything) picks the ant out of the crowd.
+    if (have && (this.mode !== 'ant' || chase)) this.marks.update(this.pose[0]!, this.pose[1]!, this.pose[2]!, this.info, this.vectors && !chase);
     else this.marks.update(0, 0, 0, null, false);
     d.ants.colors = this.stateColors ? this.colors : null;
     d.hud.setPanel(this.panelText());
@@ -154,14 +163,33 @@ export class Observer {
 
   // ---------------------------------------------------------------------------
 
-  /** The camera on the ant's head: eye antViewEye body lengths ahead / up, looking antViewLook ahead. */
-  private ride(): void {
+  private underground(): boolean {
+    return this.info?.underground ?? this.pose[1]! < 0;
+  }
+
+  /** Whether the ant view is from behind now. */
+  private chasing(): boolean {
+    return this.mode === 'ant' && (this.behind ?? this.underground());
+  }
+
+  private toggleBehind(): void {
+    this.behind = !(this.behind ?? this.underground());
+    this.refresh();
+  }
+
+  /**
+   * The camera on the ant's head (eye antViewEye body lengths ahead / up, looking antViewLook
+   * ahead), or behind it (antViewBehind back / up, looking antViewBehindLook ahead of it).
+   */
+  private ride(chase: boolean): void {
     const d = this.d, r = d.cfg.render, L = d.cfg.ant.workerBodyLength;
+    const fov = chase ? this.baseFov : r.antViewFov;
+    if (d.camera.fov !== fov) { d.camera.fov = fov; d.camera.updateProjectionMatrix(); }
     const q = new THREE.Quaternion(this.pose[3]!, this.pose[4]!, this.pose[5]!, this.pose[6]!);
     const at = new THREE.Vector3(this.pose[0]!, this.pose[1]!, this.pose[2]!);
-    const [ahead, up] = r.antViewEye as readonly [number, number];
+    const [ahead, up] = (chase ? (r.antViewBehind as readonly number[]).map((v, i) => (i === 0 ? -v : v)) : r.antViewEye) as readonly [number, number];
     const eye = new THREE.Vector3(ahead! * L, up! * L, 0).applyQuaternion(q).add(at);
-    const look = new THREE.Vector3(r.antViewLook * L, 0, 0).applyQuaternion(q).add(at);
+    const look = new THREE.Vector3((chase ? r.antViewBehindLook : r.antViewLook) * L, 0, 0).applyQuaternion(q).add(at);
     const upv = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
     d.camera.position.copy(eye);
     d.camera.up.copy(upv);
@@ -243,12 +271,13 @@ export class Observer {
     else if (k === 'h') this.toggleHeat();
     else if (k === 'c') this.toggleColors();
     else if (k === 'v') { this.vectors = !this.vectors; this.refresh(); }
+    else if (k === 'b') this.toggleBehind();
     else if (k === 'escape') this.select(null);
   }
 
   private refresh(): void {
     for (const [k, b] of this.buttons) {
-      const on = k === this.mode || (k === 'heat' && this.heat) || (k === 'colors' && this.stateColors) || (k === 'vectors' && this.vectors);
+      const on = k === this.mode || (k === 'behind' && this.chasing()) || (k === 'heat' && this.heat) || (k === 'colors' && this.stateColors) || (k === 'vectors' && this.vectors);
       b.classList.toggle('active', on);
     }
   }
