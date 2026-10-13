@@ -143,4 +143,9 @@ canvas {
   .hud-controls button {
     flex: 0 0 auto;
   }
+  /* The observation buttons wrap: a scrolled-away toggle would go unnoticed. */
+  .hud-observe {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
 }

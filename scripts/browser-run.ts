@@ -626,6 +626,37 @@ async function mobile(cdp: Cdp, base: string, backend: string | undefined): Prom
     return { whileHidden, afterVisible: h.paused };
   })()`);
   console.log('auto-pause', JSON.stringify(paused));
+  // Phase 8 observation on a phone: tap the buttons with touch events, as a finger would.
+  const rect = (title: string): Promise<{ x: number; y: number; w: number; h: number } | null> => cdp.eval(`(() => {
+    const b = [...document.querySelectorAll('.hud-observe button')].find((e) => e.title.startsWith(${JSON.stringify(title)}));
+    if (!b) return null; const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width, h: r.height };
+  })()`);
+  const tap = async (title: string): Promise<void> => {
+    const r = await rect(title);
+    if (!r) throw new Error(`no button ${title}`);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: r.x, y: r.y }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await sleep(800);
+  };
+  const o = 'window.antverse.observer';
+  await tap('Next ant');
+  await tap("Through the observed ant's eyes");
+  const observe = await cdp.eval<Record<string, unknown>>(`(() => {
+    const bar = document.querySelector('.hud-observe').getBoundingClientRect();
+    const sizes = [...document.querySelectorAll('.hud-observe button')].map((b) => { const r = b.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
+    return { mode: ${o}.mode, panel: document.querySelector('.hud-panel').textContent.split(String.fromCharCode(10))[0],
+      barRight: Math.round(bar.right), viewport: innerWidth, pageScrollsSideways: document.documentElement.scrollWidth > innerWidth, sizes };
+  })()`);
+  await cdp.screenshot(`docs/reports/mobile/phone-ant-view${tag}.png`);
+  await tap('Ground taken away');
+  observe.afterSection = await cdp.eval<string>(`${o}.mode`);
+  await tap('Colour ants by state');
+  const heatBefore = await cdp.eval<boolean>(`${o}.heat`);
+  await tap('Pheromone heatmap');
+  observe.stateColors = await cdp.eval<boolean>(`${o}.stateColors`);
+  observe.heatmapToggled = [heatBefore, await cdp.eval<boolean>(`${o}.heat`)];
+  await cdp.screenshot(`docs/reports/mobile/phone-section${tag}.png`);
+  console.log('observe', JSON.stringify(observe, null, 1));
 }
 
 async function bench(cdp: Cdp, backend: string | undefined): Promise<void> {
