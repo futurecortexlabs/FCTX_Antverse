@@ -23,6 +23,7 @@
 
 import { datan2, dexp } from '../../core/dmath.ts';
 import { quatFromBasis } from '../../core/quat.ts';
+import { S_PER_DAY } from '../../core/units.ts';
 import { rand, Stream } from '../../core/rng.ts';
 import { strideLength } from '../../locomotion/morphology.ts';
 import type { Soil } from '../../soil/soil.ts';
@@ -138,6 +139,10 @@ export function burrow(world: World, from: number, to: number): void {
         gy = up < down ? 1 : -1; pull = cc.thermoPull;
       } else if (state === AgentState.NURSE && demandGradient(world, ix, d, iz, n3)) {
         gx = n3[0]!; gy = n3[1]!; gz = n3[2]!; pull = config.colony.nursePull;
+      } else if (dc.ageZonePull > 0 && world.colony) {
+        // Vertical age zoning (ASM-NST-008): the young down towards the brood, the old up.
+        const young = dexp(-(world.simTime() - a.born[s]!) / (config.colony.ageScale * S_PER_DAY));
+        gy = 1 - 2 * young; pull = dc.ageZonePull;
       } else {
         gy = -1; pull = dc.walkDown;
       }

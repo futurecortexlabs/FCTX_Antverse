@@ -1,0 +1,32 @@
+seed 11 6 h: dug 9774 mm³, deepest 29 mm
+  0                   ####                   |  104  young 0 old 0
+  2            o#.o############              |  405  young 3 old 10
+  4            o##############o              |  983  young 10 old 28
+  6             o##############              |  828  young 1 old 8
+  8              .############.              |  753  young 8 old 19
+ 10           .o##############.              |  987  young 3 old 17
+ 12           .################o             | 1361  young 8 old 26
+ 14            o#################.           | 1422  young 7 old 20
+ 16            o#################            | 1228  young 9 old 20
+ 18             ################             |  866  young 3 old 12
+ 20             .###########.                |  556  young 0 old 2
+ 22               ########.                  |  360  young 1 old 1
+ 24                ######o                   |  228  young 1 old 3
+ 26                ######                    |  151  young 14 old 15
+ 28               .ooooo                     |   22  young 21 old 30
+
+seed 12 6 h: dug 10348 mm³, deepest 27 mm
+  0                   ####                   |  104  young 0 old 2
+  2              o.#############o            |  634  young 6 old 13
+  4             o###############.            | 1022  young 6 old 26
+  6              o#############o             |  853  young 4 old 9
+  8            o##############.              |  873  young 8 old 10
+ 10             ##############o.             |  722  young 9 old 18
+ 12           .#################o            | 1285  young 10 old 31
+ 14          .o#################o            | 1532  young 11 old 30
+ 16           .################o             | 1337  young 5 old 15
+ 18             o#############o.             |  948  young 0 old 3
+ 20               .##########.               |  572  young 0 old 2
+ 22               o##########.               |  480  young 1 old 1
+ 24                #########o                |  361  young 8 old 12
+ 26                .######o..                |  105  young 19 old 43

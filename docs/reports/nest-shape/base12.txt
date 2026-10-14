@@ -1,0 +1,122 @@
+seed 11 12 h: dug 18871 mm³, deepest 79 mm
+  0                   ####                   |  104  young 0 old 0
+  2                o##########o              |  316  young 0 old 0
+  4                .###########              |  549  young 0 old 1
+  6                o##########.              |  610  young 0 old 0
+  8                ############.             |  715  young 1 old 0
+ 10              .o############              |  646  young 0 old 0
+ 12             o#############o              |  763  young 1 old 0
+ 14             ###############              |  942  young 0 old 0
+ 16            o###############.             | 1060  young 0 old 3
+ 18            .###############o             |  970  young 2 old 8
+ 20             ##############..             |  767  young 8 old 16
+ 22             o############o               |  709  young 7 old 22
+ 24              o############o              |  688  young 12 old 18
+ 26               #############.             |  692  young 3 old 9
+ 28              o#############o.            |  804  young 0 old 0
+ 30              ###############             |  777  young 0 old 0
+ 32              o##############             |  797  young 0 old 0
+ 34              .############o.             |  777  young 2 old 9
+ 36              .o##########o               |  473  young 7 old 19
+ 38               ..########..               |  356  young 6 old 16
+ 40                 ########o.               |  380  young 10 old 18
+ 42                ############o             |  604  young 5 old 10
+ 44               .#############o            |  783  young 0 old 0
+ 46                #############o            |  850  young 0 old 1
+ 48                #############.            |  865  young 0 old 2
+ 50                #############.            |  743  young 6 old 7
+ 52                o###########.             |  438  young 4 old 20
+ 54                 .#####oo##o              |  177  young 4 old 6
+ 56                  o####  . .              |  108  young 0 old 10
+ 58                  ######o                 |  148  young 3 old 8
+ 60                 .######.                 |  211  young 0 old 1
+ 62                 .#######o                |  180  young 0 old 0
+ 64                  .#####o.                |  121  young 1 old 0
+ 66                   .####o                 |   82  young 1 old 0
+ 68                    .##o                  |   53  young 0 old 0
+ 70                     ##.                  |   38  young 0 old 1
+ 72                    o##                   |   27  young 0 old 0
+ 74                     #o                   |   15  young 0 old 1
+ 76                    .o.                   |    8  young 2 old 0
+ 78                    .o                    |    5  young 5 old 4
+
+seed 12 12 h: dug 19621 mm³, deepest 79 mm
+  0                   ####                   |  104  young 0 old 0
+  2                o##########.              |  378  young 0 old 2
+  4               .###########.              |  595  young 0 old 1
+  6                o#########.               |  536  young 0 old 0
+  8               o###########oo             |  590  young 0 old 1
+ 10               ###############            |  837  young 0 old 1
+ 12               ##############o            |  944  young 1 old 1
+ 14             .################            | 1062  young 0 old 1
+ 16             o################.           | 1086  young 2 old 5
+ 18              o##############o            |  890  young 4 old 12
+ 20              .##############             |  731  young 7 old 17
+ 22              .#############o             |  682  young 10 old 31
+ 24              o#############o             |  698  young 3 old 16
+ 26             o##############o             |  916  young 0 old 0
+ 28             .##############.             | 1012  young 0 old 2
+ 30             o##############.             |  942  young 0 old 4
+ 32             .#############o              |  825  young 8 old 8
+ 34              o###########.               |  603  young 6 old 8
+ 36              .##########o                |  500  young 2 old 23
+ 38              .##########.                |  434  young 8 old 12
+ 40             o############                |  597  young 3 old 12
+ 42            .#############                |  708  young 0 old 3
+ 44             o############                |  763  young 2 old 2
+ 46            .############o                |  720  young 0 old 0
+ 48            #############o                |  611  young 3 old 8
+ 50            .############                 |  447  young 6 old 12
+ 52             o############.               |  317  young 8 old 6
+ 54             .ooo#########                |  245  young 3 old 8
+ 56                .#########.               |  255  young 6 old 3
+ 58                .#########.               |  304  young 1 old 1
+ 60                .#########o               |  255  young 0 old 0
+ 62                .#########o               |  206  young 0 old 2
+ 64                 .o##oo##o                |  117  young 0 old 1
+ 66                   #o.o##.                |   71  young 0 old 3
+ 68                   o  o#o                 |   38  young 1 old 2
+ 70                      .#o                 |   25  young 1 old 0
+ 72                       #.                 |   11  young 1 old 0
+ 74                      o##.                |   24  young 0 old 0
+ 76                      o#o.                |   19  young 0 old 1
+ 78                       o                  |    3  young 3 old 4
+
+seed 13 12 h: dug 18779 mm³, deepest 72 mm
+  0                   ####                   |  104  young 0 old 0
+  2              o###########.               |  348  young 0 old 0
+  4             .o##########o.               |  558  young 0 old 1
+  6              o###########o               |  630  young 1 old 0
+  8              o###########o               |  792  young 0 old 0
+ 10              #############               |  857  young 0 old 0
+ 12             o############o               |  895  young 0 old 1
+ 14             #############o               |  915  young 3 old 0
+ 16            .##############.              |  873  young 7 old 21
+ 18             .#############.              |  759  young 9 old 19
+ 20              #############               |  713  young 6 old 17
+ 22             o#############oo             |  943  young 3 old 10
+ 24             o##############o             | 1072  young 0 old 0
+ 26            .o##############o             | 1003  young 0 old 1
+ 28              ##############              |  908  young 0 old 2
+ 30              o##############.            |  754  young 3 old 6
+ 32               oo############.            |  548  young 10 old 19
+ 34                 o##########o             |  456  young 5 old 8
+ 36                 .o#########o             |  430  young 6 old 13
+ 38                .############o            |  622  young 6 old 16
+ 40               .#############o            |  842  young 1 old 13
+ 42               .#############o            |  897  young 10 old 20
+ 44                #############o            |  811  young 8 old 9
+ 46                .#############.           |  744  young 3 old 3
+ 48                .#############            |  542  young 2 old 3
+ 50                 #o##########o            |  320  young 0 old 2
+ 52                 oo########o#o            |  187  young 0 old 0
+ 54                 . #####.#####o           |  221  young 0 old 3
+ 56                   .#o##.o####            |  175  young 1 old 0
+ 58                    . #o  ###.            |   78  young 0 old 4
+ 60                      o.  o###            |   77  young 1 old 1
+ 62                      o   o###            |   56  young 0 old 0
+ 64                      .   .##.            |   43  young 0 old 0
+ 66                          .##             |   28  young 0 old 1
+ 68                          o##.            |   35  young 1 old 0
+ 70                          .#o             |   19  young 2 old 4
+ 72                           ..             |    4  young 9 old 8
