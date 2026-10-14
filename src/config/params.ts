@@ -153,6 +153,23 @@ export const DEFAULT_PARAMS = {
     downPull: p(2, 'x', 'ASM-NST-003', { min: 0 }),
     /** Pull downwards while walking in the nest without a load (geotaxis in walking). */
     walkDown: p(0.1, 'x', 'ASM-NST-003', { min: 0 }),
+    /**
+     * Colony: instead of walkDown, a worker walking in the nest without a load is pulled up or
+     * down by its age, (1 − 2 e^(−age/colony.ageScale)) × ageZonePull: the young towards the
+     * depths, the old towards the entrance (vertical age zoning). 0 = off.
+     */
+    ageZonePull: p(0, 'x', 'ASM-NST-008', { min: 0 }),
+    /**
+     * Chambers: where crowding drives digging, the floor and ceiling faces are avoided by
+     * flatPull × (digging response) (log-weight per unit vertical component), so crowds widen
+     * the space sideways; a ceiling face is never dug where the open height (floor to ceiling)
+     * is already chamberHeight (0 = no limit).
+     */
+    flatPull: p(0, 'x', 'ASM-NST-009', { min: 0 }),
+    /** Tunnels: no stopping to rest where cramped (passages), and crowding at a cramped tip judged in its own density cell. */
+    restWide: p(false, 'bool', 'ASM-NST-010'),
+    tipLocal: p(false, 'bool', 'ASM-NST-010'),
+    chamberHeight: p(0, 'mm', 'ASM-NST-009', { min: 0 }),
     /** Blend of the new step into the direction of travel. */
     turnBlend: p(0.5, 'x', 'ENG-SOL-002', { min: 0, max: 1 }),
     /**

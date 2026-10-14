@@ -67,7 +67,15 @@ export function excavate(world: World, from: number, to: number): void {
       const ix = v[0]!, d = v[1]!, iz = v[2]!;
       // Crowding: other workers around (this cell and its neighbours, at the end of the last
       // tick) per open space, relative to spacePerWorker; the digging response to it.
-      density.around(ix, d, iz, around);
+      // Is the space here narrower than the body? Count open voxels among the 26 neighbours.
+      let open = 0;
+      for (let dz = -1; dz <= 1; dz++) for (let dd = -1; dd <= 1; dd++) for (let dx = -1; dx <= 1; dx++) {
+        if ((dx !== 0 || dd !== 0 || dz !== 0) && soil.isOpen(ix + dx, d + dd, iz + dz)) open++;
+      }
+      const cramped = open < dc.clearance;
+      // At a tunnel tip (cramped), with dig.tipLocal, crowding is judged in its own cell only.
+      if (cramped && dc.tipLocal) { around[0] = density.countAt(ix, d, iz); around[1] = density.openAt(ix, d, iz); }
+      else density.around(ix, d, iz, around);
       const crowding = (Math.max(0, around[0]! - 1) * dc.spacePerWorker) / (Math.max(1, around[1]!) * config.soil.pellet);
       const urge = digResponse(crowding, 1, dc.densityHill);
       // Resting in clusters: stop and move on by the number of nestmates in the density cell —
@@ -78,27 +86,31 @@ export function excavate(world: World, from: number, to: number): void {
         if (rand(world.seed, Stream.DIG, s, world.tick, DigKey.LEAVE) < leave * dt) a.state[s] = AgentState.DIG;
         continue;
       }
-      if (rand(world.seed, Stream.DIG, s, world.tick, DigKey.STOP) < (dc.stopBase + dc.stopPerWorker * near) * (1 - urge) * dt) {
+      // With dig.restWide, workers do not stop to rest in a passage narrower than the body.
+      if (!(cramped && dc.restWide) && rand(world.seed, Stream.DIG, s, world.tick, DigKey.STOP) < (dc.stopBase + dc.stopPerWorker * near) * (1 - urge) * dt) {
         a.state[s] = AgentState.NEST_REST;
         continue;
+      }
+      // Open height here, floor to ceiling in mm (1 mm voxels), when chambers have a height limit (ASM-NST-009).
+      let height = 0;
+      if (dc.chamberHeight > 0) {
+        const cap = Math.ceil(dc.chamberHeight);
+        height = 1;
+        for (let k = 1; k <= cap && soil.isOpen(ix, d - k, iz); k++) height++;
+        for (let k = 1; k <= cap && soil.isOpen(ix, d + k, iz); k++) height++;
       }
       let faces = 0;
       for (let k = 0; k < FACES.length; k++) {
         const [fx, fd, fz] = FACES[k]!;
         faceWeights[k] = 0;
         if (!soil.canDig(ix + fx, d + fd, iz + fz)) continue;
+        if (fd < 0 && dc.chamberHeight > 0 && height >= dc.chamberHeight) continue;
         // World direction of the face: depth index grows downwards.
         const nx = fx, ny = -fd, nz = fz;
-        faceWeights[k] = dexp(dc.persistence * (nx * a.dirX[s]! + ny * a.dirY[s]! + nz * a.dirZ[s]!) + dc.downPull * -ny);
+        faceWeights[k] = dexp(dc.persistence * (nx * a.dirX[s]! + ny * a.dirY[s]! + nz * a.dirZ[s]!) + dc.downPull * -ny - dc.flatPull * urge * Math.abs(ny));
         faces++;
       }
       if (faces === 0) continue;
-      // Is the space here narrower than the body? Count open voxels among the 26 neighbours.
-      let open = 0;
-      for (let dz = -1; dz <= 1; dz++) for (let dd = -1; dd <= 1; dd++) for (let dx = -1; dx <= 1; dx++) {
-        if ((dx !== 0 || dd !== 0 || dz !== 0) && soil.isOpen(ix + dx, d + dd, iz + dz)) open++;
-      }
-      const cramped = open < dc.clearance;
       const p = dc.rate * dt * urge * (cramped ? 1 : dc.looseFactor);
       if (rand(world.seed, Stream.DIG, s, world.tick, DigKey.WHETHER) >= p) continue;
       let total = 0;

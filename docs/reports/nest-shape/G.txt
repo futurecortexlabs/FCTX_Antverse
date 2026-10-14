@@ -1,0 +1,33 @@
+seed 11 6 h: dug 9014 mm³, deepest 28 mm
+  0                   ####                   |   88  young 0 old 0
+  2              o############               |  420  young 2 old 4
+  4            .o############o               |  731  young 4 old 11
+  6             .#############.              |  604  young 5 old 17
+  8             .#############.              |  758  young 1 old 15
+ 10            .oo############o.             |  819  young 3 old 12
+ 12            o#################            | 1377  young 10 old 20
+ 14           ####################.          | 1833  young 10 old 31
+ 16           .##################.           | 1350  young 10 old 32
+ 18            .################o            |  963  young 2 old 17
+ 20              .o.############o            |  336  young 1 old 3
+ 22                     #######o             |  141  young 2 old 1
+ 24                     ####ooo              |   61  young 2 old 2
+ 26                     oo.                  |   12  young 21 old 34
+ 28                      .                   |    1  young 16 old 12
+
+seed 12 6 h: dug 9612 mm³, deepest 28 mm
+  0                   ####                   |   95  young 0 old 0
+  2                ##########o               |  503  young 0 old 1
+  4              o###########.               |  882  young 1 old 0
+  6              .############.              |  710  young 0 old 2
+  8              .o##########.               |  674  young 5 old 14
+ 10             oooo#########o               |  451  young 7 old 15
+ 12          .###################o           | 1374  young 18 old 27
+ 14          .####################.          | 1837  young 20 old 60
+ 16           o##################.           | 1335  young 6 old 24
+ 18             o#############o#             |  700  young 0 old 3
+ 20              .o##########.               |  605  young 2 old 4
+ 22                ##########.               |  464  young 0 old 6
+ 24                o#########                |  384  young 6 old 14
+ 26                 o######o.                |   76  young 17 old 38
+ 28                   .  .                   |    2  young 5 old 7
