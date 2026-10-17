@@ -6,7 +6,8 @@
  * area) is at least experiment.nestFlatRatio times its height.
  */
 
-import type { World } from '../world.ts';
+import type { Config } from '../../config/params.ts';
+import { World } from '../world.ts';
 
 export interface Chamber {
   /** Depth of its ceiling below the surface (mm), its height (mm) and largest horizontal area (mm²). */
@@ -73,4 +74,23 @@ export function nestShape(world: World): NestShape {
     volume: seen.size, depth, areas, shaftArea, shaftWidth: 2 * Math.sqrt(shaftArea / Math.PI), chambers,
     upperShare: seen.size ? upper / seen.size : 0,
   };
+}
+
+export interface NestTrialResult extends Omit<NestShape, 'areas'> {
+  seed: number;
+  areas: number[];
+  /** Flat chambers, and whether the colony passes (ENG-EXP-006). */
+  flatChambers: number;
+  pass: boolean;
+}
+
+/** A colony digs its nest from the starting pit for experiment.nestDuration; its shape at the end. */
+export function runNestTrial(config: Config): NestTrialResult {
+  const ex = config.experiment;
+  const w = new World(config);
+  const ticks = Math.round(ex.nestDuration / config.sim.dt);
+  for (let t = 0; t < ticks; t++) w.step();
+  const shape = nestShape(w);
+  const flatChambers = shape.chambers.filter((c) => c.flat).length;
+  return { ...shape, seed: config.sim.seed, flatChambers, pass: flatChambers >= ex.nestMinChambers && shape.upperShare > ex.nestUpperShare };
 }

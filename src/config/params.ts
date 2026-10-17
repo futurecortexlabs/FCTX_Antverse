@@ -794,6 +794,18 @@ export const DEFAULT_PARAMS = {
     /** Nest shape (ENG-EXP-006): a chamber is at least nestChamberRatio x the shaft's area, flat when its width is at least nestFlatRatio x its height. */
     nestChamberRatio: p(3, 'x', 'ENG-EXP-006', { min: 1 }),
     nestFlatRatio: p(2, 'x', 'ENG-EXP-006', { min: 0 }),
+    /**
+     * Nest-shape acceptance (ENG-EXP-006): nestSeeds colonies (field scenario, starting pit
+     * nestPit [radius, depth] mm) from nestFirstSeed, for nestDuration. Pass: at least
+     * nestMinChambers flat chambers and more than nestUpperShare of the volume in the upper half,
+     * in passFraction of the colonies.
+     */
+    nestSeeds: p(10, 'count', 'ENG-EXP-006', { min: 1, integer: true }),
+    nestFirstSeed: p(9001, 'count', 'ENG-EXP-006', { min: 0, max: 0xffffffff, integer: true }),
+    nestDuration: p(43200, 's', 'ENG-EXP-006', { min: 1 }),
+    nestPit: p([3, 15], 'mm', 'ENG-EXP-006'),
+    nestMinChambers: p(1, 'count', 'ENG-EXP-006', { min: 0, integer: true }),
+    nestUpperShare: p(0.5, 'x', 'ENG-EXP-006', { min: 0, max: 1 }),
     /** Saturation: the rate over the last lateFraction of the run below slowFraction of the peak bin rate. */
     lateFraction: p(0.2, 'x', 'ENG-EXP-003', { min: 0, max: 1 }),
     slowFraction: p(0.2, 'x', 'ENG-EXP-003', { min: 0, max: 1 }),

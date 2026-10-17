@@ -1,7 +1,8 @@
 /**
  * Reduced Phase 5 excavation experiment (the acceptance run is
  * scripts/experiment-digging.ts: 4 group sizes × 5 seeds × 12 h). Here:
- * two group sizes for 2 h in a smaller soil region.
+ * two group sizes for 3 h in a smaller soil region (2 h before the nest-shape
+ * rules: tunnels by a minority of excavators make the first hours slower).
  */
 
 import { readFileSync } from 'node:fs';
@@ -12,7 +13,7 @@ import { runDiggingTrial } from '../../src/sim/experiments/digging.ts';
 const preset = JSON.parse(readFileSync('config/presets/digging.json', 'utf8')) as Overlay;
 const run = (workers: number) => runDiggingTrial(buildConfig([preset, {
   population: { count: workers }, soil: { size: [160, 256, 160] }, sim: { seed: 7 },
-  experiment: { digDuration: 7200, digBin: 600 },
+  experiment: { digDuration: 10800, digBin: 600 },
 }]).config);
 
 describe('nest excavation (reduced)', () => {
