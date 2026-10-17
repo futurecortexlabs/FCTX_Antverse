@@ -34,7 +34,7 @@ import { dexp, dpow } from '../../core/dmath.ts';
 import { rand, Stream } from '../../core/rng.ts';
 import { AgentFlag, AgentState, Caste, Request } from '../agents/store.ts';
 import type { World } from '../world.ts';
-import { DigKey, enterSoil } from './burrow.ts';
+import { DigKey, enterSoil, isExcavator } from './burrow.ts';
 
 const FACES = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const;
 const faceWeights = new Float64Array(FACES.length);
@@ -65,56 +65,71 @@ export function excavate(world: World, from: number, to: number): void {
       if (state !== AgentState.DIG && state !== AgentState.NEST_REST) continue;
       soil.unindex(a.cell[s]!, v);
       const ix = v[0]!, d = v[1]!, iz = v[2]!;
-      // Crowding: other workers around (this cell and its neighbours, at the end of the last
-      // tick) per open space, relative to spacePerWorker; the digging response to it.
-      // Is the space here narrower than the body? Count open voxels among the 26 neighbours.
-      let open = 0;
-      for (let dz = -1; dz <= 1; dz++) for (let dd = -1; dd <= 1; dd++) for (let dx = -1; dx <= 1; dx++) {
-        if ((dx !== 0 || dd !== 0 || dz !== 0) && soil.isOpen(ix + dx, d + dd, iz + dz)) open++;
-      }
-      const cramped = open < dc.clearance;
-      // At a tunnel tip (cramped), with dig.tipLocal, crowding is judged in its own cell only.
-      if (cramped && dc.tipLocal) { around[0] = density.countAt(ix, d, iz); around[1] = density.openAt(ix, d, iz); }
-      else density.around(ix, d, iz, around);
+      // Chamber or passage: open voxels in the horizontal square around it at this level (ASM-NST-009).
+      const R = dc.wideReach;
+      let plane = 0;
+      for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) if (soil.isOpen(ix + dx, d, iz + dz)) plane++;
+      const wide = plane >= dc.wideOpen;
+      // Crowding: other workers (at the end of the last tick) per open space, relative to
+      // spacePerWorker, in a chamber over its density cell and the neighbours, in a passage over
+      // its own cell (a jam in a shaft is crowded); the digging response to it.
+      if (wide) density.around(ix, d, iz, around);
+      else { around[0] = density.countAt(ix, d, iz); around[1] = density.openAt(ix, d, iz); }
       const crowding = (Math.max(0, around[0]! - 1) * dc.spacePerWorker) / (Math.max(1, around[1]!) * config.soil.pellet);
       const urge = digResponse(crowding, 1, dc.densityHill);
-      // Resting in clusters: stop and move on by the number of nestmates in the density cell —
-      // but not where there is no room: crowding keeps workers on the move (and digging).
+      // Digging drive: the crowding met, remembered over driveTau (ASM-NST-010).
+      const drive = a.digDrive[s]! + (urge - a.digDrive[s]!) * Math.min(1, dt / dc.driveTau);
+      a.digDrive[s] = drive;
+      // Resting in clusters: stop and move on by the number of nestmates in the density cell,
+      // in chambers only, and not where there is no room: crowding keeps workers on the move.
       const near = Math.max(0, density.countAt(ix, d, iz) - 1);
       if (state === AgentState.NEST_REST) {
         const leave = dc.leaveBase / (1 + dc.leaveDamp * near) + dc.leaveBase * urge;
         if (rand(world.seed, Stream.DIG, s, world.tick, DigKey.LEAVE) < leave * dt) a.state[s] = AgentState.DIG;
         continue;
       }
-      // With dig.restWide, workers do not stop to rest in a passage narrower than the body.
-      if (!(cramped && dc.restWide) && rand(world.seed, Stream.DIG, s, world.tick, DigKey.STOP) < (dc.stopBase + dc.stopPerWorker * near) * (1 - urge) * dt) {
+      if (wide && rand(world.seed, Stream.DIG, s, world.tick, DigKey.STOP) < (dc.stopBase + dc.stopPerWorker * near) * (1 - urge) * dt) {
         a.state[s] = AgentState.NEST_REST;
         continue;
       }
-      // Open height here, floor to ceiling in mm (1 mm voxels), when chambers have a height limit (ASM-NST-009).
-      let height = 0;
-      if (dc.chamberHeight > 0) {
-        const cap = Math.ceil(dc.chamberHeight);
-        height = 1;
-        for (let k = 1; k <= cap && soil.isOpen(ix, d - k, iz); k++) height++;
-        for (let k = 1; k <= cap && soil.isOpen(ix, d + k, iz); k++) height++;
+      // Tunnel work: an excavator cramped at a tip of a passage digs by its drive (or the crowding
+      // here, if more): down when the tip is quiet, sideways (a chamber begins) when it is crowded.
+      // Chamber work: anyone digs by the crowding here, sideways, up to chamberHeight.
+      let open = 0;
+      for (let dz = -1; dz <= 1; dz++) for (let dd = -1; dd <= 1; dd++) for (let dx = -1; dx <= 1; dx++) {
+        if ((dx !== 0 || dd !== 0 || dz !== 0) && soil.isOpen(ix + dx, d + dd, iz + dz)) open++;
       }
-      let faces = 0;
+      const tunnel = !wide && open < dc.clearance && isExcavator(world, s);
+      // In a passage only an excavator at a tip digs; in a chamber anyone does.
+      if (!wide && !tunnel) continue;
+      // Open height here, floor to ceiling (mm, 1 mm voxels), counted to just past the limit. Chamber
+      // work spreads low spaces (a chamber, or a niche cut off a shaft), and a tall one (a shaft) only
+      // where brood lies: the brood is the template of its chamber (ASM-NST-009).
+      let height = 1;
+      const cap = Math.ceil(dc.chamberHeight) + 1;
+      for (let k = 1; k <= cap && soil.isOpen(ix, d - k, iz); k++) height++;
+      for (let k = 1; k <= cap && soil.isOpen(ix, d + k, iz); k++) height++;
+      const brood = density.contacts !== null && density.demandAt(ix, d, iz) > 0;
+      if (!tunnel && height > dc.chamberHeight && !brood) continue;
+      // Chamber work from the floor only (soil right below): the chamber spreads flat at floor
+      // level and its ceiling rises to at most chamberHeight above that floor.
+      if (!tunnel && soil.isOpen(ix, d + 1, iz)) continue;
+      const p = dc.rate * dt * (tunnel ? Math.max(drive, urge) : urge);
+      if (rand(world.seed, Stream.DIG, s, world.tick, DigKey.WHETHER) >= p) continue;
+      let total = 0;
       for (let k = 0; k < FACES.length; k++) {
         const [fx, fd, fz] = FACES[k]!;
         faceWeights[k] = 0;
         if (!soil.canDig(ix + fx, d + fd, iz + fz)) continue;
-        if (fd < 0 && dc.chamberHeight > 0 && height >= dc.chamberHeight) continue;
+        // Never the ceiling where the space is already chamberHeight tall; in chamber work never the floor.
+        if (fd < 0 && height >= dc.chamberHeight) continue;
+        if (fd > 0 && !tunnel) continue;
         // World direction of the face: depth index grows downwards.
         const nx = fx, ny = -fd, nz = fz;
-        faceWeights[k] = dexp(dc.persistence * (nx * a.dirX[s]! + ny * a.dirY[s]! + nz * a.dirZ[s]!) + dc.downPull * -ny - dc.flatPull * urge * Math.abs(ny));
-        faces++;
+        faceWeights[k] = dexp(dc.persistence * (nx * a.dirX[s]! + ny * a.dirY[s]! + nz * a.dirZ[s]!) + (tunnel ? dc.downPull * (1 - urge) * -ny : 0));
+        total += faceWeights[k]!;
       }
-      if (faces === 0) continue;
-      const p = dc.rate * dt * urge * (cramped ? 1 : dc.looseFactor);
-      if (rand(world.seed, Stream.DIG, s, world.tick, DigKey.WHETHER) >= p) continue;
-      let total = 0;
-      for (let k = 0; k < FACES.length; k++) total += faceWeights[k]!;
+      if (total === 0) continue;
       let r = rand(world.seed, Stream.DIG, s, world.tick, DigKey.FACE) * total;
       let k = 0;
       for (; k < FACES.length - 1; k++) { r -= faceWeights[k]!; if (r < 0 && faceWeights[k]! > 0) break; }

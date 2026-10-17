@@ -285,7 +285,8 @@ describe('the forager', () => {
 
 describe('nurses', () => {
   it('walk up the brood-demand gradient: they end up nearer the brood than idle workers', () => {
-    const w = make({ colony: { engageRate: 0, nurseQuit: 0 }, dig: { rate: 0 } }, 60), a = w.agents.a, soil = w.soil!;
+    // Without age zoning, which also draws young idle workers to the brood (ASM-NST-008).
+    const w = make({ colony: { engageRate: 0, nurseQuit: 0 }, dig: { rate: 0, ageZonePull: 0 } }, 60), a = w.agents.a, soil = w.soil!;
     const ws = workers(w);
     for (const s of ws.slice(0, 30)) { a.task[s] = Task.NURSE; a.state[s] = AgentState.NURSE; }
     for (let t = 0; t < 60 * 300; t++) w.step();
@@ -312,7 +313,7 @@ describe('conservation', () => {
 describe('brood thermoregulation', () => {
   /** A colony whose soil gets warmer with depth: broodTemp is reached 20 mm down. */
   const graded = (env: boolean): World => {
-    const w = make({ env: { enabled: env, updateInterval: 1e9 }, colony: { engageRate: 0, nurseQuit: 0 }, dig: { rate: 0 } }, 60);
+    const w = make({ env: { enabled: env, updateInterval: 1e9 }, colony: { engageRate: 0, nurseQuit: 0 }, dig: { rate: 0, ageZonePull: 0 } }, 60);
     w.climate.update(w);
     const cc = w.config.colony;
     if (env) for (let z = 0; z < w.climate.temps.length; z++) w.climate.temps[z] = cc.broodTemp + 0.2 * (z - 20);

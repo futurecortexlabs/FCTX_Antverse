@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { buildConfig, type Overlay } from '../../config/load.ts';
 import { AgentFlag, AgentState, CarryKind, Request } from '../agents/store.ts';
 import { World } from '../world.ts';
-import { burrow, nearWall, standable } from './burrow.ts';
+import { burrow, enterSoil, isExcavator, nearWall, standable } from './burrow.ts';
 import { digResponse, excavate } from './excavate.ts';
 
 const preset = JSON.parse(readFileSync('config/presets/digging.json', 'utf8')) as Overlay;
@@ -144,7 +144,7 @@ describe('digging', () => {
     for (let t = 0; t < 60 * 120; t++) w.step();
     let carried = 0;
     for (let s = 0; s < 60; s++) if (a.carryKind[s] === CarryKind.SOIL) carried++;
-    expect(soil.dug - w.pitVoxels).toBeGreaterThan(100);
+    expect(soil.dug - w.pitVoxels).toBeGreaterThan(30);
     expect(soil.dug - w.pitVoxels).toBe(w.mound!.pellets + carried);
     expect(w.mound!.volume()).toBeCloseTo(w.mound!.pellets * w.config.soil.pellet, 0);
     // Flood fill the dug voxels from the entrance (26-connected, as the workers move).
@@ -181,5 +181,88 @@ describe('digging', () => {
     expect(a.carryKind[0]).toBe(CarryKind.NONE);
     burrow(w, 0, 1); // not underground: burrow leaves it alone
     expect(a.flags[0]! & AgentFlag.UNDERGROUND).toBe(0);
+  });
+});
+
+describe('two kinds of digging: tunnels and chambers (ASM-NST-009/010)', () => {
+  /** Dig a box of voxels [x0, x1) × [d0, d1) × [z0, z1) around the entrance column (offsets from it, depth from the surface). */
+  const box = (w: World, x0: number, x1: number, d0: number, d1: number, z0: number, z1: number): void => {
+    const soil = w.soil!, cx = soil.voxelX(0), cz = soil.voxelZ(0), top = soil.airTop[cx + cz * soil.nx]!;
+    for (let d = top + d0; d < top + d1; d++) for (let z = cz + z0; z < cz + z1; z++) for (let x = cx + x0; x < cx + x1; x++) soil.dig(x, d, z);
+  };
+  /** Put workers 0..n-1 into the soil at (dx, depth, dz) from the entrance column. */
+  const place = (w: World, n: number, dx: number, depth: number, dz: number): void => {
+    const soil = w.soil!, cx = soil.voxelX(0), cz = soil.voxelZ(0), top = soil.airTop[cx + cz * soil.nx]!;
+    for (let s = 0; s < n; s++) enterSoil(w, s, cx + dx, top + depth, cz + dz);
+  };
+  /** Dug voxels outside the boxes dug by hand, by depth below the surface at the entrance (as the boxes). */
+  const newlyDug = (w: World, before: Set<number>): number[] => {
+    const soil = w.soil!, out: number[] = [];
+    const top = soil.airTop[soil.voxelX(0) + soil.voxelZ(0) * soil.nx]!;
+    for (let d = 0; d < soil.nd; d++) for (let z = 0; z < soil.nz; z++) for (let x = 0; x < soil.nx; x++) {
+      if (soil.isDug(x, d, z) && !before.has(soil.index(x, d, z))) out.push(d - top);
+    }
+    return out;
+  };
+  const dugSet = (w: World): Set<number> => {
+    const soil = w.soil!, s = new Set<number>();
+    for (let d = 0; d < soil.nd; d++) for (let z = 0; z < soil.nz; z++) for (let x = 0; x < soil.nx; x++) if (soil.isDug(x, d, z)) s.add(soil.index(x, d, z));
+    return s;
+  };
+
+  it('about excavatorShare of the workers are excavators, fixed per slot', () => {
+    const w = make({}, 1);
+    let n = 0;
+    for (let s = 0; s < 2000; s++) if (isExcavator(w, s)) n++;
+    expect(n / 2000).toBeCloseTo(w.config.dig.excavatorShare, 1);
+    expect(isExcavator(w, 7)).toBe(isExcavator(w, 7));
+  });
+
+  it('at the quiet tip of a shaft an excavator with a drive digs, mostly downwards; any other worker there never digs', () => {
+    const w = make({ dig: { rate: 10 } }, 64), a = w.agents.a, soil = w.soil!;
+    box(w, -1, 2, 0, 20, -1, 2); // a 3 × 3 shaft, 20 mm deep
+    const exc = Array.from({ length: 64 }, (_, s) => s).find((s) => isExcavator(w, s))!;
+    const other = Array.from({ length: 64 }, (_, s) => s).find((s) => !isExcavator(w, s))!;
+    const cx = soil.voxelX(0), cz = soil.voxelZ(0), top = soil.airTop[cx + cz * soil.nx]!;
+    let down = 0, side = 0, otherDigs = 0;
+    for (let t = 0; t < 2000; t++) {
+      for (const s of [exc, other]) {
+        enterSoil(w, s, cx + 1, top + 19, cz + 1); // in a corner of the tip: cramped
+        a.digDrive[s] = 1; a.request[s] = Request.NONE;
+      }
+      excavate(w, Math.min(exc, other), Math.max(exc, other) + 1);
+      if (a.request[other] === Request.DIG) otherDigs++;
+      if (a.request[exc] === Request.DIG) {
+        soil.unindex(a.requestCell[exc]!, v);
+        if (v[1]! > top + 19) down++; else side++;
+      }
+    }
+    expect(otherDigs).toBe(0);
+    expect(down + side).toBeGreaterThan(0);
+    expect(down).toBeGreaterThan(side);
+  });
+
+  it('a crowd in a low chamber widens it sideways: never its floor, never its ceiling once chamberHeight tall', () => {
+    const h = 5;
+    const w = make({ dig: { rate: 2, excavatorShare: 0, chamberHeight: h } }, 40);
+    box(w, -1, 2, 0, 10, -1, 2); // shaft
+    box(w, -5, 6, 10, 10 + h, -5, 6); // an 11 × 11 chamber, h tall
+    const before = dugSet(w);
+    place(w, 40, 0, 10 + h - 1, 0);
+    w.completeStep();
+    for (let t = 0; t < 60 * 120; t++) w.step();
+    const depths = newlyDug(w, before);
+    expect(depths.length).toBeGreaterThan(0);
+    for (const d of depths) { expect(d).toBeGreaterThanOrEqual(10); expect(d).toBeLessThan(10 + h); }
+  });
+
+  it('a crowd in a tall shaft does not widen it (no excavators, no brood)', () => {
+    const w = make({ dig: { rate: 2, excavatorShare: 0 } }, 30);
+    box(w, -1, 2, 0, 40, -1, 2);
+    const before = dugSet(w);
+    place(w, 30, 0, 30, 0);
+    w.completeStep();
+    for (let t = 0; t < 60 * 120; t++) w.step();
+    expect(newlyDug(w, before).length).toBe(0);
   });
 });

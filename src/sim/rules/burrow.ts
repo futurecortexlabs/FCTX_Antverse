@@ -28,10 +28,16 @@ import { rand, Stream } from '../../core/rng.ts';
 import { strideLength } from '../../locomotion/morphology.ts';
 import type { Soil } from '../../soil/soil.ts';
 import { AgentFlag, AgentState, Caste } from '../agents/store.ts';
+import { DigKey } from '../nest/dig-keys.ts';
 import type { World } from '../world.ts';
 
 /** Sub-keys of Stream.DIG: whether to dig, which face, how far out to dump. */
-export const DigKey = { WHETHER: 0, FACE: 1, DUMP: 2, STOP: 3, LEAVE: 4 } as const;
+export { DigKey };
+
+/** Whether worker s is one of the excavators (dig.excavatorShare, drawn once per slot). */
+export function isExcavator(world: World, s: number): boolean {
+  return rand(world.seed, Stream.DIG, s, 0, DigKey.EXCAVATOR) < world.config.dig.excavatorShare;
+}
 
 /** The neighbour offsets (the 3×3×3 block minus the centre) with their unit vectors and lengths. */
 const OFFSETS: { dx: number; dd: number; dz: number; ux: number; uy: number; uz: number; len: number }[] = [];
@@ -139,10 +145,16 @@ export function burrow(world: World, from: number, to: number): void {
         gy = up < down ? 1 : -1; pull = cc.thermoPull;
       } else if (state === AgentState.NURSE && demandGradient(world, ix, d, iz, n3)) {
         gx = n3[0]!; gy = n3[1]!; gz = n3[2]!; pull = config.colony.nursePull;
+      } else if (a.digDrive[s]! > 0 && isExcavator(world, s)) {
+        // An excavator with a drive to dig heads down, to the tunnel tips (ASM-NST-010).
+        gy = -1; pull = dc.walkDown + dc.tipPull * a.digDrive[s]!;
       } else if (dc.ageZonePull > 0 && world.colony) {
-        // Vertical age zoning (ASM-NST-008): the young down towards the brood, the old up.
+        // Age zoning (ASM-NST-008): the young towards the brood (up the brood-demand gradient, or
+        // down where there is none), the old up towards the entrance.
         const young = dexp(-(world.simTime() - a.born[s]!) / (config.colony.ageScale * S_PER_DAY));
-        gy = 1 - 2 * young; pull = dc.ageZonePull;
+        if (demandGradient(world, ix, d, iz, n3)) { gx = young * n3[0]!; gy = young * n3[1]! + (1 - young); gz = young * n3[2]!; }
+        else gy = 1 - 2 * young;
+        pull = dc.ageZonePull;
       } else {
         gy = -1; pull = dc.walkDown;
       }

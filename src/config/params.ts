@@ -152,33 +152,37 @@ export const DEFAULT_PARAMS = {
     /** Preference for digging the face below rather than beside or above (geotaxis in digging). */
     downPull: p(2, 'x', 'ASM-NST-003', { min: 0 }),
     /** Pull downwards while walking in the nest without a load (geotaxis in walking). */
-    walkDown: p(0.1, 'x', 'ASM-NST-003', { min: 0 }),
+    walkDown: p(0, 'x', 'ASM-NST-003', { min: 0 }),
     /**
-     * Colony: instead of walkDown, a worker walking in the nest without a load is pulled up or
-     * down by its age, (1 − 2 e^(−age/colony.ageScale)) × ageZonePull: the young towards the
-     * depths, the old towards the entrance (vertical age zoning). 0 = off.
+     * Two kinds of digging (ASM-NST-009/010). Chamber work: anyone digs by the crowding where it is,
+     * sideways (never the floor; the ceiling only while the open height is under chamberHeight).
+     * Tunnel work: excavators (excavatorShare of the workers, workload inequality) dig a tunnel tip
+     * where they are cramped, by their digging drive (the crowding they met, remembered over
+     * driveTau), and walk down by tipPull x drive to reach one. A place is a chamber where the open
+     * voxels in the horizontal square of half-width wideReach at its level are at least wideOpen;
+     * elsewhere it is a passage: no resting there, and crowding is counted in its own density cell.
      */
-    ageZonePull: p(0, 'x', 'ASM-NST-008', { min: 0 }),
+    chamberHeight: p(5, 'mm', 'ASM-NST-009', { min: 1 }),
+    excavatorShare: p(0.3, 'x', 'ASM-NST-010', { min: 0, max: 1 }),
+    driveTau: p(600, 's', 'ASM-NST-010', { min: 0.001 }),
+    tipPull: p(0.75, 'x', 'ASM-NST-010', { min: 0 }),
     /**
-     * Chambers: where crowding drives digging, the floor and ceiling faces are avoided by
-     * flatPull × (digging response) (log-weight per unit vertical component), so crowds widen
-     * the space sideways; a ceiling face is never dug where the open height (floor to ceiling)
-     * is already chamberHeight (0 = no limit).
+     * Colony: a worker walking in the nest without a load is pulled by its age, in place of
+     * walkDown: by young = e^(-age/colony.ageScale) towards the brood (up the brood-demand
+     * gradient, or down where there is none) and by (1 - young) up towards the entrance,
+     * x ageZonePull. 0 = off.
      */
-    flatPull: p(0, 'x', 'ASM-NST-009', { min: 0 }),
-    /** Tunnels: no stopping to rest where cramped (passages), and crowding at a cramped tip judged in its own density cell. */
-    restWide: p(false, 'bool', 'ASM-NST-010'),
-    tipLocal: p(false, 'bool', 'ASM-NST-010'),
-    chamberHeight: p(0, 'mm', 'ASM-NST-009', { min: 0 }),
+    ageZonePull: p(1, 'x', 'ASM-NST-008', { min: 0 }),
+    wideReach: p(3, 'count', 'ASM-NST-009', { min: 1, integer: true }),
+    wideOpen: p(25, 'count', 'ASM-NST-009', { min: 1, integer: true }),
     /** Blend of the new step into the direction of travel. */
     turnBlend: p(0.5, 'x', 'ENG-SOL-002', { min: 0, max: 1 }),
     /**
      * Body clearance: a worker whose voxel has fewer open neighbours (of 26) than this is
-     * cramped and digs at the full rate; elsewhere (in space wider than its body) at
-     * looseFactor of it. 17 = standing on the wall of a 3-voxel-wide (≈ 3 mm) tunnel.
+     * cramped: at a tunnel tip, where an excavator digs. 17 = standing on the wall of a
+     * 3-voxel-wide (≈ 3 mm) tunnel.
      */
     clearance: p(17, 'count', 'ASM-NST-006', { min: 0, max: 26, integer: true }),
-    looseFactor: p(0.2, 'x', 'ASM-NST-006', { min: 0, max: 1 }),
     /**
      * Resting in clusters: a worker walking in the nest stops at (stopBase + stopPerWorker × c)
      * per second and a resting one moves on at leaveBase / (1 + leaveDamp × c), with c the
@@ -787,6 +791,9 @@ export const DEFAULT_PARAMS = {
     digFirstSeed: p(5001, 'count', 'ENG-EXP-003', { min: 0, max: 0xffffffff, integer: true }),
     digDuration: p(43200, 's', 'ENG-EXP-003', { min: 1 }),
     digBin: p(1800, 's', 'ENG-EXP-003', { min: 1 }),
+    /** Nest shape (ENG-EXP-006): a chamber is at least nestChamberRatio x the shaft's area, flat when its width is at least nestFlatRatio x its height. */
+    nestChamberRatio: p(3, 'x', 'ENG-EXP-006', { min: 1 }),
+    nestFlatRatio: p(2, 'x', 'ENG-EXP-006', { min: 0 }),
     /** Saturation: the rate over the last lateFraction of the run below slowFraction of the peak bin rate. */
     lateFraction: p(0.2, 'x', 'ENG-EXP-003', { min: 0, max: 1 }),
     slowFraction: p(0.2, 'x', 'ENG-EXP-003', { min: 0, max: 1 }),

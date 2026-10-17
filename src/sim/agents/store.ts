@@ -126,6 +126,9 @@ export const AGENT_SCHEMA = {
   load: field('i32'),
   /** Dazed by a raindrop or stuck in a water drop: seconds left (set in completeStep, counted down by explore). */
   stun: field('f32'),
+  // --- nest shape ---
+  /** Digging drive: crowding met in the nest, remembered over dig.driveTau (excavate.ts). */
+  digDrive: field('f32'),
 };
 
 /** Changes to shared state an agent asks for; World.completeStep applies them in slot order. */

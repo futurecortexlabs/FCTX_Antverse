@@ -16,6 +16,7 @@
  *   node scripts/browser-run.ts colony [hours] [query]  # Phase 6 colony: foraging ground + nest -> docs/reports/phase-6/
  *   node scripts/browser-run.ts observe [query]         # Phase 8 views and debug toggles -> docs/reports/phase-8/
  *   node scripts/browser-run.ts mobile [webgl|-] [url]  # phone emulation -> docs/reports/mobile/
+ *   node scripts/browser-run.ts nestview [query] [hours] [tag]  # the nest from the side after a fast-forward -> docs/reports/nest-shape/
  *
  * Requires `npm run dev` on http://localhost:5173.
  */
@@ -596,6 +597,27 @@ async function observeViews(cdp: Cdp, query: string | undefined): Promise<void> 
   console.log(JSON.stringify(checks, null, 1));
 }
 
+/**
+ * The nest from the side (section view) after `hours` of simulated time: fast-forwards, takes the
+ * ground away and photographs it from two sides. Output: docs/reports/nest-shape/<tag>-*.png.
+ */
+async function nestView(cdp: Cdp, query: string, hours: number, tag: string): Promise<void> {
+  const dir = 'docs/reports/nest-shape';
+  mkdirSync(dir, { recursive: true });
+  await cdp.goto(BASE + query);
+  const simTime = (): Promise<number> => cdp.eval<number>('window.antverse.host.stats ? window.antverse.host.stats.simTime : 0');
+  await cdp.eval('window.antverse.host.setSpeed(100000)');
+  while (await simTime() < hours * 3600) await sleep(1000);
+  await cdp.eval('window.antverse.host.setSpeed(1)');
+  await cdp.eval("window.antverse.observer.setMode('section')");
+  const yN = await cdp.eval<number>('window.antverse.terrain.supportHeight(0, 0)');
+  for (const [name, p] of [['side', [0, yN - 60, 170]], ['oblique', [120, yN - 20, 120]]] as const) {
+    await cdp.eval(cam([...p], [0, yN - 60, 0]));
+    await sleep(2500);
+    await cdp.screenshot(`${dir}/${tag}-${name}.png`);
+  }
+}
+
 /** Phone emulation (390x844 CSS px, DPR 3, touch). `base` lets you target a static/LAN/artifact URL. */
 async function mobile(cdp: Cdp, base: string, backend: string | undefined): Promise<void> {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true, screenWidth: 390, screenHeight: 844 });
@@ -682,6 +704,7 @@ async function main(): Promise<void> {
     else if (cmd === 'colony') await colonyViews(cdp, arg, process.argv[4]);
     else if (cmd === 'weather') await weatherViews(cdp);
     else if (cmd === 'observe') await observeViews(cdp, arg);
+    else if (cmd === 'nestview') await nestView(cdp, arg ?? '?preset=field', Number(process.argv[4] ?? 12), process.argv[5] ?? 'nest');
     else if (cmd === 'eval') { await cdp.goto(BASE + (process.argv[4] ?? '')); console.log(JSON.stringify(await cdp.eval(arg ?? 'null'), null, 1)); }
     else if (cmd === 'bench') await bench(cdp, arg);
     else if (cmd === 'mobile') await mobile(cdp, process.argv[4] ?? BASE, arg && arg !== '-' ? arg : undefined);

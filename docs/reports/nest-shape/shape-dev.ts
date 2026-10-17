@@ -7,9 +7,11 @@ const { buildConfig, overlayFromAssignment } = await import(R + 'src/config/load
 const { DEFAULT_PARAMS } = await import(R + 'src/config/params.ts');
 const { World } = await import(R + 'src/sim/world.ts');
 const { AgentFlag, Caste } = await import(R + 'src/sim/agents/store.ts');
+const { nestShape } = await import(R + 'src/sim/experiments/nest-shape.ts');
 
 function run(seed: number, hours: number, sets: string[]): string {
   const ov = [JSON.parse(readFileSync('C:/Users/futur/Documents/GitHub/FCTX_Antverse/config/presets/field.json', 'utf8')), { soil: { pit: [3, 15] } }, { sim: { seed } }];
+  // (a --set soil.pit=... overrides the starting pit)
   for (const s of sets) { const i = s.indexOf('='); ov.push(overlayFromAssignment(DEFAULT_PARAMS, s.slice(0, i), s.slice(i + 1))); }
   const cfg = buildConfig(ov).config;
   const w = new World(cfg);
@@ -18,7 +20,7 @@ function run(seed: number, hours: number, sets: string[]): string {
   for (let t = 0; t < ticks; t++) w.step();
   // Profile: dug voxels per 2 mm depth slice; side view (x vs depth, max over z), 2 mm cells.
   const cx = soil.voxelX(0), cz = soil.voxelZ(0), top = soil.airTop[cx + cz * soil.nx]!;
-  const W = 40, H = 80, C = 2;
+  const W = 40, H = Number(process.env.ROWS ?? 80), C = 2;
   const view: number[][] = Array.from({ length: H }, () => new Array(W).fill(0));
   const area: number[] = new Array(H).fill(0);
   let deepest = 0;
@@ -37,11 +39,19 @@ function run(seed: number, hours: number, sets: string[]): string {
     const row = Math.min(H - 1, Math.max(0, Math.floor(-a.posY[s]! / C)));
     byDepth[row]![(now - a.born[s]!) / 86400 < cfg.colony.ageScale ? 0 : 1]++;
   }
-  const lines = [`seed ${seed} ${hours} h: dug ${soil.dug - w.pitVoxels} mm³, deepest ${deepest} mm`];
+  const ns = nestShape(w);
+  const lines = [`seed ${seed} ${hours} h: dug ${soil.dug - w.pitVoxels} mm³, deepest ${deepest} mm | shaft ${ns.shaftArea} mm² (${ns.shaftWidth.toFixed(1)} mm) | chambers ${ns.chambers.map((c) => `${c.top}+${c.height}:${c.area}${c.flat ? 'F' : ''}`).join(' ')} | upper ${(ns.upperShare * 100).toFixed(0)}%`];
+  // Slice through the entrance (z = cz, x within ±30 mm, 1 mm cells, 2 mm rows) and its x-z section (y-slice) at each chamber row are below.
+  const slice: string[] = [];
+  for (let r = 0; r <= Math.min(H - 1, Math.floor(deepest / C)); r++) {
+    let row = '';
+    for (let x = cx - 30; x < cx + 30; x++) row += soil.isDug(x, top + r * C, cz) || soil.isDug(x, top + r * C + 1, cz) ? '#' : ' ';
+    slice.push(`${String(r * C).padStart(3)} ${row}|`);
+  }
   for (let r = 0; r <= Math.min(H - 1, Math.floor(deepest / C)); r++) {
     lines.push(`${String(r * C).padStart(3)} ${view[r]!.map((n) => (n === 0 ? ' ' : n < 3 ? '.' : n < 8 ? 'o' : '#')).join('')} | ${String(area[r]).padStart(4)}  young ${byDepth[r]![0]} old ${byDepth[r]![1]}`);
   }
-  return lines.join('\n');
+  return lines.join('\n') + '\n  slice z=0:\n' + slice.join('\n');
 }
 
 if (isMainThread) {

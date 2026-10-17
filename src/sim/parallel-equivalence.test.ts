@@ -123,7 +123,8 @@ describe('parallel stepping equivalence', () => {
       main.stepRange(0, cut);
       main.completeStep();
     }
-    expect(ref.soil!.dug - ref.pitVoxels).toBeGreaterThan(50);
+    // Early digging in the narrow pit is by the excavators alone (ASM-NST-010): a few dozen pellets.
+    expect(ref.soil!.dug - ref.pitVoxels).toBeGreaterThan(20);
     expect(main.digLog!.count).toBe(main.soil!.dug - main.pitVoxels);
     expect(main.stateHash()).toBe(ref.stateHash());
     expect(helper.soil!.dug).toBe(main.soil!.dug);
