@@ -26,7 +26,7 @@ import { Mound } from '../soil/mound.ts';
 import { DoubleBridge } from '../terrain/apparatus.ts';
 import { Terrain } from '../terrain/terrain.ts';
 import { SimHost } from './sim-host.ts';
-import { SNAP_FLOATS, type SimStats } from '../worker/protocol.ts';
+import { MOISTURE_DEPTHS, SNAP_FLOATS, type SimStats } from '../worker/protocol.ts';
 import { Hud } from './hud/hud.ts';
 import { Observer } from './observer.ts';
 import { RollingStats } from '../core/rolling-stats.ts';
@@ -366,6 +366,7 @@ async function main(): Promise<void> {
         ...(host.stats?.foraging ? [foragingLine(host.stats.foraging)] : []),
         ...(climate.enabled ? [climateLine(host.interp.renderTime)] : []),
         ...(host.stats?.colony ? [colonyLine(host.stats.colony)] : []),
+        ...(host.stats?.moisture ? [`soil moisture θ: ${MOISTURE_DEPTHS.map((d, i) => `${d} mm ${host.stats!.moisture![i]!.toFixed(2)}`).join(' | ')}`] : []),
         ...(host.stats?.digging ? [`nest: dug ${host.stats.digging.dug.toFixed(0)} mm³ | pellets on the mound ${host.stats.digging.pellets} | workers in the soil ${host.stats.digging.underground}${nest ? ` | cast chunks pending ${nest.pending}` : ''}`] : []),
         `quality ${tier} | pixel ratio ${renderer.getPixelRatio().toFixed(2)} | LOD error ≤ ${ground.params.maxScreenError.toFixed(1)} px${governor ? (governor.degraded() ? ' (auto: reduced)' : ' (auto)') : ''}`,
       ]);

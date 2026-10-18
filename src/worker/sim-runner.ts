@@ -11,7 +11,7 @@ import type { Config } from '../config/params.ts';
 import { AgentFlag, AgentState, Caste, CarryKind } from '../sim/agents/store.ts';
 import { BroodStage } from '../sim/colony/brood.ts';
 import { World } from '../sim/world.ts';
-import { BROOD_FLOATS, STATE_NONE, type AntInfo, type FieldInfo, type NestInfo, type SimStats, type SnapshotView, type SoilChunk } from './protocol.ts';
+import { BROOD_FLOATS, MOISTURE_DEPTHS, STATE_NONE, type AntInfo, type FieldInfo, type NestInfo, type SimStats, type SnapshotView, type SoilChunk } from './protocol.ts';
 import { writeSnapshot } from './snapshot-writer.ts';
 
 export interface SnapshotSink {
@@ -288,6 +288,7 @@ export class SimRunner {
       foraging: this.world.nest ? this.foragingCounts() : null,
       digging: this.world.soil ? this.diggingCounts() : null,
       colony: this.world.colony ? this.colonyCounts() : null,
+      moisture: this.world.climate.moisture ? MOISTURE_DEPTHS.map((d) => this.world.climate.moistureAt(-d)) : null,
     };
     this.statStart = now;
     this.statSteps = 0;

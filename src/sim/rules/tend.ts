@@ -51,10 +51,10 @@ export function response(s: number, theta: number): number {
  */
 export function betterTemperatureNear(world: World, y: number): boolean {
   const cc = world.config.colony, c = world.climate;
-  const off = Math.abs(c.tempAt(y) - cc.broodTemp);
+  const off = c.broodCost(world, y);
   if (off <= cc.broodTolerance) return false;
-  const up = y + cc.thermoProbe < 0 ? Math.abs(c.tempAt(y + cc.thermoProbe) - cc.broodTemp) : Infinity;
-  const down = Math.abs(c.tempAt(y - cc.thermoProbe) - cc.broodTemp);
+  const up = y + cc.thermoProbe < 0 ? c.broodCost(world, y + cc.thermoProbe) : Infinity;
+  const down = c.broodCost(world, y - cc.thermoProbe);
   return Math.min(up, down) < off;
 }
 
@@ -126,7 +126,7 @@ export function tend(world: World, from: number, to: number): void {
     const load = a.load[s]!;
     if (load >= 0) {
       a.searchTime[s] = a.searchTime[s]! + dt;
-      const off = Math.abs(world.climate.tempAt(a.posY[s]!) - cc.broodTemp);
+      const off = world.climate.broodCost(world, a.posY[s]!);
       if (state !== AgentState.NURSE || off <= cc.broodTolerance || a.searchTime[s]! > cc.maxCarry) {
         a.request[s] = Request.PUT;
       }

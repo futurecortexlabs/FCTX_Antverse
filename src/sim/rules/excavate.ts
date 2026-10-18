@@ -114,7 +114,8 @@ export function excavate(world: World, from: number, to: number): void {
       // Chamber work from the floor only (soil right below): the chamber spreads flat at floor
       // level and its ceiling rises to at most chamberHeight above that floor.
       if (!tunnel && soil.isOpen(ix, d + 1, iz)) continue;
-      const p = dc.rate * dt * (tunnel ? Math.max(drive, urge) : urge);
+      // Soil moisture sets how fast the soil here can be dug (BIO-NST-003; 1 without the moisture model).
+      const p = dc.rate * dt * (tunnel ? Math.max(drive, urge) : urge) * world.climate.digRateAt(a.posY[s]!);
       if (rand(world.seed, Stream.DIG, s, world.tick, DigKey.WHETHER) >= p) continue;
       let total = 0;
       for (let k = 0; k < FACES.length; k++) {

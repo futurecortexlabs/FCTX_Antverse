@@ -242,7 +242,7 @@ export class Colony {
           for (let i = this.broodHead[(z * density.cd + y) * density.cx + x]!; i >= 0; i = this.broodNext[i]!) {
             if (b.stage[i] === BroodStage.NONE || b.carrier[i]! >= 0) continue;
             soil.unindex(b.cell[i]!, v);
-            const off = Math.abs(world.climate.tempAt(soil.centreY(v[1]!)) - cc.broodTemp);
+            const off = world.climate.broodCost(world, soil.centreY(v[1]!));
             if (off > worst || (off === worst && best >= 0 && i < best)) { best = i; worst = off; }
           }
         }

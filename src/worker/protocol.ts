@@ -188,7 +188,12 @@ export interface SimStats {
   digging: { dug: number; pellets: number; underground: number } | null;
   /** In a colony: workers per task (idle, forage, nurse), brood per stage (egg, larva, pupa), food taken in (mg), mean crop fill (0–1), queen alive. */
   colony: { tasks: number[]; brood: number[]; intake: number; cropFill: number; eclosed: number; died: number; queen: boolean } | null;
+  /** Soil moisture θ at MOISTURE_DEPTHS mm below the surface (with the moisture model). */
+  moisture: number[] | null;
 }
+
+/** Depths (mm) at which the HUD shows the soil moisture. */
+export const MOISTURE_DEPTHS = [2, 20, 100] as const;
 
 export interface DeterminismReport {
   ticks: number;

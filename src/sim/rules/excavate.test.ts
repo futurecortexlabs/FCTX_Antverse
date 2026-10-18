@@ -266,3 +266,24 @@ describe('two kinds of digging: tunnels and chambers (ASM-NST-009/010)', () => {
     expect(newlyDug(w, before).length).toBe(0);
   });
 });
+
+describe('soil moisture and digging (BIO-NST-003)', () => {
+  const dug = (moisture: number): number => {
+    const w = make({ env: { enabled: true, deepMoisture: moisture }, dig: { rate: 2 } }, 40), a = w.agents.a;
+    for (let s = 0; s < 40; s++) { a.state[s] = AgentState.REENTER; a.posX[s] = 0; a.posZ[s] = 0; }
+    excavate(w, 0, 40);
+    w.completeStep();
+    for (let t = 0; t < 60 * 60; t++) w.step();
+    return w.soil!.dug - w.pitVoxels;
+  };
+
+  it('nothing is dug in air-dry soil; the most at the optimum moisture; less in very wet soil', () => {
+    const [dry, opt] = make().config.dig.moistureDig as readonly [number, number];
+    const sat = (make().config.env.moistureRange as readonly number[])[1]!;
+    expect(dug(dry - 0.01)).toBe(0);
+    const best = dug(opt), wet = dug(sat - 0.02);
+    expect(best).toBeGreaterThan(0);
+    expect(wet).toBeLessThan(best);
+  });
+});
+

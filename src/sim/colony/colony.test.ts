@@ -313,7 +313,7 @@ describe('conservation', () => {
 describe('brood thermoregulation', () => {
   /** A colony whose soil gets warmer with depth: broodTemp is reached 20 mm down. */
   const graded = (env: boolean): World => {
-    const w = make({ env: { enabled: env, updateInterval: 1e9 }, colony: { engageRate: 0, nurseQuit: 0 }, dig: { rate: 0, ageZonePull: 0 } }, 60);
+    const w = make({ env: { enabled: env, updateInterval: 1e9, moisture: false }, colony: { engageRate: 0, nurseQuit: 0 }, dig: { rate: 0, ageZonePull: 0 } }, 60);
     w.climate.update(w);
     const cc = w.config.colony;
     if (env) for (let z = 0; z < w.climate.temps.length; z++) w.climate.temps[z] = cc.broodTemp + 0.2 * (z - 20);
@@ -346,6 +346,32 @@ describe('brood thermoregulation', () => {
       const c = b.carrier[i]!;
       if (c >= 0) { expect(w.agents.isAlive(c)).toBe(true); expect(w.agents.a.load[c]).toBe(i); }
     }
+  });
+
+  it('with the same temperature everywhere, nurses carry brood out of dry soil into moister soil above (BIO-COL-007)', { timeout: 300000 }, () => {
+    const w = make({ env: { enabled: true, updateInterval: 1e9 }, colony: { engageRate: 0, nurseQuit: 0 }, dig: { rate: 0, ageZonePull: 0 } }, 60);
+    w.climate.update(w);
+    const cc = w.config.colony, m = w.climate.moisture!;
+    for (let z = 0; z < w.climate.temps.length; z++) w.climate.temps[z] = cc.broodTemp;
+    const a = w.agents.a;
+    for (const s of workers(w).slice(0, 40)) { a.task[s] = Task.NURSE; a.state[s] = AgentState.NURSE; }
+    // Dry soil from 10 mm above where the brood lies (at the bottom of the pit) down, moist above that.
+    const before = stats(w);
+    for (let z = 0; z < m.theta.length; z++) m.theta[z] = z > before.depth - 10 ? cc.broodMoisture - 0.1 : cc.broodMoisture + 0.1;
+    const moist = (): number => {
+      const b = w.colony!.brood, soil = w.soil!;
+      let sum = 0, n = 0;
+      for (let i = 0; i < b.highWater; i++) {
+        if (b.stage[i] === BroodStage.NONE) continue;
+        soil.unindex(b.cell[i]!, v);
+        sum += w.climate.moistureAt(soil.centreY(v[1]!)); n++;
+      }
+      return sum / n;
+    };
+    const m0 = moist();
+    for (let t = 0; t < 60 * 900; t++) w.step();
+    expect(stats(w).depth).toBeLessThan(before.depth - 5);
+    expect(moist()).toBeGreaterThan(m0 + 0.05);
   });
 
   it('with the same temperature everywhere nothing is carried', () => {

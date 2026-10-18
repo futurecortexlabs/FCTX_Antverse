@@ -163,6 +163,11 @@ export const DEFAULT_PARAMS = {
      * elsewhere it is a passage: no resting there, and crowding is counted in its own density cell.
      */
     chamberHeight: p(5, 'mm', 'ASM-NST-009', { min: 1 }),
+    /**
+     * Soil moisture and digging (env.moisture): no digging at or below moistureDig[0], the full
+     * rate at moistureDig[1], falling to none at saturation (env.moistureRange[1]).
+     */
+    moistureDig: p([0.05, 0.25], 'x', 'BIO-NST-003'),
     excavatorShare: p(0.3, 'x', 'ASM-NST-010', { min: 0, max: 1 }),
     driveTau: p(600, 's', 'ASM-NST-010', { min: 0.001 }),
     tipPull: p(0.75, 'x', 'ASM-NST-010', { min: 0 }),
@@ -297,6 +302,12 @@ export const DEFAULT_PARAMS = {
     thermoPull: p(3, 'x', 'ASM-COL-013', { min: 0 }),
     maxCarry: p(300, 's', 'ASM-COL-013', { min: 1 }),
     /**
+     * Brood and soil moisture (env.moisture): soil drier than broodMoisture counts against a
+     * place as broodDryCost °C per unit of θ short, on top of its distance from broodTemp.
+     */
+    broodMoisture: p(0.15, 'x', 'BIO-COL-007', { min: 0, max: 1 }),
+    broodDryCost: p(50, 'degC', 'ASM-COL-015', { min: 0 }),
+    /**
      * A forager back with food unloads in the nest until its crop is below unloadedFill (or
      * unloadTime has passed), then decides whether to go out again; one back empty decides at once.
      */
@@ -357,6 +368,17 @@ export const DEFAULT_PARAMS = {
     trapTime: p([20, 120], 's', 'ASM-ENV-004'),
     /** Rain washes trail pheromone away: its lifetime is divided by this while it rains. */
     washout: p(10, 'x', 'ASM-ENV-006', { min: 1 }),
+    /**
+     * Soil moisture (volumetric water content θ): [air-dry, saturated] for the soil, the deep
+     * soil's θ (where every layer starts), the diffusivity of water in the soil [at air-dry, at
+     * saturation] (exponential between), and the evaporation from wet bare soil at referenceTemp
+     * and the dry-weather humidity.
+     */
+    moisture: p(true, 'bool', 'ENG-ENV-003'),
+    moistureRange: p([0.03, 0.4], 'x', 'PHY-ENV-005'),
+    deepMoisture: p(0.2, 'x', 'ASM-ENV-007', { min: 0, max: 1 }),
+    moistureDiffusivity: p([0.01, 10], 'mm2/s', 'PHY-ENV-005'),
+    soilEvaporation: p(0.25, 'mm/h', 'PHY-ENV-005', { min: 0 }),
     /** Drop store size and the side of its lookup grid. */
     dropCapacity: p(4096, 'count', 'ENG-ENV-002', { min: 1, integer: true }),
     dropCell: p(8, 'mm', 'ENG-ENV-002', { min: 1 }),
@@ -806,6 +828,19 @@ export const DEFAULT_PARAMS = {
     nestPit: p([3, 15], 'mm', 'ENG-EXP-006'),
     nestMinChambers: p(1, 'count', 'ENG-EXP-006', { min: 0, integer: true }),
     nestUpperShare: p(0.5, 'x', 'ENG-EXP-006', { min: 0, max: 1 }),
+    /**
+     * Soil-moisture acceptance (ENG-EXP-007): moistSeeds colonies (field, starting pit nestPit)
+     * from moistFirstSeed. Dry: with env.deepMoisture = moistDry, digging over moistDuration is at
+     * least moistDryShare smaller than in the default soil. Rain: a shower moistRain [start h,
+     * duration h, mm/h]; over moistRainWindow after it ends the colony digs more than without it.
+     */
+    moistSeeds: p(10, 'count', 'ENG-EXP-007', { min: 1, integer: true }),
+    moistFirstSeed: p(10001, 'count', 'ENG-EXP-007', { min: 0, max: 0xffffffff, integer: true }),
+    moistDuration: p(43200, 's', 'ENG-EXP-007', { min: 1 }),
+    moistDry: p(0.08, 'x', 'ENG-EXP-007', { min: 0, max: 1 }),
+    moistDryShare: p(0.3, 'x', 'ENG-EXP-007', { min: 0, max: 1 }),
+    moistRain: p([8, 1, 10], 'x', 'ENG-EXP-007'),
+    moistRainWindow: p(21600, 's', 'ENG-EXP-007', { min: 1 }),
     /** Saturation: the rate over the last lateFraction of the run below slowFraction of the peak bin rate. */
     lateFraction: p(0.2, 'x', 'ENG-EXP-003', { min: 0, max: 1 }),
     slowFraction: p(0.2, 'x', 'ENG-EXP-003', { min: 0, max: 1 }),
