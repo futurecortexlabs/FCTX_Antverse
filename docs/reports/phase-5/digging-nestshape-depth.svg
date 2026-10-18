@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 360" font-family="system-ui, sans-serif" font-size="12">
+<rect width="520" height="360" fill="#fbfaf7"/>
+<text x="56" y="20" font-size="14" font-weight="600" fill="#222">Volume per 10 mm of depth (median of runs)</text>
+<text x="48" y="40" text-anchor="end" fill="#555">0</text>
+<text x="48" y="50.92307692307692" text-anchor="end" fill="#555">10</text>
+<text x="48" y="61.84615384615385" text-anchor="end" fill="#555">20</text>
+<text x="48" y="72.76923076923077" text-anchor="end" fill="#555">30</text>
+<text x="48" y="83.6923076923077" text-anchor="end" fill="#555">40</text>
+<text x="48" y="94.61538461538461" text-anchor="end" fill="#555">50</text>
+<text x="48" y="105.53846153846155" text-anchor="end" fill="#555">60</text>
+<text x="48" y="116.46153846153845" text-anchor="end" fill="#555">70</text>
+<text x="48" y="127.38461538461539" text-anchor="end" fill="#555">80</text>
+<text x="48" y="138.30769230769232" text-anchor="end" fill="#555">90</text>
+<text x="48" y="149.23076923076923" text-anchor="end" fill="#555">100</text>
+<text x="48" y="160.15384615384613" text-anchor="end" fill="#555">110</text>
+<text x="48" y="171.0769230769231" text-anchor="end" fill="#555">120</text>
+<text x="48" y="182" text-anchor="end" fill="#555">130</text>
+<text x="48" y="192.9230769230769" text-anchor="end" fill="#555">140</text>
+<text x="48" y="203.84615384615384" text-anchor="end" fill="#555">150</text>
+<text x="48" y="214.76923076923077" text-anchor="end" fill="#555">160</text>
+<text x="48" y="225.6923076923077" text-anchor="end" fill="#555">170</text>
+<text x="48" y="236.6153846153846" text-anchor="end" fill="#555">180</text>
+<text x="48" y="247.53846153846152" text-anchor="end" fill="#555">190</text>
+<text x="48" y="258.46153846153845" text-anchor="end" fill="#555">200</text>
+<text x="48" y="269.38461538461536" text-anchor="end" fill="#555">210</text>
+<text x="48" y="280.30769230769226" text-anchor="end" fill="#555">220</text>
+<text x="48" y="291.2307692307692" text-anchor="end" fill="#555">230</text>
+<text x="48" y="302.1538461538462" text-anchor="end" fill="#555">240</text>
+<text x="48" y="313.0769230769231" text-anchor="end" fill="#555">250</text>
+<text x="48" y="324" text-anchor="end" fill="#555">260</text>
+<text x="56" y="334" text-anchor="middle" fill="#555">0</text>
+<text x="280" y="334" text-anchor="middle" fill="#555">2500</text>
+<text x="504" y="334" text-anchor="middle" fill="#555">5000</text>
+<text x="260" y="354" text-anchor="middle" fill="#333">volume (mm³)</text>
+<text x="12" y="180" fill="#333" transform="rotate(-90 12 180)" text-anchor="middle">depth below the surface (mm)</text>
+<polyline points="119.5,41.5 110.4,52.4 93.8,63.3 96.7,74.2 91.2,85.2 102.2,96.1 110.8,107.0 64.2,117.9 56.0,128.8 56.0,139.8 56.0,150.7 56.0,161.6 56.0,172.5 56.0,183.5 56.0,194.4 56.0,205.3 56.0,216.2 56.0,227.2 56.0,238.1 56.0,249.0 56.0,259.9 56.0,270.8 56.0,281.8 56.0,292.7 56.0,303.6 56.0,314.5" fill="none" stroke="#7a9a3a" stroke-width="2"/>
+<polyline points="171.9,41.5 121.3,52.4 99.0,63.3 90.0,74.2 106.5,85.2 115.3,96.1 109.2,107.0 161.4,117.9 93.7,128.8 85.7,139.8 57.2,150.7 56.0,161.6 56.0,172.5 56.0,183.5 56.0,194.4 56.0,205.3 56.0,216.2 56.0,227.2 56.0,238.1 56.0,249.0 56.0,259.9 56.0,270.8 56.0,281.8 56.0,292.7 56.0,303.6 56.0,314.5" fill="none" stroke="#2463a6" stroke-width="2"/>
+<polyline points="257.2,41.5 187.0,52.4 158.2,63.3 136.7,74.2 125.4,85.2 112.3,96.1 104.5,107.0 103.0,117.9 99.7,128.8 103.6,139.8 102.4,150.7 122.2,161.6 105.1,172.5 112.4,183.5 102.3,194.4 71.3,205.3 56.0,216.2 56.0,227.2 56.0,238.1 56.0,249.0 56.0,259.9 56.0,270.8 56.0,281.8 56.0,292.7 56.0,303.6 56.0,314.5" fill="none" stroke="#b5651d" stroke-width="2"/>
+<polyline points="441.6,41.5 247.3,52.4 209.0,63.3 209.1,74.2 151.4,85.2 144.5,96.1 132.2,107.0 138.3,117.9 145.5,128.8 145.0,139.8 113.1,150.7 111.6,161.6 120.2,172.5 120.9,183.5 121.9,194.4 125.2,205.3 116.7,216.2 120.0,227.2 153.1,238.1 181.8,249.0 117.9,259.9 60.1,270.8 56.0,281.8 56.0,292.7 56.0,303.6 56.0,314.5" fill="none" stroke="#8e2c6b" stroke-width="2"/>
+<text x="434" y="52" fill="#7a9a3a">N = 50</text>
+<text x="434" y="67" fill="#2463a6">N = 100</text>
+<text x="434" y="82" fill="#b5651d">N = 200</text>
+<text x="434" y="97" fill="#8e2c6b">N = 400</text>
+</svg>

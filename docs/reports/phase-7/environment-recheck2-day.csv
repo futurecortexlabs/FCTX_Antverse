@@ -1,0 +1,26 @@
+# date: 2026-10-18T09:03:23.831Z | node v24.19.0 | cpu Intel(R) Core(TM) Ultra 7 265K | 19 threads | 253 min
+# overlays: [{"scenario":{"colony":true,"feederRadius":20},"population":{"count":300},"soil":{"pit":[8,60]},"explore":{"collide":true},"env":{"enabled":true}}]
+# protocol: 10 seeds from 7001; day 48 h (control: no brood carrying); temp 12 h at 16 °C vs default; rain [6,1,10]; new food [-170,-90,2], window 2 h
+# result day/night: 10/10 colonies with ≥ 5× as many foragers out by day as by night → PASS
+# result brood warmth: 10/10 colonies whose brood is ≥ 30% closer to 28 °C than without carrying → PASS
+seed,carry,out_day,out_night,brood_off_C,depth_morning_mm,depth_afternoon_mm
+7001,1,0.770,0.000,2.398,91.3,96.6
+7001,0,0.807,0.000,3.826,57.5,57.5
+7002,1,0.745,0.000,2.149,109.8,103.8
+7002,0,0.765,0.000,3.778,58.9,59.0
+7003,1,0.757,0.000,2.369,90.7,103.3
+7003,0,0.715,0.000,3.783,58.8,58.9
+7004,1,0.791,0.000,2.629,61.9,84.6
+7004,0,0.792,0.000,3.820,57.7,57.7
+7005,1,0.742,0.000,2.053,153.7,111.2
+7005,0,0.780,0.000,3.791,58.6,58.6
+7006,1,0.728,0.000,2.370,54.3,88.2
+7006,0,0.768,0.000,3.825,57.6,57.6
+7007,1,0.731,0.000,2.489,91.9,99.3
+7007,0,0.750,0.000,3.820,57.7,57.7
+7008,1,0.658,0.000,2.432,82.7,96.1
+7008,0,0.733,0.000,3.825,57.6,57.6
+7009,1,0.777,0.000,2.416,99.7,101.2
+7009,0,0.728,0.000,3.793,58.4,58.6
+7010,1,0.724,0.000,2.572,70.5,84.0
+7010,0,0.798,0.000,3.822,57.7,57.7
