@@ -143,6 +143,7 @@ three.js を import してよいのは `render/` と `app/` だけ。
 - シミュレーション側（`src/sim/env/`）: `Climate` は 60 s ごとに（ティックの属する区間の始まりの時刻で）明るさ・温度・深さごとの速度係数を計算し、各スレッドが同じ値を持つ。`Drops` は葉や小石の上の水滴（共有メモリ・格子）。`weather()` は `completeStep` で雨粒の命中・水滴の生成と蒸発・道しるべの洗い流しを行う。
 - 地表の衝突回避（`src/sim/space/surface-grid.ts`、`rules/avoid.ts`）: 地表の個体の索引を共有メモリに置く。シナリオごとに切り替え。
 - 育房の運搬: `Request.PICK/PUT`、`BroodStore.carrier`、エージェントの `load`。
+- 土の湿り気（2026-10）: `src/env/moisture.ts` の `SoilMoisture` が深さ 1 mm ごとの含水率を持つ（雨・蒸発・拡散、陰解法）。湿り気は履歴で決まるので、`Climate` が 60 s の区間ごとに時刻 0 から同じ順に進め、途中から加わったスレッドも追いつく。掘る速さの係数（深さごと）と育房の置き場所の判断（`Climate.broodCost`）に使う（docs/reports/moisture.md）。
 
 ### 4.8 コロニー [Phase 6 実装済]
 - 女王・育房・生理（`src/sim/colony/colony.ts`、`brood.ts`）: 食物は「糖 mg」。そ嚢・体の蓄え・代謝・寿命、女王の産卵、卵 → 幼虫 → 蛹 → 働きアリ。育房は調整役の World だけが持ち、`completeStep` でだけ変わる。補助スレッドには育房の量の格子（`ContactIndex.demand`）だけが見える。

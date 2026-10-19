@@ -1,0 +1,15 @@
+# date: 2026-10-18T13:07:59.875Z | node v24.19.0 | cpu Intel(R) Core(TM) Ultra 7 265K | 10 threads | 72 min
+# overlays: [{"scenario":{"colony":true,"feederRadius":20},"population":{"count":300},"soil":{"pit":[8,60]},"explore":{"collide":true},"env":{"enabled":true}}]
+# protocol: 10 seeds from 9001; pit [3,15] mm; 12 h; chamber ≥ 3× the shaft's area, flat if width ≥ 2× height
+# result nest shape: 8/10 colonies with ≥ 1 flat chamber(s) and > 50% of the volume in the upper half → PASS
+seed,volume_mm3,depth_mm,shaft_area_mm2,shaft_width_mm,flat_chambers,chambers,upper_share,pass
+9001,18748,217,76,9.84,2,8+2:648F 14+1:265F,0.477,0
+9002,17076,182,67,9.24,2,3+2:2212F 131+1:201F,0.522,1
+9003,19316,205,78,9.97,3,3+2:960F 8+2:577F 13+2:338F,0.518,1
+9004,18691,209,78,9.97,1,4+4:471F,0.516,1
+9005,18073,217,76,9.84,2,13+2:435F 17+1:228F,0.506,1
+9006,21950,222,75,9.77,2,3+2:2161F 13+2:419F,0.531,1
+9007,20672,184,90,10.70,2,3+3:1643F 86+1:297F,0.611,1
+9008,16623,209,71,9.51,1,9+2:443F,0.499,0
+9009,23806,217,94,10.94,2,3+3:1348F 13+2:376F,0.637,1
+9010,21135,224,77,9.90,2,5+3:1177F 14+2:268F,0.575,1

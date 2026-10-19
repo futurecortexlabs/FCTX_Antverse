@@ -1,0 +1,30 @@
+# date: 2026-10-19T14:30:54.469Z | node v24.19.0 | cpu Intel(R) Core(TM) Ultra 7 265K | 19 threads | 264 min
+# overlays: [{"scenario":{"colony":true,"feederRadius":20},"population":{"count":300},"soil":{"pit":[8,60]},"explore":{"collide":true},"env":{"enabled":true}}]
+# protocol: 10 seeds from 7001; day 48 h (control: no brood carrying); temp 12 h at 16 °C vs default; rain [6,1,10]; new food [-170,-90,2], window 2 h
+# result day/night: 10/10 colonies with ≥ 5× as many foragers out by day as by night → PASS
+# result brood warmth: 8/10 colonies whose brood is ≥ 30% closer to 28 °C than without carrying → PASS
+# result temperature: 10/10 colonies starting to forage ≥ 0.5 h later on a 16 °C day → PASS; 10/10 with ≤ 30% of the normal midday foragers on a 32 °C day → PASS
+# result rain: 10/10 colonies with ≤ 20% of the no-rain control's foragers out in the rain and ≥ 50% after → PASS; steps into drops: 0 → PASS
+# info rain (Phase 7 form, against the hour before the shower in the same run): 9/10 colonies
+# result recruitment: fills at the new feeder in 2 h after its discovery 178.5 with trails vs 104.4 without (× 1.71; found in 20/20 runs) → PASS
+seed,trails,found_h,fills,recruits
+7001,1,2.038,208,127
+7001,0,2.038,112,72
+7002,1,2.021,163,99
+7002,0,2.021,89,59
+7003,1,2.002,131,83
+7003,0,2.002,87,60
+7004,1,2.041,180,112
+7004,0,2.041,116,64
+7005,1,2.003,201,114
+7005,0,2.003,96,62
+7006,1,2.025,147,85
+7006,0,2.025,102,59
+7007,1,2.018,173,105
+7007,0,2.018,123,66
+7008,1,2.029,208,123
+7008,0,2.029,112,73
+7009,1,2.018,192,118
+7009,0,2.018,100,59
+7010,1,2.020,182,105
+7010,0,2.020,107,68
