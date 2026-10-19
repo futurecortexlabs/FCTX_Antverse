@@ -632,7 +632,8 @@ export const DEFAULT_PARAMS = {
     grainDetail: p(1, 'count', 'ENG-TRN-009', { min: 0, integer: true }),
     cameraClearance: p(0.1, 'mm', 'ENG-TRN-006', { min: 0 }),
     guardRadius: p(0.4, 'mm', 'ENG-TRN-006', { min: 0 }),
-    fogNearFraction: p(0.3, 'x', 'ENG-TRN-007', { min: 0, max: 1 }),
+    /** Fog from the camera: none nearer than fogRange[0], the sky's colour from fogRange[1] (hides the edge of the terrain.size square). */
+    fogRange: p([1400, 2400], 'mm', 'ENG-TRN-007'),
     shadows: p(true, 'bool', 'ENG-TRN-008'),
     shadowMapSize: p(2048, 'px', 'ENG-TRN-008', { min: 256, integer: true }),
     /** Shadow frustum half-size = factor × camera distance to its target. */
@@ -722,7 +723,7 @@ export const DEFAULT_PARAMS = {
     interpolationLagTicks: p(1, 'tick', 'ENG-REN-009', { min: 0 }),
     interpolationSmoothing: p(0.2, 'x', 'ENG-REN-009', { min: 0.01, max: 1 }),
     minCameraDistance: p(0.3, 'mm', 'ENG-REN-007', { min: 0.01 }),
-    maxCameraDistance: p(10000, 'mm', 'ENG-REN-007', { min: 1 }),
+    maxCameraDistance: p(1200, 'mm', 'ENG-REN-007', { min: 1 }),
     maxPolarAngle: p(179, 'deg', 'ENG-REN-007', { min: 1, max: 180 }),
     gpuTiming: p(true, 'bool', 'ENG-PRF-002'),
     /** Experimental apparatus (Phase 3): walkway, nest and feeder surfaces, raised this far above the ground. */

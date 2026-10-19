@@ -305,6 +305,10 @@ async function main(): Promise<void> {
       controls.target.set(c[o]!, c[o + 1]!, c[o + 2]!);
       camera.position.set(c[o]! + follow.offset[0], c[o + 1]! + follow.offset[1], c[o + 2]! + follow.offset[2]);
     }
+    // The orbit centre stays over the square with objects on it (terrain.size), whose edge is hidden in the fog.
+    const half = cfg.terrain.size / 2;
+    controls.target.x = Math.max(-half, Math.min(half, controls.target.x));
+    controls.target.z = Math.max(-half, Math.min(half, controls.target.z));
     controls.update();
     // The section and ant views may take the camera below the ground surface.
     if (!observer.freeCamera && applyCameraGuard(terrain, cfg, camera.position, controls.target)) camera.lookAt(controls.target);

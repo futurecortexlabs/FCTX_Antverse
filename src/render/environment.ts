@@ -32,7 +32,8 @@ export class Environment {
     this.day = rgb(r.skyColor);
     this.night = rgb(r.nightSkyColor);
     scene.background = this.day.clone();
-    scene.fog = new THREE.Fog(this.day.clone(), tr.fogNearFraction * tr.viewHalfExtent, tr.viewHalfExtent);
+    const [fogNear, fogFar] = tr.fogRange as readonly [number, number];
+    scene.fog = new THREE.Fog(this.day.clone(), fogNear, fogFar);
     this.hemi = new THREE.HemisphereLight(rgb(r.skyColor), rgb(tr.soilColors, 3), r.hemiIntensity);
     scene.add(this.hemi);
     const [sx, sy, sz] = r.sunDirection;
