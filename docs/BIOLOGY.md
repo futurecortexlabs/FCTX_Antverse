@@ -36,7 +36,7 @@
 ### BIO-MOR-001 働きアリの体長
 - **値**: 約 4.5–6 mm。代表値として 5 mm を使う。
 - **出典**: 寺山守ほか (2014)『日本産アリ類図鑑』朝倉書店（著者表記・ページは要確認）、および日本産アリ類データベースのクロヤマアリ種解説。プロジェクト仕様の「体長約 5 mm」とも一致。
-- **確度**: 二次資料（原典の記載ページは未確認。Phase 2 の形態データ整備で確認する）
+- **確度**: 二次資料（2026-10-19 に再確認: 名古屋市衛生研究所の昆虫図鑑「働きアリの体長5mm内外」、千葉県の教材「4.5～6mm」。図鑑の原典は未入手）
 - **使用箇所**: `ant.workerBodyLength`（スケールバーと Phase 0 の仮ボディの大きさ）
 
 ---
@@ -237,14 +237,14 @@
 
 ### BIO-PHE-001 二重橋の設計
 - **値**: 長い枝 / 短い枝 = 2。両方の分岐点で、2 本の枝は軸の左右に同じ角度（30°）で分かれる
-- **出典**: Goss, Aron, Deneubourg & Pasteels (1989) *Naturwissenschaften* 76: 579–581 "Self-organized shortcuts in the Argentine ant"（*L. humile*）; Beckers, Deneubourg & Goss (1992) *J. Theor. Biol.* 159: 397–415 "Trails and U-turns in the selection of a path by the ant *Lasius niger*"
-- **確度**: 二次資料（長さの比と「分岐点で枝の向きが対称」という設計は総説で確認。分岐角 30° の具体値と巻数・ページは原典で要確認）
+- **出典**: Goss, Aron, Deneubourg & Pasteels (1989) *Naturwissenschaften* 76: 579–581 "Self-organized shortcuts in the Argentine ant" doi:10.1007/BF00462870（*L. humile*。p. 579「各枝は中央の橋の軸に対して 30° の角度」、長さの比 1・1.4・2 を試し、比 2 では 14 回の実験で 80% 超の通行が短い枝）; Beckers, Deneubourg & Goss (1992) *J. Theor. Biol.* 159: 397–415 doi:10.1016/S0022-5193(05)80686-1（書誌のみ確認）
+- **確度**: 原典で確認（角度 30°・比 2。対象は *L. humile*）（2026-10-19 に原典を確認）
 - **使用箇所**: `scenario.bridgeRatio`、`scenario.bridgeAngle`、`terrain/apparatus.ts`
 
 ### BIO-PHE-002 道しるべフェロモンの寿命
 - **値**: 平均寿命（1/蒸発速度）2820 s（約 47 分）
-- **出典**: *Lasius niger* の道しるべの減衰の測定として総説で引用される値（Beckers et al. 1992/1993 のいずれかが原典と思われる）
-- **確度**: 近縁種から補完（*L. niger*）・二次資料（原典の特定と値の確認が必要）
+- **出典**: Beckers, Deneubourg & Goss (1993) *J. Insect Behav.* 6: 751–759 "Modulation of trail laying in the ant *Lasius niger* ... and its role in the collective selection of a food source" doi:10.1007/BF01201674（要旨「道しるべの平均寿命は 47 分と推定」）
+- **確度**: 近縁種から補完（*L. niger*）・原典を特定し要旨で値を確認（2026-10-19 に原典を確認）
 - **使用箇所**: `pheromone.lifetime`
 
 ### ASM-PHE-001 フェロモン場の格子と拡散
@@ -280,7 +280,7 @@
 ### BIO-NAV-001 経路積分
 - **内容**: アリは、歩いた向き（天空のコンパス: 太陽・偏光）と距離（歩数の計数）を積み上げて、巣への方向と距離（帰巣ベクトル）を常に持っている。餌場から巣へは、往路がどれほど曲がりくねっていても、ほぼまっすぐ帰る。帰巣中に別の場所へ移されると、巣ではなく「移されなければ巣があったはずの場所」（架空の巣）まで帰巣ベクトルを走り、そこで巣を探す。
 - **出典**: Müller & Wehner (1988) *PNAS* 85: 5287–5290 "Path integration in desert ants, *Cataglyphis fortis*"; Wehner & Srinivasan (1981) *J. Comp. Physiol.* 142: 315–338 "Searching behaviour of desert ants, genus *Cataglyphis*"。*F. japonica* については Fukushi (2001) *J. Exp. Biol.* 204: 2063–2072 "Homing in wood ants, *Formica japonica*: use of the skyline panorama"、Fukushi & Wehner (2004) *J. Exp. Biol.* 207: 3431–3439 "Navigation in wood ants *Formica japonica*: context dependent use of landmarks" が、経路積分と景色の記憶を併用することを報告している
-- **確度**: 二次資料（原典の巻・ページと、*F. japonica* での移動実験の結果は要確認）。*Formica japonica* 自身の報告あり（景色の記憶は Phase 4 では扱わない）
+- **確度**: 他属（*Cataglyphis*）の結果。巻・ページは確認済み（2026-10-19 に原典を確認）。注意: *F. japonica* の移動実験（Fukushi 2001 *J. Exp. Biol.* 204: 2063–2072、要旨）では、天空の情報は少なくとも主には使われず、見慣れない景色の中では 7.9 m のかわりに 0.1〜0.4 m しか走らずに探索を始めた。つまりクロヤマアリの帰巣は主に景色（スカイライン）に頼る。架空の巣へ走る行動は *Cataglyphis* の結果で、クロヤマアリで測られたものではない（Fukushi & Wehner 2004 *J. Exp. Biol.* 207: 3431–3439 も参照）
 - **使用箇所**: `sim/rules/navigate.ts`、`sim/experiments/homing.ts`（移動実験）
 
 ### ASM-NAV-001 目標へ向かう旋回
@@ -333,21 +333,21 @@
 
 ### BIO-NST-001 *Formica* の巣の形と大きさ
 - **内容**: *F. pallidefulva* の巣は深さ 30–45 cm で、ほぼ垂直の縦穴に部屋が付く。縦穴が成長の単位で、巣は縦穴を増やすか伸ばして大きくなる。巣の体積は深くなるほど指数関数的に減る（上が大きい形）。巣の体積は住んでいる働きアリの数と強く相関する（R² = 0.87）。部屋はそこへ続くトンネルの向きに作られる。
-- **出典**: Mikheyev & Tschinkel (2004) *Insectes Sociaux* 51: 30–36 "Nest architecture of the ant *Formica pallidefulva*: structure, costs and rules of excavation"
-- **確度**: 近縁種から補完（*F. pallidefulva*）・二次資料（要旨と引用文献で確認。原典 PDF は画像で本文を読めなかったため、数値の詳細は未確認）
+- **出典**: Mikheyev & Tschinkel (2004) *Insectes Sociaux* 51: 30–36 "Nest architecture of the ant *Formica pallidefulva*: structure, costs and rules of excavation" doi:10.1007/s00040-003-0703-3（本文: 深さ 30–45 cm、体積と働きアリ数 R² = 0.87（傾き 0.96、1 と差なし）、掘った空間の大半は上 15 cm、部屋の高さ 15 ± 1.4 mm、トンネルの直径 13 ± 1.4 mm、部屋はそこへ下るトンネルの向きに作られる（r = −0.71）、掘る量は温度とともに増え、砂の湿り気と弱く相関（r = 0.33））
+- **確度**: 近縁種から補完（*F. pallidefulva*、働きアリ 7.5 mg とクロヤマアリより大きい）・原典で確認（2026-10-19 に原典を確認）
 - **使用箇所**: Phase 5 の評価（巣の大きさと働きアリ数の関係、上が大きい形）
 
 ### BIO-NST-002 巣の大きさの調節
 - **内容**: 掘る量は巣が大きくなるにつれて減り、やがて止まる。そのしくみで、巣の体積が働きアリの数に合わせて調節される（*L. niger*）。*Messor sancta* の実験でも、掘った面積は初めに増えてから頭打ちになる。
-- **出典**: Rasse & Deneubourg (2001)（*L. niger*。後続の論文の引用による）; Buhl et al. (2004) *Behav. Ecol. Sociobiol.* "Self-organized digging activity in ant colonies"
-- **確度**: 近縁種から補完（*L. niger*）・二次資料（原典は未確認）
+- **出典**: Rasse & Deneubourg (2001) *J. Insect Behav.* 14: 433–449 doi:10.1023/A:1011163804217（*L. niger*、要旨: 最終的な体積は個体数と相関し、個体を足すと巣が広げられる）; Buhl, Deneubourg, Grimal & Theraulaz (2005) *Behav. Ecol. Sociobiol.* 58: 9–17 "Self-organized digging activity in ant colonies" doi:10.1007/s00265-004-0906-2（*M. sancta*、要旨: 掘った面積はロジスティック曲線、体積はほぼ個体数に比例）
+- **確度**: 近縁種から補完（*L. niger*、*M. sancta*）・要旨で確認（書誌を訂正: Buhl は 2004 ではなく 2005）（2026-10-19 に原典を確認）
 - **使用箇所**: Phase 5 の合格基準（頭打ち・人数への比例）
 
 
 ### BIO-NST-003 土の湿り気と掘る速さ
-- **内容**: *F. pallidefulva* では、時間あたりに掘り出す土の量が土の温度と湿り気とともに増える。*Atta vollenweideri* の働きアリは湿った粘土を好み、水分が増えるほど速く掘るが、極端に湿った土では大きく遅くなり、水の境目の手前で掘るのをやめる。ヒアリは完全に乾いた土と水で飽和した土を除くすべての土に巣を作る
-- **出典**: Mikheyev & Tschinkel (2004) *Insectes Sociaux* 51: 30–36（要旨）; Pielström & Roces (2014) *PLoS ONE*（*A. vollenweideri*、検索結果の要旨。書誌は要確認）; ヒアリの土の実験は検索結果の要旨のみで、著者・誌名は未確認
-- **確度**: 同属（*F. pallidefulva*）・別亜科で補完・要旨のみ
+- **内容**: *F. pallidefulva* では、掘る量は温度とともに増え、砂の湿り気とは弱く相関する（r = 0.33）。*Atta vollenweideri* の粘土（含水率 14〜26%）では、群れで掘る量は約 20〜21% で最大、好みは 24% で最大、26%（飽和に近い）では最小で、水の境目の約 12 mm 手前で掘るのをやめる。ヒアリはシリカ粒子の基質で、完全に乾いたものと水で飽和したもの以外のすべてに巣を作り、巣の体積は中ほどの湿り気（W = 0.05〜0.2）では湿り気によらずほぼ一定、W ≤ 0.03 で少ない
+- **出典**: Mikheyev & Tschinkel (2004)（BIO-NST-001）; Pielström & Roces (2014) *PLoS ONE* 9(4): e95658 doi:10.1371/journal.pone.0095658（本文）; Monaenkova, Gravish, Rodriguez, Kutner, Goodisman & Goldman (2015) *J. Exp. Biol.* 218: 1295–1305 "Behavioral and mechanical determinants of collective subsurface nest excavation" doi:10.1242/jeb.113795（本文）
+- **確度**: 同属・別亜科で補完・原典で確認（2026-10-19 に原典を確認）。注意: 今の `dig.moistureDig`（0.05 で 0、0.25 で最大へ直線）は、中ほどの湿り気でも掘る速さが大きく変わるので、ヒアリの「中ほどではほぼ一定」より効果を強く見積もっている（合わせ直しは判断事項）
 - **使用箇所**: `dig.moistureDig`（乾いた端と最適の値は仮定）
 
 ### PHY-SOIL-002 乾いたゆるい土の安息角
@@ -406,13 +406,13 @@
 
 ### ASM-NST-009 部屋の掘り方
 - **値**: 部屋か通路かは、その高さの水平 7 × 7 mm（`dig.wideReach` = 3）のうち空いている所が 25 以上（`dig.wideOpen`）かで決める。部屋の仕事は、混み具合への反応の速さで、横の面だけを掘る（床は掘らない。天井は床から天井までが 5 mm（`dig.chamberHeight`）に満たない時だけ）。高さ 5 mm を超える空間（縦坑）では、育房がある所でしか部屋の仕事をしない
-- **理由**: *P. badius* の部屋は床が水平で、広さによらず高さが約 1 cm。部屋は縦坑の外側に、床の水平なくぼみとして始まって広がる（Tschinkel 2004、二次資料）。クロヤマアリは体が小さいので 5 mm とした（仮定）。*F. pallidefulva* では部屋はそこへ続くトンネルの向きに作られる（Mikheyev & Tschinkel 2004）。育房のある所だけ縦坑でも広げるのは、育房の山が部屋の大きさの型になるという観察（*Leptothorax*、Franks & Deneubourg 1997 *Anim. Behav.* 54: 779、二次資料）による。混み合う所がどこでも横に広がると、巣は 1 本の太い柱になった（docs/reports/nest-shape/）。
+- **理由**: *P. badius* の部屋は床が水平で、広さによらず高さが約 1 cm。部屋は縦坑の外側に、床の水平なくぼみとして始まって広がる（Tschinkel 2004、二次資料）。クロヤマアリは体が小さいので 5 mm とした（仮定）。原典の確認（2026-10-19）で、*F. pallidefulva* の部屋の高さは 15 ± 1.4 mm、トンネルの直径は 13 ± 1.4 mm と分かった（Mikheyev & Tschinkel 2004、働きアリ 7.5 mg）。今の巣の縦坑の太さ（約 10 mm）はこれに近いが、部屋の高さ 5 mm は低めの可能性がある（合わせ直しは判断事項）。*F. pallidefulva* では部屋はそこへ続くトンネルの向きに作られる（Mikheyev & Tschinkel 2004）。育房のある所だけ縦坑でも広げるのは、育房の山が部屋の大きさの型になるという観察（*Leptothorax*、Franks & Deneubourg 1997 *Anim. Behav.* 54: 779、二次資料）による。混み合う所がどこでも横に広がると、巣は 1 本の太い柱になった（docs/reports/nest-shape/）。
 - **検証**: *Formica* の巣の鋳型で、部屋の高さ・床の水平さ・育房のある部屋の深さを測る。
 - **使用箇所**: `dig.chamberHeight/wideReach/wideOpen`
 
 ### ASM-NST-010 トンネルを掘る個体（仕事の偏り）
 - **値**: 働きアリの 30%（`dig.excavatorShare`、個体ごとに一度決める）が掘削係。掘る衝動 = 出会った混み具合への反応の 600 s（`dig.driveTau`）の指数移動平均。掘削係は衝動があると下へ（0.75 × 衝動、`dig.tipPull`）歩き、通路の先端（窮屈な所）で、衝動か今の混み具合への反応の大きい方の速さでトンネルを掘る。先端が空いていれば下へ、混んでいれば横へ（部屋の芽）。通路ではほかの個体は掘らず、休まない。通路の混み具合は自分の区画だけで数える（縦坑の渋滞は混んでいる）
-- **理由**: 狭いトンネルでは一部の個体が掘削の大半を担い、ほかは休む「仕事の偏り」があり、詰まりを減らす（ヒアリ、Aguilar et al. 2018 *Science* 361: 672、要旨で確認）。2 次元の掘削実験では、混み合った丸い空洞から芽が出てトンネルに伸びる（Toffin et al. 2009 *PNAS* 106: 18616）。30%・600 s・0.75 は開発用シードで選んだ仮定。
+- **理由**: 狭いトンネルでは一部の個体が掘削の大半を担い、ほかは休む「仕事の偏り」があり、詰まりを減らす。Aguilar et al. (2018) *Science* 361: 672–677 doi:10.1126/science.aan3891（ヒアリ、約 30 匹の群れ。本文と補足資料で確認（2026-10-19 に原典を確認））: 22〜31% はトンネルに一度も入らず、入った個体の仕事のジニ係数は 0.75 ± 0.10、上位 5 匹（群れの約 17%）がトンネル内の観察の 74 ± 21% を占め、その 5 匹を除くと別の個体が同じ割合を引き継いだ。2 次元の掘削実験では、混み合った丸い空洞から芽が出てトンネルに伸びる（Toffin et al. 2009 *PNAS* 106: 18616）。30%・600 s・0.75 は開発用シードで選んだ仮定（30% は「上位約 17% が約 74%」より多めで、合わせ直しは判断事項）
 - **検証**: 観察巣で、個体ごとの掘った粒の数の偏りと、掘る場所への通い方を測る。
 - **使用箇所**: `dig.excavatorShare/driveTau/tipPull`、`isExcavator()`、`AgentStore.digDrive`
 
@@ -424,14 +424,14 @@
 
 ### BIO-COL-002 反応閾値モデル
 - **内容**: 各個体はタスクごとに反応閾値 θ を持ち、刺激 s に対して s² / (s² + θ²) の確率でタスクに就く。閾値の個体差が、刺激の強さに応じた働き手の数の調節を生む。
-- **出典**: Bonabeau, Theraulaz & Deneubourg (1996) *Proc. R. Soc. B* 263: 1565（固定反応閾値モデル。書誌は原典で照合予定）
-- **確度**: 理論モデル（アリでの定性的な支持は多い）
+- **出典**: Bonabeau, Theraulaz & Deneubourg (1996) *Proc. R. Soc. Lond. B* 263: 1565–1569 "Quantitative study of the fixed threshold model for the regulation of division of labour in insect societies" doi:10.1098/rspb.1996.0229（書誌を確認。式は Theraulaz et al. 1998 の式 1 で確認）
+- **確度**: 理論モデル（式を確認（2026-10-19 に原典を確認））
 - **使用箇所**: `tend.ts` の `response()`
 
 ### BIO-COL-003 閾値の強化
 - **内容**: タスクをしている間は閾値が下がり（学習 ξ）、していない間は上がる（忘却 φ）。閾値は [θmin, θmax] に収まる。これで初め同じだった個体が専門化し、専門個体を取り除くと他の個体が置き換わる。
-- **出典**: Theraulaz, Bonabeau & Deneubourg (1998) *Proc. R. Soc. B* 265: 327–332 "Response threshold reinforcements and division of labour in insect societies"（式の形を原典で確認。値は無次元のモデル単位なので本シミュレーションの値は仮定 ASM-COL-008）
-- **確度**: 理論モデル
+- **出典**: Theraulaz, Bonabeau & Deneubourg (1998) *Proc. R. Soc. Lond. B* 265: 327–332 "Response threshold reinforcements and division of labour in insect societies" doi:10.1098/rspb.1998.0299（本文の式 3: θ ← θ − x ξ Δt + (1 − x) φ Δt、[θmin, θmax] に制限。図 1 は ξ = 10、φ = 1。値は無次元のモデル単位なので、本プロジェクトの値は仮定）
+- **確度**: 理論モデル（式を原典で確認（2026-10-19 に原典を確認））
 - **使用箇所**: `tend.ts`（`colony.learn/forget/thetaRange`）
 
 ### BIO-COL-004 若い個体は巣内、年長の個体は採餌
@@ -508,8 +508,8 @@
 
 ### BIO-COL-005 育房を好みの温度へ運ぶ
 - **内容**: 働きアリは巣の中の温度勾配に沿って育房を運び、好みの温度に置く。*Camponotus mus* では、世話係が明期の中ごろに 30.8 °C、暗期に 27.5 °C を選び、日周期で育房を動かす。*Formica* でも巣の温度勾配を使って育房を移すとされ、*F. subsericea* では暑い時間帯に浅い層から深い層へ移り、約 25 °C が好まれる。
-- **出典**: Roces & Núñez (1995) *J. Insect Physiol.* 41: 659（*C. mus*、二次資料による要約）; *Formica* の巣の温度調節の総説（F1000Research、二次資料）; *F. subsericea* の学生研究（Harvard Forest REU、予備的）
-- **確度**: 他属・二次資料。28 °C は両者の間の値として仮定（昼夜で変えることはしていない）
+- **出典**: Roces & Núñez (1989) *Oecologia* 81: 33–37 doi:10.1007/BF00377006（*C. mus*、要旨: 30.8 °C / 27.5 °C。同じ値が Roces & Núñez 1996 *Physiol. Entomol.* 21: 138–142 にもある。以前の出典「1995 *J. Insect Physiol.* 41: 659」ではこの値を確認できなかった）; *Formica* の巣の温度調節の総説と *F. subsericea* の学生研究（未確認）
+- **確度**: 他属・要旨で確認（書誌を訂正（2026-10-19 に原典を確認））。28 °C は両者の間の値として仮定（昼夜で変えることはしていない）
 - **使用箇所**: `colony.broodTemp`
 
 ### ASM-COL-013 育房を運ぶ規則
@@ -520,16 +520,16 @@
 
 ### BIO-COL-006 動員：巣の中の誇示と、帰り道の道しるべ
 - **内容**: *Formica fusca* では、餌を見つけた個体が餌から巣へ後腸の道しるべを引くが、道しるべそのものに仲間を呼ぶ働きはない。巣の中で仲間と向き合い、体を揺らす誇示と餌の口移しをすると、それで呼び起こされた個体だけが道しるべをたどって餌へ向かう（道しるべは向きの手がかり）。クロヤマアリでも、蜜（動かない餌）を見つけた採餌係は方向と距離を覚えて往復し、多くの仲間を素早く動員する（獲物では別の誇示で少数を呼ぶ）。
-- **出典**: Möglich & Hölldobler (1975) *J. Comp. Physiol.*（*F. fusca* の採餌と移住での通信と定位、二次資料による要約）; 鈴木紀雄ほか (1997) 滋賀大学教育学部紀要 自然科学 47: 47–58「クロヤマアリの採餌行動にみられる情報処理 (2) 餌の種類による情報伝達様式の相違」（要旨で確認、本文は未入手）
-- **確度**: 近縁種（*F. fusca*）・要旨のみ
+- **出典**: Möglich & Hölldobler (1975) *J. Comp. Physiol.* 101: 275–288 "Communication and orientation during foraging and emigration in the ant *Formica fusca*" doi:10.1007/BF00657046（要旨: 後腸の物質に動員の効果はない、動員する個体は体を揺らす誇示と餌の提供をする、後腸の道しるべは重要な向きの手がかり）; 鈴木紀雄ほか (1997) 滋賀大学教育学部紀要 自然科学 47: 47–58「クロヤマアリの採餌行動にみられる情報処理 (2) 餌の種類による情報伝達様式の相違」（要旨のみ）
+- **確度**: 近縁種（*F. fusca*）・要旨で確認（2026-10-19 に原典を確認）
 - **注記（Phase 8）**: このモデルでは、ほかに餌場があると、動員された個体が既にある餌場の道しるべに乗り、後から現れた餌場の利用は動員なしより少なくなる（シード 8001〜で × 0.69）。道しるべを使う *Lasius niger* でも知られる性質（Beckers et al. 1990）。クロヤマアリは個体の道の記憶が強く、実際はもっと切り替えが速いかもしれない（未確認）。
 - **使用箇所**: `colony.trailForRecruits`、colony.ts の give()（誇示による動員）、trail.ts
 
 
 ### BIO-COL-007 育房と湿り気
 - **内容**: 育房を世話するヒアリの働きアリは、湿度の勾配の中で飽和に近い湿った所を強く好む（働きアリだけでは好みを示さない）。育房が乾燥に弱いためと考えられている。地表近くは昼の高温で乾くので、土の中の温度の勾配に湿り気の勾配が重なり、土に巣を作るアリはそれに応じて育房を部屋から部屋へ運ぶ
-- **出典**: 4 種のヒアリ（*S. aurea*、*geminata*、*invicta*、*xyloni*）の湿度の好みを勾配の装置で調べた論文（Springer 掲載、検索結果の要旨。Potts ほか 1984 と思われるが書誌は要確認）
-- **確度**: 別亜科（*Solenopsis*）・要旨のみ
+- **出典**: Potts, Francke & Cokendolpher (1984) *Insectes Sociaux* 31: 335–340 "Humidity preferences of four species of fire ants (Hymenoptera: Formicidae: *Solenopsis*)" doi:10.1007/BF02223616（要旨: 働きアリだけでは湿度への反応を示さず、育房を世話する個体は飽和に近い空気を好む）
+- **確度**: 別亜科（*Solenopsis*）・要旨で確認（書誌を確認（2026-10-19 に原典を確認））
 - **使用箇所**: `colony.broodMoisture`
 
 ### ASM-COL-014 動員の起こりやすさ
